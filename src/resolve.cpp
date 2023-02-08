@@ -35,6 +35,7 @@ namespace Pietra::Resolver{
     }
 
     Sym* SymImpl::find(const char* name){        
+        name = Core::cstr(strf("%s_impl_%s", this->self->name, name));
         for(Sym* node: this->body){                        
             if( node->name == name) return node;            
         }
@@ -60,7 +61,8 @@ namespace Pietra::Resolver{
             .is_lvalue = false,                                    
         };
     }
-    Sym* sym_get(const char* name){
+    Sym* sym_get(const char* &name){
+        name = Core::cstr(name);
         for(auto& sym: Syms){
             if(sym->name == name) return sym;
         }
@@ -354,13 +356,28 @@ namespace Pietra::Resolver{
         assert(ts->resolvedTy);
         return ts->resolvedTy;
     }
-    Operand resolve_var_init(const char* &name, TypeSpec* &type, Expr* &init, bool isLocal, bool isParam){        
+    Operand resolve_var_init(const char* &name, TypeSpec* &type, Expr* &init, bool isLocal, bool isParam){                
+        int at = 0;
+        
         Type* ty = resolve_typespec(type);                    
+        printf("r iv %s = %i\n", name, at++);
         if(init){
+            printf("r iv %s = %i\n", name, at++);
+            
             //*init = *PreprocessExpr::expr(init);
-            Operand rhs = resolve_expr(init);
-
-            if(!ty->typeCheck(rhs.type)){
+            Operand rhs = resolve_expr(init);            
+            if(!ty->typeCheck(rhs.type)){ 
+                printf("r iv %s = %i\n", name, at++);                               
+                if(ty->name){                    
+                    if(Sym* sym = sym_get(ty->name)){                        
+                        if(Sym* __eq = sym->impls.find("__eq__")){                            
+                            Type* ty = resolve_typespec(__eq->decl->proc.params.at(1)->type);
+                            if(ty->typeCheck(rhs.type)){                                                            
+                                goto typeCheckOk;
+                            }
+                        }
+                    }
+                }
                 printf("[ERROR]: tring to assign the %s variable (%s:%s) to the type %s.\n",
                     isParam? "parameter": isLocal? "local":"global",
                     name,
@@ -370,6 +387,7 @@ namespace Pietra::Resolver{
                 exit(1);
             }            
         }                
+        typeCheckOk:
         
         if(isLocal or isParam){            
             Sym* s = sym_var(name, type->resolvedTy, init);                        
@@ -393,7 +411,7 @@ namespace Pietra::Resolver{
                 false
             );
         }
-        
+        printf("r iv %s = %i\n", name, at++);
         return operand_rvalue(type->resolvedTy);
     }
     Operand resolve_name(const char* name){
@@ -508,10 +526,22 @@ namespace Pietra::Resolver{
         Operand r = resolve_expr(rhs);
 
         if(!b.type->typeCheck(r.type)){
+            if(Sym* sym = sym_get(b.type->name)){
+                if(Sym* __eq = sym->impls.find("__eq__")){
+                    if(ProcParam* param = __eq->decl->proc.params.at(1)){
+                        Type* ty = resolve_typespec(param->type);
+                        if(ty->typeCheck(r.type)){
+                            return b;
+                        }
+                    }
+                }
+            }
+            
             printf("[ERROR]: trying to assign a type %s to %s\n",
                 b.type->repr(),
                 r.type->repr());
             exit(1);            
+            
         }
         return b;
     }
@@ -624,8 +654,8 @@ namespace Pietra::Resolver{
             }            
             SymImpl& impls = sym->impls;                
             if(impls.self){
-                const char* target = Core::cstr(strf("%s_impl_%s", impls.self->name, children->name));                
-                if(Sym* impl = impls.find(target)){
+                //const char* target = Core::cstr(strf("%s_impl_%s", impls.self->name, children->name));                
+                if(Sym* impl = impls.find(children->name)){
                     assert(impl->type->kind == TYPE_PROC);                    
                     return operand_rvalue(impl->type);
                 }
@@ -769,14 +799,14 @@ namespace Pietra::Resolver{
         CBridge::tmp_self = sym->type;
         sym->type->isSelf = true;
         for(Decl* node: body){
+            node->name = Core::cstr(strf("%s_impl_%s", sym->name, node->name));
             if(impls.find(node->name)){
                 printf("[ERROR]: duplicated field in impl (%s.%s).\n", sym->name, node->name);
                 exit(1);
             }
             
             // Make a symbol for the declaration
-            {
-                node->name = Core::cstr(strf("%s_impl_%s", sym->name, node->name));
+            {                
                 Sym* snode = sym_new(node->name, node);
                 if(snode->kind != SYM_PROC){
                     printf("[ERROR]: for now impl only accept procedures.\n");

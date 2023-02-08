@@ -1,0 +1,11 @@
+NOTE:
+    LEVEL [TODO|OK]: Description
+    LEVEL of priority:
+        0 - not
+        1 - some
+        2 - big
+        3 - highest
+
+
+Feature procedure [__eq__] in impl structs
+    3 [TODO]: When initialize any variable with non pointer type, the program will crash

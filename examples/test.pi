@@ -1,23 +1,43 @@
-foo :: {
-    d: *i64
-    s: i64
+strlen :: (x: *i8){
+    end: *i8 = x;
+    while *end {
+        end = end + 1;        
+    }
+    return end - x;
 }
 
-impl foo {
-    d1 :: (self: *Self){
-        *self = (:foo) 6969;
-    }
-    d2 :: (self: *Self, inc: i64){
-        dump(*self)
-    }
-    
+
+puts :: (x: *i8){
+    len: *i64 = strlen(x);
+    syscall(len, x, 1, 1)
 }
 
-f: foo
+cstr :: {         
+    data: *i8
+    size: i64
+}
+
+impl cstr {    
+    constructor :: (self: *Self){
+        puts("Allocating memory...\n");
+    }
+    delete :: (self: *Self){
+        puts("Deallocating the memory...\n");
+    }
+    __eq__ :: (self: *Self, data: *i64){                    
+        self.size = strlen(data)
+        self.data = data;
+    }        
+}
+
+
+
+find :: (s: *cstr, c: i64){
+    pos: i64    
+}
 main :: () {
-    asm(";CUM")
-    f.d1()
-    f.d2(69)
-
-    dump(f)
+    x: cstr = "hello, world\n"
+    find(&x, ',')
+    puts(x.data)
+    
 }

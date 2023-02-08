@@ -145,6 +145,29 @@ void makeLabel() {
                 exit(1);                
         }
     }
+    Type* compile_eq(Expr* lhs, Expr* rhs, CState& state){
+        Type* lhs_t = compile_expr(lhs, state_getaddr);                        
+        if(lhs_t->name){
+            if(Sym* sym = sym_get(lhs_t->name)){                
+                if(sym->kind == Resolver::SYM_AGGREGATE){
+                    if(Sym* __eq = sym->impls.find("__eq__")){
+                        push("rax", lhs_t); 
+                        compile_expr(rhs, state_none);
+                        println("mov %s, rax\n", argreg64[1]);
+                        pop(argreg64[0]);
+                        // Get the addr and call the method (lhs).__eq__                    
+                        println("call %s", __eq->name);                    
+                        return lhs_t;
+                    }
+                }
+            }
+        }
+        push("rax", lhs_t);                
+        compile_expr(rhs, state);
+        store();        
+        return lhs_t;
+            
+    }
     Type* compile_binary(Lexer::tokenKind kind, Ast::Expr* lhs, Ast::Expr* rhs, CState& state){        
         switch(kind){            
             case Lexer::TK_LAND:{
@@ -179,14 +202,7 @@ void makeLabel() {
                 println("add rax, rbx");                       
                 return lhs_t;
             }
-            case Lexer::TK_EQ:  {                
-                Type* lhs_t = compile_expr(lhs, state_getaddr);
-                push("rax", lhs_t);                
-                compile_expr(rhs, state);
-                store();
-                                
-                return lhs_t;
-            }         
+            case Lexer::TK_EQ: return compile_eq(lhs, rhs, state);                      
 
             case Lexer::TK_MOD: {
                 Type* rhs_t = compile_expr(rhs, state);
@@ -461,7 +477,7 @@ void makeLabel() {
         println("call rax");        
     }
 
-    Type* compile_init_var(const char* name, Type* type, Expr *init, bool isGlobal, CState state){        
+    Type* compile_init_var(const char* name, Type* type, Expr *init, bool isGlobal, CState state){                
         assert(!isGlobal && "global variables should be preprocessed in the resolver");
         if(state != state_none){
             err("[ERR]: init var with state != state_none.\n");
@@ -494,26 +510,17 @@ void makeLabel() {
             exit(1);            
         }        
         if(var->type->kind != TYPE_PTR ){            
-            Sym* sym = nullptr;
+            Sym* sym = sym_get(unqualify_type(var->type)->name);
 
-            if(var->type->kind == TYPE_PTR){
-                sym = sym_get(var->type->base->name);
-            }
-            else {
-                sym = sym_get(var->type->name);
-            }            
-            if(sym and sym->type->kind != TYPE_PTR and sym->kind == Resolver::SYM_AGGREGATE and sym->type->name){                
-                const char* target = Core::cstr(strf("%s_impl_%s", var->type->name, AGGREGATE_CONSTRUCTOR_WORD));                    
-                if(Sym* constructor = sym->impls.find(target)){                                            
+            if(sym and sym->type->kind != TYPE_PTR and sym->kind == Resolver::SYM_AGGREGATE and sym->type->name){                                
+                if(Sym* constructor = sym->impls.find(AGGREGATE_CONSTRUCTOR_WORD)){
                     compile_aggregate_constructor(var, constructor);
                 }                
             }            
         }        
-        if(init){            
-            lea(var);                
-            push("rax", var->type);
-            compile_expr(init, state_none);
-            store();                                
+        if(init){                     
+            Expr* eq = Utils::expr_binary(Lexer::TK_EQ, Utils::expr_name(var->name), init);            
+            return compile_expr(eq, state_none);                        
         }        
         return var->type;        
     }
@@ -786,9 +793,8 @@ void makeLabel() {
     Type* compile_field(Expr* parent, Expr* children, CState& state){    
         // Check if we are trying to get the field of an enumeration        
         if(Sym* sym = sym_get(parent->name)){
-            if(sym->kind == Resolver::SYM_ENUM){
-                const char* target = Core::cstr(strf("%s_enum_%s", parent->name, children->name));
-                if(Sym* impl = sym->impls.find(target)){                    
+            if(sym->kind == Resolver::SYM_ENUM){                
+                if(Sym* impl = sym->impls.find(children->name)){                    
                     Expr* e = impl->decl->expr;
                     assert(e->kind == EXPR_INT);
                     println("mov rax, %li", e->int_lit);
@@ -810,9 +816,8 @@ void makeLabel() {
         if(children->kind == Ast::EXPR_NAME){
             // Search for Impl methods     
             if(Sym* sym = sym_get(p->name)){
-                SymImpl& impls = sym->impls;
-                const char* target = Core::cstr(strf("%s_impl_%s", p->name, children->name));
-                if(Sym* impl = impls.find(target)){
+                SymImpl& impls = sym->impls;                
+                if(Sym* impl = impls.find(children->name)){
                     println("mov rdi, rax");
                     //println("mov rax, rdi");
                     assert(impl->kind == SYM_PROC);
@@ -1134,9 +1139,8 @@ void makeLabel() {
         for(CVar* local: *p->locals){
             if(local->type->kind != TYPE_PTR){
                 Sym* local_type_sym = sym_get(local->type->name);
-                assert(local_type_sym);            
-                const char* deleter = Core::cstr(strf("%s_impl_%s", local_type_sym->name, AGGREGATE_DELETER_WORD));
-                if(Sym* del = local_type_sym->impls.find(deleter)){
+                assert(local_type_sym);                            
+                if(Sym* del = local_type_sym->impls.find(AGGREGATE_DELETER_WORD)){
                     compile_variable_deleter(local, del);                
                 }
             }
@@ -1235,9 +1239,8 @@ void makeLabel() {
             const char* name = global->type->kind == TYPE_PTR? global->type->base->name: global->type->name;
             Sym* sym = sym_get(name);
 
-            if(sym and sym->type->kind != TYPE_PTR and sym->kind == Resolver::SYM_AGGREGATE and sym->type->name){                
-                const char* target = Core::cstr(strf("%s_impl_%s", global->type->name, AGGREGATE_CONSTRUCTOR_WORD));                    
-                if(Sym* constructor = sym->impls.find(target)){                                            
+            if(sym and sym->type->kind != TYPE_PTR and sym->kind == Resolver::SYM_AGGREGATE and sym->type->name){                                
+                if(Sym* constructor = sym->impls.find(AGGREGATE_CONSTRUCTOR_WORD)){                                            
                     compile_aggregate_constructor(global, constructor);
                 }                
             }            

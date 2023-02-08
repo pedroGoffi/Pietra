@@ -57,3 +57,9 @@ impl __AL {
 }
 
 __allocator: __AL
+
+impl std {
+    alloc :: (size: i64): *any {
+        return __allocator.ap.alloc(size)
+    }
+}
