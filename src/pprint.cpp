@@ -359,11 +359,8 @@ namespace Pietra::pPrint{
                         pprint("| %s |", name);
                     }
                 }
-                pprint("} from module (");
-                for(const char* name: d->use.module_names){
-                    pprint("| %s |", name);
-                }
-                pprint(")");
+                pprint("} ");                
+                
                 if(d->use.rename){
                     pprint(" as %s", d->use.rename);
                 }
@@ -384,6 +381,13 @@ namespace Pietra::pPrint{
                 }
                 pprint(")\n");
 
+            )
+            CASE(DECL_IMPL, 
+                pprint("(impl %s {\n", d->impl.target);
+                for(Decl* node: d->impl.body){
+                    decl(node);                    
+                }
+                pprint("}\n");
             )
             default: pp_undefined_kind(d->kind);
         }

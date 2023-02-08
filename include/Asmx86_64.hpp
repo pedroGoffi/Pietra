@@ -13,11 +13,11 @@ using namespace Pietra::Resolver;
 using namespace Pietra::CBridge;
 
 namespace Pietra::Asm {    
-    void push(const char* what);
-    void pop(const char* target);
+    void push(const char* what, Type* type);
+    Type* pop(const char* target);
     Type* cmp_zero(Type* ty);
                 
-    void store(Type* ty);
+    void store();
     void compile_init_var(const char* name, TypeSpec* type, Expr* init, bool is_global, CState state);
     void opt_load();
     const char* get_word_size(int size);

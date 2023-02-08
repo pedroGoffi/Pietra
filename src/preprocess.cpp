@@ -102,9 +102,7 @@ Expr* PreprocessExpr::expr(Expr* e){
             ?: e;
 
         case ExprKind::EXPR_INIT_VAR:   return init_var(e);        
-        default:
-            printf("[WARN]: could not preprocess expr.\n");
-            return e;
+        default: return e;
 
     }
 }

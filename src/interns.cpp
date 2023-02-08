@@ -23,7 +23,7 @@ char *Core::strf(const char *fmt, ...) {
     char* str = arena_alloc<char>(n);     
     va_start(args, fmt);
     vsnprintf(str, n, fmt, args);
-    va_end(args);    
+    va_end(args);        
     return str;
 }
 
@@ -37,9 +37,9 @@ const char* Core::cstr_range(const char *begin, const char *end){
         }
     }
             
-    Intern_string* intern   = new Intern_string;
+    Intern_string* intern   = arena_alloc<Intern_string>();
     intern->data            = str;
-    intern->len             = len;    
+    intern->len             = len;
     intern_strs.push(intern);
     return intern->data;                    
 }

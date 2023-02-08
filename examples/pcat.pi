@@ -467,33 +467,21 @@ puts :: (str: cstr){
 puti :: (str: cstr){
     fputi(STDOUT, str)
 }
-
-input :: (msg: cstr): cstr {
-    fputs(STDIN, msg);
-    buff_cap: i64 = 256;
-    
-    buff: cstr = sbrk(buff_cap);
-    len: i64 = read(STDIN, buff, buff_cap);
-    buff[len - 1] = 0;            
-    return buff;
-}
-
-streq :: (s1: cstr, s2: cstr): i64 {    
+streq :: (s1: cstr, s2: cstr): i64 {
     len1: i64 = strlen(s1);
     if not(len1 == strlen(s2)) return false;
     i: i64 = 0;
-    
-    while i < len1 {
-        if not(*s1 == *s2) return false;
-
-        s1 = s1 + 1
-        s2 = s2 + 1
-        i = i + 1
-    }
-
-    return true;
-    
+    while i < len1{
+        if not (s1[i] == s2[i]){
+            return false;
+        }
+        i = i + 1;
+    }    
+    return true;    
 }
+
+
+
 memcpy :: (dst: cstr, src: cstr, count: i64){
     i: i64 = 0;
     while i < count {
@@ -503,77 +491,95 @@ memcpy :: (dst: cstr, src: cstr, count: i64){
     dst[count] = 0
 }
 
+DynArray :: {
+    data: cstr
+    size: i64 
+}
 
+DynInit :: (){
+    p: *DynArray = sbrk(16);
+    p.data = sbrk(1049);
+    p.size = 0;
+    return p;
+    
+}
 
-Array :: {
-    items: *any
-    size:   i64
+DynPush :: (dyn: *DynArray, item: any)
+{ 
+    (&dyn.data)[dyn.size]   = item; 
+    dyn.size                = dyn.size + 1;          
+}
+DynAt   :: (dyn: *DynArray, index: i64): any 
+{
+    return (&dyn.data)[index];
+}
+DynSetSize :: (dyn: *DynArray, size: i64)
+{
+    dyn.size = size;
+}
+FILE_BUFFER_CAP :: 256 * 256 * 256
+FILE :: {    
+   flags: i64
+   fd:      i64
+   mode:    i64
+   buffer:  cstr
+   curp:    cstr      
+}
+
+FILE_new :: (): *FILE {
+    f: *FILE    = sbrk(sizeof(FILE));
+    f.flags     = null;
+    f.fd        = null;
+    f.buffer    = sbrk(FILE_BUFFER_CAP);
+    f.curp      = null;
+    f.mode      = S_IROTH | S_IWOTH | S_IRUSR | S_IWUSR;
+    return f;
+}
+
+fopen_get_flags :: (mode: cstr): i64 {
+    if streq(mode, "r")     return O_READONLY;
+    if streq(mode, "r+")    return O_READONLY | O_WRONLY | O_CREAT;
+    if streq(mode, "w")     return O_WRONLY;
+    
+
+    return -1;
+}
+fopen   :: (pathname: cstr, mode: cstr): *FILE {
+    file: *FILE = FILE_new();
+    file.flags  = fopen_get_flags(mode);    
+                
+    file.fd = open(pathname, file.flags, file.mode);    
+    
+    if file.fd < 0 {     
+        return null;
+    }
+
+    read(file.fd, file.buffer, FILE_BUFFER_CAP)                        
+    return file;        
+}
+
+fprint :: (file: *FILE, str: cstr){
+    fputs(file.fd, str);
 }
 
 
-impl Array {    
-    begin :: (self: *Array): *any{
-        return self.items;
-    }
-    end :: (self: *Array): *any{
-        return self.items + self.size * 8;
+main :: (argc: i64, argv: *cstr){           
+    if not(argc == 2){
+        puts("[ERROR]: expected ")
+        puts(argv[0])
+        puts(" <program>\n");
+        exit(1);
     }
     
-    init :: (self: *Array){
-        self.items  = sbrk(256);        
-        self.size   = 0;        
-    }
-    push :: (self: *Array, item: any){            
-        self.items[self.size] = item;
-        self.size = self.size +  1;
-    }    
-    len :: (self: *Self): i64 {
-        return self.size;
-    }
-}
-impl i64 {
-    toString :: (self: *Self): cstr {
-        dump(self)
-        exit(1)
-        return itos(self);
-    }
-}
-
-Allocator :: {
-    first_brk: any
-    allocated: any
-}
-
-impl Allocator{
-    alloc :: (self: *Self, size: i64){
-        if not self.first_brk {         
-            self.first_brk = sbrk(0)
-        }        
-        self.allocated = self.allocated + size
-        return sbrk(size);
+    path: cstr = argv[1];
+        
+    fd: *FILE = fopen(path, "r");
+    if not fd {
+        puts("[ERROR]: could not open '");
+        puts(path);
+        puts("'\n");
+        exit(1);
     }
 
-    free :: (self: *Self) {
-        brk(self.first_brk)
-    }   
-}
-
-main :: (){
-    alloc: Allocator
-    x: *i64 = alloc.alloc(10);
-    alloc.alloc(10);
-    alloc.alloc(10);
-    alloc.alloc(10);
-    alloc.alloc(10);
-    alloc.alloc(10);
-    alloc.alloc(10);
-    alloc.alloc(10);
-    alloc.alloc(10);
-    alloc.alloc(10);
-    
-    
-    *x = 69;
-    dump(*x)
-    alloc.free()
-    
+    puts(fd.buffer);
 }

@@ -467,33 +467,21 @@ puts :: (str: cstr){
 puti :: (str: cstr){
     fputi(STDOUT, str)
 }
-
-input :: (msg: cstr): cstr {
-    fputs(STDIN, msg);
-    buff_cap: i64 = 256;
-    
-    buff: cstr = sbrk(buff_cap);
-    len: i64 = read(STDIN, buff, buff_cap);
-    buff[len - 1] = 0;            
-    return buff;
-}
-
-streq :: (s1: cstr, s2: cstr): i64 {    
+streq :: (s1: cstr, s2: cstr): i64 {
     len1: i64 = strlen(s1);
     if not(len1 == strlen(s2)) return false;
     i: i64 = 0;
-    
-    while i < len1 {
-        if not(*s1 == *s2) return false;
-
-        s1 = s1 + 1
-        s2 = s2 + 1
-        i = i + 1
-    }
-
-    return true;
-    
+    while i < len1{
+        if not (s1[i] == s2[i]){
+            return false;
+        }
+        i = i + 1;
+    }    
+    return true;    
 }
+
+
+
 memcpy :: (dst: cstr, src: cstr, count: i64){
     i: i64 = 0;
     while i < count {
@@ -503,77 +491,253 @@ memcpy :: (dst: cstr, src: cstr, count: i64){
     dst[count] = 0
 }
 
-
-
-Array :: {
-    items: *any
-    size:   i64
+DynArray :: {
+    data: cstr
+    size: i64 
 }
 
-
-impl Array {    
-    begin :: (self: *Array): *any{
-        return self.items;
+impl DynArray {
+    init :: (self: *Self){
+        self.data = sbrk(256);
+        self.size = 10;
     }
-    end :: (self: *Array): *any{
-        return self.items + self.size * 8;
-    }
-    
-    init :: (self: *Array){
-        self.items  = sbrk(256);        
-        self.size   = 0;        
-    }
-    push :: (self: *Array, item: any){            
-        self.items[self.size] = item;
-        self.size = self.size +  1;
-    }    
-    len :: (self: *Self): i64 {
-        return self.size;
+    test :: (self: *Self){        
+        dump(self.size)
     }
 }
-impl i64 {
-    toString :: (self: *Self): cstr {
-        dump(self)
-        exit(1)
-        return itos(self);
-    }
-}
-
-Allocator :: {
-    first_brk: any
-    allocated: any
-}
-
-impl Allocator{
-    alloc :: (self: *Self, size: i64){
-        if not self.first_brk {         
-            self.first_brk = sbrk(0)
-        }        
-        self.allocated = self.allocated + size
-        return sbrk(size);
-    }
-
-    free :: (self: *Self) {
-        brk(self.first_brk)
-    }   
-}
-
-main :: (){
-    alloc: Allocator
-    x: *i64 = alloc.alloc(10);
-    alloc.alloc(10);
-    alloc.alloc(10);
-    alloc.alloc(10);
-    alloc.alloc(10);
-    alloc.alloc(10);
-    alloc.alloc(10);
-    alloc.alloc(10);
-    alloc.alloc(10);
-    alloc.alloc(10);
-    
-    
-    *x = 69;
-    dump(*x)
-    alloc.free()
+DynInit :: (): *DynArray{
+    p: *DynArray = sbrk(16);
+    p.data = sbrk(1049);
+    p.size = 0;
+    return p;
     
 }
+
+DynPush :: (dyn: *DynArray, item: any)
+{ 
+    (&dyn.data)[dyn.size]   = item; 
+    dyn.size                = dyn.size + 1;          
+}
+DynAt   :: (dyn: *DynArray, index: i64): any 
+{
+    return (&dyn.data)[index];
+}
+DynSetSize :: (dyn: *DynArray, size: i64)
+{
+    dyn.size = size;
+}
+FILE_BUFFER_CAP :: 256 * 256 * 256
+FILE :: {    
+   flags:   i64
+   fd:      i64
+   mode:    i64
+   buffer:  cstr
+   curp:    cstr      
+}
+
+FILE_new :: (): *FILE {
+    f: *FILE    = sbrk(sizeof(FILE));
+    f.flags     = null;
+    f.fd        = null;
+    f.buffer    = sbrk(FILE_BUFFER_CAP);
+    f.curp      = null;
+    f.mode      = S_IROTH | S_IWOTH | S_IRUSR | S_IWUSR;
+    return f;
+}
+
+fopen_get_flags :: (mode: cstr): i64 {
+    if streq(mode, "r")     return O_READONLY;
+    if streq(mode, "r+")    return O_READONLY | O_WRONLY | O_CREAT;
+    if streq(mode, "w")     return O_WRONLY;
+    
+
+    return -1;
+}
+fopen   :: (pathname: cstr, mode: cstr): *FILE {
+    file: *FILE = FILE_new();
+    file.flags  = fopen_get_flags(mode);    
+                
+    file.fd = open(pathname, file.flags, file.mode);    
+    
+    if file.fd < 0 {     
+        return null;
+    }
+
+    read(file.fd, file.buffer, FILE_BUFFER_CAP)                        
+    return file;        
+}
+
+fprint :: (file: *FILE, str: cstr){
+    fputs(file.fd, str);
+}
+
+shift :: (argc: *i64, argv: **cstr): cstr {    
+    if *argv == 0
+    {
+        puts("[ERROR]: shift error\n");
+        exit(1);
+    }
+    flag: cstr = (:cstr)**argv;
+    *argc = *argc - 1;
+    *argv = *argv + 8;
+
+    return flag;
+
+}
+TK_UNDEFINED    :: 0
+TK_INT          :: 1
+TK_NAME         :: 2
+TK_EOF          :: 3
+TK_DOT          :: 4
+tokenKind_repr :: (kind: i64): cstr {
+    if kind == TK_UNDEFINED     return "TOKEN_undefined";
+    if kind == TK_INT           return "TOKEN_Int";
+    if kind == TK_NAME          return "TOKEN_Name";
+    if kind == TK_EOF           return "TOKEN_Eof";
+    if kind == TK_DOT           return "TOKEN_Dot"
+    
+
+    puts("Undefined tokenKind_repr = ");
+    puti(kind);
+    puts("\n");
+    exit(1);        
+}
+Token :: {
+    kind:               i64    
+    begin, name, end:   cstr
+    digit:              i64
+}
+Token_isKind :: (self: *Token, kind: i64): i64 {
+    return self.kind == kind;
+}
+
+Token_repr :: (self: *Token): cstr {
+    return tokenKind_repr(self.kind);
+}
+Token_init :: (kind: i64): *Token {
+    self: *Token   = sbrk(sizeof(Token));
+    self.kind      = kind;
+    return self;    
+}
+setToken_range :: (self: *Token, begin: cstr, end: cstr){    
+    self.begin = begin;
+    self.end   = end;
+    self.name  = sbrk(end - begin);
+    memcpy(self.name, self.begin, end - begin);
+}
+Token_sym :: (kind: i64, begin: cstr, end: cstr): *Token {
+    self: *Token = Token_init(kind);    
+    setToken_range(self, begin, end);
+    return self;
+}
+Token_eof  :: (): *Token {
+    self: *Token = Token_init(TK_EOF);    
+    setToken_range(self, 0, 0);
+    return self;
+}
+Token_name :: (begin: cstr, end: cstr): *Token {
+    self: *Token = Token_init(TK_NAME);    
+    setToken_range(self, begin, end);
+    return self;
+}
+Token_int        :: (begin: cstr, end: cstr): *Token
+{
+    self: *Token    = Token_init(TK_INT);    
+    setToken_range(self, begin, end);    
+    self.digit      = stoi(self.name);
+    return self;
+}
+
+LexerTest :: {
+    isDigit:                any
+    isName:                 any    
+}
+Lexer :: {        
+    stream: cstr
+    test:   LexerTest    
+}
+lexer: Lexer
+is_between :: (n: i64, begin: i64, end: i64): i64 {
+    return ((begin - 1 < n) + (n < end + 1)) == 2
+}
+lexer_test_isDigit :: (digit: i64): i64
+{
+    return is_between(digit, '0', '9');
+}
+
+
+lexer_test_isName :: (c: i64): i64 {
+    return is_between(c, 'a', 'z') + is_between(c, 'A', 'Z') + (c == '_')
+}
+
+lexer_next :: (self: *Lexer){
+    while (*self.stream == ' ') + (*self.stream == '\n') {
+        self.stream = self.stream + 1;
+    }
+    begin:  cstr = self.stream;    
+    end:    cstr = begin;
+
+    
+    puts("[WARN]: could not lex string starts wich: '");
+    puti(*self.stream)
+    puts("'\n")
+    self.stream = self.stream + 1;
+}
+
+initLexer :: (str: cstr){
+    lexer                           = sbrk(sizeof(Lexer));    
+    lexer.stream                    = str;
+    lexer.test.isDigit              = lexer_test_isDigit
+    lexer.test.isName               = lexer_test_isName    
+}
+
+
+flexContent :: (fd: *FILE){
+    initLexer(fd.buffer);
+
+    if fd.buffer == null {
+        puts("[ERROR]: fd.buffer == null.\n");
+        exit(1);
+    }
+        
+    while *lexer.stream {
+        token: *Token = lexer_next(&lexer);        
+        puts(tokenKind_repr(token.kind))
+        puts("\n")
+    }        
+}
+
+
+arr: DynArray
+main :: (argc: i64, argv: *cstr){           
+
+    if not(argc == 2){
+        puts("[ERROR]: expected ")
+        puts(argv[0])
+        puts(" <program>\n");
+        exit(1);
+    }
+
+    program:    cstr = shift(&argc, &argv);
+    
+    path:       cstr = shift(&argc, &argv);
+    
+        
+    fd: *FILE = fopen(path, "r");
+    arr.init();
+    arr.test();
+    exit(1);
+    if not fd {
+        puts("[ERROR]: could not open '");
+        puts(path);
+        puts("'\n");
+        exit(1);
+    }
+
+    flexContent(fd);
+    puts("Done!\n");
+    
+}
+
+
+

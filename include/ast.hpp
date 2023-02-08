@@ -220,7 +220,8 @@ namespace Pietra::Ast {
         DECL_ENUM,
         DECL_USE,        
         DECL_TYPE,
-        DECL_CONSTEXPR
+        DECL_CONSTEXPR,
+        DECL_IMPL
     };
     
     enum aggregateKind { AGG_NONE,  AGG_STRUCT, AGG_UNION };
@@ -254,11 +255,18 @@ namespace Pietra::Ast {
                 TypeSpec* type;
             } type_alias;
             struct {
-                SVec<const char*>   module_names;
+                SVec<Decl*>         module;                
                 SVec<const char*>   use_names;
                 bool                use_all;                
                 const char*         rename;
             } use;
+
+            struct {
+                const char* target; //  the target is the string ptr to the array|type item
+                //                      for example: impl i64 { ... }
+                SVec<Decl*> body;
+                // The body of the implementation
+            } impl;
             Expr* expr;
         };
         

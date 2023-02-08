@@ -301,13 +301,20 @@ Decl* decl_constexpr(const char* name, Expr* expr){
     d->expr = expr;
     return d;
 }
-Decl* decl_use(SVec<const char*> module_names, SVec<const char*> use_names, bool use_all, const char* rename){
+Decl* decl_use(SVec<Decl*> module, SVec<const char*> use_names, bool use_all, const char* rename){
     Decl* d = init_decl(DECL_USE);
-    d->name = rename;
-    d->use.module_names = module_names;
+    d->name = rename?: Core::cstr("<use>");
+    d->use.module       = module;
     d->use.use_names    = use_names;
     d->use.use_all      = use_all;                
     d->use.rename       = rename;
+    return d;
+}
+Decl* decl_impl(const char* target, SVec<Decl*> body){
+    Decl* d = init_decl(Ast::DECL_IMPL);
+    d->name = strf("<Impl: %s>", target);
+    d->impl.target = target;
+    d->impl.body = body;
     return d;
 }
 }

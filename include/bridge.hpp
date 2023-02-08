@@ -43,8 +43,8 @@ namespace Pietra::CBridge {
         bool            isRecursive;
         size_t          stackAllocation;        
         Type*           type;
-        SVec<CVar*>     params;
-        SVec<CVar*>     locals;
+        SVec<CVar*>     *params = arena_alloc<SVec<CVar*>>();
+        SVec<CVar*>     *locals = arena_alloc<SVec<CVar*>>();
 
         int             tmp_vars_offset;
         SVec<CVar*>     tmp_vars;
@@ -55,7 +55,7 @@ namespace Pietra::CBridge {
         void push_tmp_var(CVar* var);
         void forget_tmp_vars();
         CVar* init_tmp_var(const char* name, Type* type);
-        CVar* find_var_from(const char* str, SVec<CVar*>& list);
+        CVar* find_var_from(const char* str, SVec<CVar*> *list);
         CVar* find_local(const char* name);
         CVar* find_param(const char* name);
         bool checkNameColision(const char* name);
@@ -103,17 +103,19 @@ namespace Pietra::CBridge {
             return this->kind == k;
         }
     };    
+
     struct X86Context {
         CState              state;          // State of the compiler
         FILE*               OUT;            // Output channel
         SVec<CProc*>        Cps;            // Compiled procs
         CProc*              Cp;             // Current proc
         SVec<std::string>   Strs;           // Strings
-        CVar                GVars;          // Global vars
-        std::map<const char*, int> enumMap;
-        
+        CVar                GVars;          // Global vars        
+
+        std::map<const char*, int> enumMap;        
         CState   ACtx;   // Assembly context
-    
+
+        
     };
     
     int CreateGlobalString(std::string str);
@@ -122,6 +124,6 @@ namespace Pietra::CBridge {
     int* get_enum(const char* str);
     void set_enum(const char* str, int val);
     CProc* GetProc(const char* name);
-    CProc* CreateProc(const char* name, Type* type);
+    CProc* CreateProc(const char* name, Type* type);    
 }
 #endif /*BRIGGE*/

@@ -29,16 +29,17 @@ namespace Pietra::Ast {
         TYPE_UNION,
         TYPE_PROC,
         TYPE_CONST,
+        TYPE_SELF,
     };
 
     struct Type{
         TypeKind    kind;
         const char* name;
         int         size;        
+        bool        isSelf;
         union {
             Type* base;
-            SVec<TypeField*> aggregate_items;
-
+            
             struct {
                 Type*   base;
                 int     size;
@@ -52,7 +53,9 @@ namespace Pietra::Ast {
             } proc;
 
             struct {
-                SVec<TypeField*> items;
+                bool                isUnion;                
+                size_t              size;
+                SVec<TypeField*>    items;
             } aggregate;
         };
 
@@ -77,6 +80,7 @@ namespace Pietra::Ast {
     Type* type_ptr(Type* base);
     Type* type_array(Type* base, int size);
     Type* type_struct(SVec<TypeField*> fields);
+    Type* type_self();
     Type* type_union(SVec<TypeField*> fields);
     Type* type_proc(SVec<TypeField*> params, Type* ret_type, bool is_vararg);
     Type* type_string();

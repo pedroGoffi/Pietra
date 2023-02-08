@@ -43,6 +43,7 @@ const char* keyword_type        = cstr("type");
 const char* keyword_land        = cstr("and");
 const char* keyword_lor         = cstr("or");
 const char* keyword_case        = cstr("case");
+const char* keyword_impl        = cstr("impl");
 const char* keyword_default     = cstr("default");
 
 

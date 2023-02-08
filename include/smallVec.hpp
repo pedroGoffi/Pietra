@@ -5,6 +5,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdlib>
+#include <vector>
 
 #define MIN(x, y) ((x) <= (y) ? (x) : (y))
 #define MAX(x, y) ((x) >= (y) ? (x) : (y))
@@ -26,7 +27,7 @@
 #define buf_push(b, ...) (buf_fit((b), 1 + buf_len(b)), (b)[buf__hdr(b)->len++] = (__VA_ARGS__))
 
 
-namespace Pietra::Core {
+namespace Pietra::Core {    
     struct SVecHdr{
         int     len;
         int     cap;
@@ -58,10 +59,12 @@ namespace Pietra::Core {
         void free();
         void reset();
 
+
         T& find(T item);        
         T& at(int index);
         T& back();
-        T& next();
+        T& next();        
     };            
+    
 }
 #endif /*SMALLVEC_HPP*/

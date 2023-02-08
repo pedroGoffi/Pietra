@@ -8,7 +8,6 @@ namespace Pietra::CBridge{
     X86Context          ctx;
     SVec<const char*>   DefinedNames;
     SVec<CConstexpr*>   constexprs;
-
     CState state_none       = {.kind=C_NONE};
     CState state_getaddr    = {.kind=C_GET_ADDR};    
     CState state_got_proc   = {.kind=C_GOT_PROC};
@@ -28,8 +27,8 @@ namespace Pietra::CBridge{
     size_t CProc::calcStackAllocation(){
         size_t alloc = 0;
         
-        for(CVar* var: this->locals) alloc += var->type->size;
-        for(CVar* var: this->params) alloc += var->type->size;
+        for(CVar* var: *this->locals) alloc += var->type->size;
+        for(CVar* var: *this->params) alloc += var->type->size;
         printf("calc sa = %zu\n", alloc);
         return alloc;
         
@@ -72,8 +71,9 @@ namespace Pietra::CBridge{
     }
     
 
-    CVar* CProc::find_var_from(const char* str, SVec<CVar*>& list) {
-        for(CVar* var: list){
+    CVar* CProc::find_var_from(const char* str, SVec<CVar*> *list) {
+        assert(list);
+        for(CVar* var: *list){
             if(var->name == str) 
                 return var;
         }
@@ -102,11 +102,12 @@ namespace Pietra::CBridge{
         var->stackOffset = this->stackAllocation;
         
         if(isParam){
-            this->params.push(var);
+            this->params->push(var);
         }
         else {
-            this->locals.push(var);
+            this->locals->push(var);
         }
+                
     }
     
         
@@ -118,8 +119,7 @@ namespace Pietra::CBridge{
         Strs.push(str);        
         return id;
     }
-    CProc* GetProc(const char* name){        
-        name = Core::cstr(name);
+    CProc* GetProc(const char* name){                
         for(CProc* proc: ctx.Cps){            
             if(proc->name == name) {
                 ctx.Cp = proc;
@@ -128,14 +128,15 @@ namespace Pietra::CBridge{
         }
         return nullptr;
     }
-    CProc* CreateProc(const char* name, Type* type){                
-        name = Core::cstr(name);
+    CProc* CreateProc(const char* name, Type* type){                        
         if(checkNameRedefinition(name)){
             raiseException(strf("name redeclaration of procedure %s", name));            
         }
         CProc* cp = arena_alloc<CProc>();
         cp->name = Core::cstr(name);            
         cp->type = type;
+        cp->locals = arena_alloc<SVec<CVar*>>();
+        cp->params = arena_alloc<SVec<CVar*>>();
 
         ctx.Cp = cp;
         DefinedNames.push(cp->name);
@@ -194,7 +195,13 @@ namespace Pietra::CBridge{
     
     
 
-
+    Type*   tmp_self = nullptr;
+    void set_self_t(Type* t){
+        tmp_self = t;
+    }
+    void reset_self_t(){
+        tmp_self = nullptr;
+    }
     std::map<const char*, Type*> aliasM;
     Type* type_get(const char* name){
         name = Core::cstr(name);
@@ -223,6 +230,5 @@ namespace Pietra::CBridge{
         constexprs.push(ce);
         DefinedNames.push(name);
     }
-    
 }
 #endif /*CPP_BRIDGE*/

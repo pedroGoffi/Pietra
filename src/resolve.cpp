@@ -1,8 +1,8 @@
 /*
 The resolver will
-1]: order the AST
-2]: TODO: type checking
-3]: TODO: const evaluation    
+[1]: order the AST
+[2]: TODO: type checking
+[3]: TODO: const evaluation    
 */
 #ifndef RESOLVE_CPP
 #define RESOLVE_CPP
@@ -13,12 +13,26 @@ The resolver will
 #include "pprint.cpp"    
 #include "bridge.cpp"
 #include "preprocess.cpp"
+#include <clocale>
+#include <cstring>
+#include <iostream>
+#include <memory>
 
 namespace Pietra::Resolver{
-    SVec<Sym*> Syms;
-    SVec<Sym*> localSyms;
-    SVec<Decl*> final_ast;
-
+    SVec<Sym*>          Syms;
+    SVec<Sym*>          localSyms;
+    SVec<Decl*>         final_ast;
+    
+    Sym* SymImpl::find(const char* name){
+        for(Sym* node: this->body){                        
+            if( node->name == name) return node;            
+        }
+        return nullptr;
+    }
+    void SymImpl::push(Sym* sym){
+        this->body.push(sym);
+    }
+    
     void final_ast_push(Decl* d){
         final_ast.push(d);
     }
@@ -44,16 +58,31 @@ namespace Pietra::Resolver{
         }
         return nullptr;
     }
+    Sym* sym_init(SymKind kind){
+        Sym* s  = arena_alloc<Sym>();        
+        s->type = Utils::type_unresolved();
+        s->kind = kind;        
+        return s;
+    }
     Sym* sym_var(const char* name, Type* type, Expr* expr){
-        Sym* s = arena_alloc<Sym>();
+        Sym* s = sym_init(SYM_VAR);
         s->name = name;
         s->type = type;
         s->expr = expr;
         return s;
     }
+    Sym* sym_type(const char* name, Type* type){
+        Sym* s = sym_init(SYM_TYPE);
+        s->name = Core::cstr(name);
+        s->type = type;        
+        return s;
+    }
     Sym* sym_new(const char* name, Decl* decl){
         assert(decl);
-        assert(!sym_get(decl->name));
+        if(sym_get(decl->name)){
+            printf("[ERROR]: the name '%s' is already declared.\n", decl->name);
+            exit(1);
+        }
         Sym* sym    = arena_alloc<Sym>();
         sym->decl   = decl;
         sym->name   = Core::cstr(name);
@@ -62,18 +91,19 @@ namespace Pietra::Resolver{
 
         switch(decl->kind){
             case Ast::DECL_VAR:
+                sym->kind = SYM_VAR;
                 sym->type = resolve_typespec(decl->var.type);
                 break;
             case Ast::DECL_TYPE:    {
+                sym->kind           = SYM_TYPE;
                 const char* name    = decl->name;
                 Type* type          = resolve_typespec(decl->type_alias.type);
                 CBridge::type_set(name, type);
                 sym->type = type_void();
                 break;
             }
-            case DECL_PROC:
-                Type* proc;
-                
+            case DECL_PROC: {
+                sym->kind = SYM_PROC;
                 SVec<TypeField*>    params;
                 for(ProcParam* param: decl->proc.params){
                     Type* ty = resolve_typespec(param->type);
@@ -84,20 +114,53 @@ namespace Pietra::Resolver{
                 sym->type = type_proc(params, ret, decl->proc.is_vararg);
 
                 break;
+            }
+            case Ast::DECL_AGGREGATE:   {
+                sym->kind = SYM_AGGREGATE;
+                SVec<TypeField*> fields;
+                size_t size = 0;
+                for(AggregateItem* item: decl->aggregate.items){
+                    
+                    switch(item->kind){
+                        case Ast::AGGREGATEITEM_FIELD:  {
+                            resolve_typespec(item->field.type);
+                            for(const char* name: item->field.names){
+                                TypeField* field = init_typefield(name, item->field.type->resolvedTy);
+                                size += field->type->size;
+                                fields.push(field);                                
+                            }
+                        } break;
+                            
+                                                        
+                        default:
+                            assert(0 && "undefined aggregate type.");                            
+                    }
+                }
+                
+                sym->type = type_aggregate(fields, decl->aggregate.aggkind != Ast::AGG_UNION);                                
+                sym->type->name = sym->name;
+                sym->type->size = size;
+                CBridge::type_set(sym->name, sym->type);                
+                break;
+            }
+
         }
         return sym;
     }
 
-    void declare_package(PPackage* package){
-        for(Decl* decl: package->ast){
-            Sym* sym = sym_new(decl->name, decl);
+    void declare_ast(SVec<Decl*> ast){
+        for(Decl* decl: ast){            
+            Sym* sym = sym_new(decl->name, decl);            
             Syms.push(sym);
         }
+    }
+    void declare_package(PPackage* package){
+        declare_ast(package->ast);
     }
 
     #define DEFINE_BUILTIN(_name, ...)                      \
         {                                                   \
-            Syms.push(sym_new(_name, __VA_ARGS__));         \
+            Syms.push(sym_new(Core::cstr(_name), __VA_ARGS__));         \
         }
 
     void declare_built_in(){
@@ -106,6 +169,30 @@ namespace Pietra::Resolver{
             Utils::decl_var("true", 
                 Utils::typespec_name("i64"),
                 Utils::expr_int(1)));
+
+
+
+        struct Builin_Sym_type{
+            const char* name;
+            Type*       type;
+        };
+        
+        Builin_Sym_type types[]{
+            {"i8", type_int(8)},
+            {"i16", type_int(16)},
+            {"i32", type_int(32)},
+            {"i64", type_int(64)},            
+            {"f32", type_float(32)},
+            {"f64", type_float(64)},
+
+            
+        };
+        for(auto& [name, type]: types){
+            Sym* _ty = sym_type(name, type);
+            Syms.push(_ty);
+        }
+        
+        
 
         DEFINE_BUILTIN("false",
             Utils::decl_var("false", 
@@ -120,7 +207,8 @@ namespace Pietra::Resolver{
             const char* builtin_procs[] = {
                 "dump",
                 "syscall",
-                "asm"
+                "asm",
+                "sizeof"
             };
             for(auto& str: builtin_procs){
                 DEFINE_BUILTIN(str,
@@ -180,6 +268,16 @@ namespace Pietra::Resolver{
                     break;
                 }
 
+                if(ts->name == type_self()->name){
+                    if(CBridge::tmp_self == nullptr){
+                        printf("[ERROR]: using Self outside Impl context.\n");
+                        exit(1);
+                    }
+                    
+                    ts->resolvedTy = CBridge::tmp_self;                    
+                    break;
+                }
+
                 printf("Undefined type: %s \n", ts->name);
                 exit(1);
 
@@ -205,7 +303,7 @@ namespace Pietra::Resolver{
         Type* ty = resolve_typespec(type);
 
         if(init){
-            *init = *PreprocessExpr::expr(init);
+            //*init = *PreprocessExpr::expr(init);
             Operand rhs = resolve_expr(init);
 
             if(!ty->typeCheck(rhs.type)){
@@ -222,7 +320,7 @@ namespace Pietra::Resolver{
         
         
         if(isLocal or isParam){            
-            Sym* s = sym_var(name, type->resolvedTy, init);            
+            Sym* s = sym_var(name, type->resolvedTy, init);                        
             assert(s);
             localSyms.push(s);
             CBridge::CreateVar(
@@ -243,39 +341,69 @@ namespace Pietra::Resolver{
                 false
             );
         }
+        
         return operand_rvalue(type->resolvedTy);
     }
     Operand resolve_name(const char* name){
-        Sym* sym = sym_get(name);
+        Sym* sym = sym_get(name);        
         if(!sym){
             printf("[ERROR]: the name '%s' is not declared in this scope.\n", name);
             exit(1);
         }
-
-        resolve_sym(sym);                
+                
+        if(CBridge::CConstexpr* ce = CBridge::find_constexpr(sym->name)){
+            return resolve_expr(ce->expr);
+        }
+        else {
+            resolve_sym(sym);                
+        }
         return operand_rvalue(sym->type);        
     }
-    Operand resolve_call(Expr* base, SVec<Expr*> args){
+    Operand resolve_call(Expr* base, SVec<Expr*> *args){
         Operand bop = resolve_expr(base);
         assert(bop.type);
         if(!bop.type->isCallable()){
             printf("[ERROR]: trying to call a non-callable object %s\n", bop.type->repr());
             exit(1);
         }
-        int args_sz     = args.len();
-        int params_sz   = bop.type->proc.params.len();
-        if(args_sz != params_sz and not bop.type->proc.is_vararg){
-            printf("[ERROR]: trying to call the procedure (%s) that expects %i parameters but got %i arguments.\n",
-                bop.type->repr(),
-                params_sz,
-                args_sz
-            );
-            exit(1);
+        int asz = args->len();
+        int psz = bop.type->proc.params.len();
+        
+        
+        if(not bop.type->proc.is_vararg){        
+            if(bop.type->kind == TYPE_PROC){         
+                TypeField* tf = bop.type->proc.params.at(0);    
+                if(tf->name == Core::cstr("self")){
+                    assert(base->kind == Ast::EXPR_FIELD);                    
+                    SVec<Expr*> *new_args = arena_alloc<SVec<Expr*>>();
+                    Expr* self;
+
+                    Operand base_parent_op = resolve_expr(base->field_acc.parent);                    
+                    if(base_parent_op.type->kind != TYPE_PTR){
+                        self = Utils::expr_unary(Lexer::TK_AMPERSAND, base->field_acc.parent);
+                    }
+                    else {
+                        self = base->field_acc.parent;
+                    }
+
+                    assert(self);
+                    new_args->push(self);
+                    for(Expr* arg: *args) new_args->push(arg);
+                    *args = *new_args;              
+                    asz = args->len();                    
+                }                                                                                                                                
+            }    
+            if(asz != psz){
+                printf("[ERROR]: Got the wrong amount of arguments when calling an implementation procedure: %s\n", 
+                    bop.type->repr());
+                printf("[NOTE]: expected %i got %i\n",
+                    psz, asz);
+                exit(1);
+            }                                                    
         }
-
-        for(Expr* arg: args) resolve_expr(arg);
-
+                
         Type* ret = bop.type->proc.ret_type;
+        
         if(bop.type->kind == TYPE_PTR){
             return operand_rvalue(ret);
         }
@@ -285,6 +413,9 @@ namespace Pietra::Resolver{
     }
     Operand resolve_unary(Lexer::tokenKind kind, Expr* expr){
         switch(kind){
+            case Lexer::TK_NOT: {
+                return resolve_expr(expr);
+            }
             case Lexer::TK_AMPERSAND:   {
                 Operand op = resolve_expr(expr);
                 if(op.is_lvalue){
@@ -294,6 +425,10 @@ namespace Pietra::Resolver{
 
                 op.type = type_ptr(op.type);
                 return op;
+            }
+
+            case Lexer::TK_SUB: {
+                return resolve_expr(expr);
             }
 
             case Lexer::TK_MULT:    {
@@ -325,14 +460,21 @@ namespace Pietra::Resolver{
             printf("[ERROR]: trying to assign a type %s to %s\n",
                 b.type->repr(),
                 r.type->repr());
-            exit(1);
+            exit(1);            
         }
+        return b;
     }
     Operand resolve_binary(Lexer::tokenKind kind, Expr* lhs, Expr* rhs){
         if(is_assign(kind)){
             return resolve_assign(lhs, rhs);
         }
-        switch(kind){
+        switch(kind){            
+            case Lexer::TK_PIPE:    {
+                Operand l = resolve_expr(lhs);
+                Operand r = resolve_expr(rhs);
+                return l;
+            }
+            case Lexer::TK_NEQ:
             case Lexer::TK_CMPEQ:   {
                 Operand l = resolve_expr(lhs);
                 Operand r = resolve_expr(rhs);
@@ -348,7 +490,23 @@ namespace Pietra::Resolver{
                 }
 
                 return l;
+            }            
+            case Lexer::TK_DIV: {
+                Operand l = resolve_expr(lhs);                
+                Operand r = resolve_expr(rhs);
+
+                if(r.is_lvalue){
+                    if(r.val.i == 0){
+                        printf("[WARN]: trying to divide for zero, the compiler allows it. but may cause a segfault.\n");                        
+                    }
+                }
+
+                return l;
             }
+            case Lexer::TK_GT:
+            case Lexer::TK_MULT:
+            case Lexer::TK_LT:
+            case Lexer::TK_MOD:
             case Lexer::TK_ADD: {
                 Operand l = resolve_expr(lhs);
                 Operand r = resolve_expr(rhs);
@@ -379,24 +537,66 @@ namespace Pietra::Resolver{
 
         expr = item; 
         
-        if(b_t->kind == TYPE_PTR){            
-            return operand_rvalue(b_t);
-        }
-        else {
-            return operand_lvalue(b_t, {});
-        }
+        
+        return operand_rvalue(b_t);
+        
 
+    }
+    Operand resolve_cast(TypeSpec* typespec, Expr* expr){
+        resolve_typespec(typespec);
+        assert(typespec->resolvedTy);
+
+        Operand op = resolve_expr(expr);
+        op.type = typespec->resolvedTy;
+        return op;
+    }
+    Operand resolve_field(Expr* parent, Expr* children){        
+        Operand op = resolve_expr(parent);
+        if(op.type->kind == TYPE_PTR){
+            if(op.type->base->kind == Ast::TYPE_STRUCT){
+                op.type = op.type->base;
+            }
+        }
+        // Check for TypeImpl in op.type        
+        if(children->kind == Ast::EXPR_NAME){
+            if(Sym* sym = sym_get(op.type->name)){                            
+                SymImpl& impls = sym->impls;
+                const char* target = Core::cstr(strf("%s_impl_%s", impls.self->name, children->name));
+                if(Sym* impl = impls.find(target)){
+                    assert(impl->type->kind == TYPE_PROC);                    
+                    return operand_rvalue(impl->type);
+                
+                }
+            }                                
+
+            if(op.type->kind == TYPE_STRUCT){                                
+                for(TypeField* field: op.type->aggregate.items){
+                    if(field->name != children->name){
+                        continue;
+                    }                                
+                    return operand_rvalue(field->type);
+                }            
+            }        
+        }
+        
+        printf("[ERROR]: field not found: ");
+        pPrint::expr(children);
+        printf("\n");
+        exit(1);
+        
     }
     Operand resolve_expr(Expr* expr){        
         switch(expr->kind){
             case EXPR_INT:          return operand_lvalue(type_int(64), {.ul = expr->int_lit});
             case EXPR_STRING:       return operand_lvalue(type_string(), {});
             case EXPR_NAME:         return resolve_name(expr->name);
-            case EXPR_CALL:         return resolve_call(expr->call.base, expr->call.args);            
+            case EXPR_CALL:         return resolve_call(expr->call.base, &expr->call.args);            
             case EXPR_INIT_VAR:     return resolve_var_init(expr->init_var.name, expr->init_var.type, expr->init_var.rhs, true, false);
             case EXPR_UNARY:        return resolve_unary(expr->unary.unary_kind, expr->unary.expr);
             case EXPR_BINARY:       return resolve_binary(expr->binary.binary_kind, expr->binary.left, expr->binary.right);
             case EXPR_ARRAY_INDEX:  return resolve_index(expr);
+            case EXPR_CAST:         return resolve_cast(expr->cast.typespec, expr->cast.expr);
+            case EXPR_FIELD:        return resolve_field(expr->field_acc.parent, expr->field_acc.children);
         }
         pPrint::expr(expr);
         exit(1);
@@ -439,7 +639,59 @@ namespace Pietra::Resolver{
         for(Stmt* stmt: block) 
             resolve_stmt(stmt);
     }
+    void resolve_sym_proc_impl(Sym* self, Sym* sym){
+        assert(sym->kind == SYM_PROC);
+        self->impls.self = self;
+        if(sym->decl->proc.params.len() < 1){
+            printf("[ERROR]: procedures inside impl must have self: *Self in the first parameter.\n");
+            exit(1);
+        }
 
+        ProcParam* param1 = sym->decl->proc.params.at(0);
+        if(param1->name != Core::cstr("self")){
+            printf("[ERORR]: the first parameter in impl methodos must be named 'self'.\n");
+            exit(1);
+        }
+
+        resolve_decl_proc(sym->decl);
+    }
+    void resolve_impl(const char* target, SVec<Decl*> body){        
+        Sym* sym = sym_get(target);
+        if(!sym){
+            printf("[ERROR]: could not find the target of the implementation: %s.\n", target);
+            exit(1);
+        }
+        if(sym->kind != SYM_TYPE and sym->kind != SYM_AGGREGATE){
+            printf("[ERROR]: impl can only work with objects or types.\n");
+            exit(1);
+        }
+        SymImpl& impls = sym->impls;
+        impls.self = sym;
+        
+        CBridge::tmp_self = sym->type;
+        sym->type->isSelf = true;
+        for(Decl* node: body){
+            if(impls.find(node->name)){
+                printf("[ERROR]: duplicated field in impl (%s.%s).\n", sym->name, node->name);
+                exit(1);
+            }
+            
+            // Make a symbol for the declaration
+            {
+                node->name = Core::cstr(strf("%s_impl_%s", sym->name, node->name));
+                Sym* snode = sym_new(node->name, node);
+                if(snode->kind != SYM_PROC){
+                    printf("[ERROR]: for now impl only accept procedures.\n");
+                    exit(1);
+                }
+                
+                resolve_sym_proc_impl(sym, snode);                
+                impls.push(snode);
+            }
+            
+        }
+        CBridge::tmp_self = nullptr;        
+    }
     void resolve_decl_var(Decl* &d){
         resolve_var_init(d->name, d->var.type, d->var.init, false, false);        
     }
@@ -456,29 +708,33 @@ namespace Pietra::Resolver{
 
         resolve_stmt_block(d->proc.block);
     }
+    
     void resolve_decl(Decl* &decl){
         switch(decl->kind){
             case DECL_VAR:
                 resolve_decl_var(decl);
-                break;
+                break;                
             case DECL_PROC:
                 resolve_decl_proc(decl);
                 break;
-            case DECL_TYPE:
-            case DECL_NONE:                    
-            case DECL_AGGREGATE:
-            case DECL_ENUM:
-            case DECL_USE:
-            
-            case DECL_CONSTEXPR:
+            case DECL_CONSTEXPR: 
+                CBridge::save_constexpr(decl->name, PreprocessExpr::expr(decl->expr));
+                break;                                    
+            case DECL_AGGREGATE:    break;
+            case DECL_TYPE:         break;
+            case DECL_IMPL: 
+                resolve_impl(decl->impl.target, decl->impl.body);
+                break;
+            case DECL_NONE:             
+            case DECL_ENUM:            
                 printf("[ERR]: Resolving unimplemented for:\n");
                 pPrint::decl(decl);                        
         }
 
     }
-    void resolve_sym(Sym* sym){
+    Sym* resolve_sym(Sym* sym){
         assert(sym);
-        if(sym->state == SYM_RESOLVED) return;
+        if(sym->state == SYM_RESOLVED) return sym;
         if(sym->state == SYM_RESOLVING){
             printf("Cyclic dependence at: %s.\n", sym->name);
             exit(1);
@@ -486,24 +742,36 @@ namespace Pietra::Resolver{
 
         sym->state = SYM_RESOLVED;
         if(sym->decl){ 
+            if(sym->decl->kind == DECL_PROC){
+                if(sym->decl->proc.params.len() > 0){
+                    if(sym->decl->proc.params.at(0)->name == Core::cstr("self")){
+                        printf("[ERROR]: The parameter named self is reserved to be inside implementation context.\n");
+                        exit(1);
+                    }
+                }
+            }
             // some syms are expressions
             resolve_decl(sym->decl);
         }
         sym->state = SYM_RESOLVED;
 
-        if(sym->decl and sym->decl->kind != Ast::DECL_TYPE){            
+        
+        if(sym->decl){
             final_ast_push(sym->decl);
         }
         
+        return sym;
     }
-    SVec<Decl*> resolve_package(PPackage* &package){
-        declare_built_in();
+    
+    SVec<Decl*> resolve_package(PPackage* &package){                                
+        declare_built_in();                
         declare_package(package);
 
         for(Sym* sym: Syms){
-            resolve_sym(sym);
-        }    
-        return final_ast;
+            resolve_sym(sym);        
+        }   
+        
+        return final_ast;        
     }
 }
 #endif /*RESOLVE_CPP*/

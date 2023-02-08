@@ -18,14 +18,18 @@
 #include "cGen.cpp"
 #include <cstdlib>
 #include <string>
-
-
 #include <stdio.h>
-
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <string.h>
 #include <unistd.h>
+
+
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+
+
 using namespace Pietra::Lexer;
 using namespace Pietra::Utils;
 
@@ -38,7 +42,7 @@ int Pietra::Main(int argc, char** argv){
     SVec<Decl*> ast = resolve_package(package);
     Asm::compile_ast(ast);
     
-  
-    arena_free();
+    
+    arena_free();        
     return EXIT_SUCCESS;
 }

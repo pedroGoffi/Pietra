@@ -11,17 +11,17 @@ using namespace Pietra::Core;
 // TODO: cached types for faster compilation
 
 namespace Pietra::Ast{
-Type int8_ty        = {.kind = TYPE_I8,     .name = Core::cstr("i8"),   .size = sizeof(int8_t), };
-Type int16_ty       = {.kind = TYPE_I16,    .name = Core::cstr("i16"),  .size = sizeof(int16_t), };
-Type int32_ty       = {.kind = TYPE_I32,    .name = Core::cstr("i32"),  .size = sizeof(int32_t), };
-Type int64_ty       = {.kind = TYPE_I64,    .name = Core::cstr("i64"),  .size = sizeof(int64_t), };
-Type f32_ty         = {.kind = TYPE_F32,    .name = Core::cstr("f32"),  .size = sizeof(float), };
-Type f64_ty         = {.kind = TYPE_F64,    .name = Core::cstr("f64"),  .size = sizeof(double), };
-Type str_ty         = {.kind = TYPE_PTR,    .name = Core::cstr("cstr"), .size = sizeof(void*),  .base = &int8_ty};
+Type int8_ty        = {.kind = TYPE_I8,     .name = Core::cstr("i8"),   .size = sizeof(int8_t)};
+Type int16_ty       = {.kind = TYPE_I16,    .name = Core::cstr("i16"),  .size = sizeof(int16_t)};
+Type int32_ty       = {.kind = TYPE_I32,    .name = Core::cstr("i32"),  .size = sizeof(int32_t)};
+Type int64_ty       = {.kind = TYPE_I64,    .name = Core::cstr("i64"),  .size = sizeof(int64_t)};
+Type f32_ty         = {.kind = TYPE_F32,    .name = Core::cstr("f32"),  .size = sizeof(float)};
+Type f64_ty         = {.kind = TYPE_F64,    .name = Core::cstr("f64"),  .size = sizeof(double)};
+Type str_ty         = {.kind = TYPE_PTR,    .name = Core::cstr("cstr"), .size = sizeof(void*), .base = &int8_ty};
 Type void_ty        = {.kind = TYPE_VOID,   .name = Core::cstr("null"), .size = 0};
 Type unresolved_ty  = {.kind = TYPE_UNRESOLVED, .name = Core::cstr("auto")};
 Type any_ty         = {.kind = TYPE_ANY,    .name = Core::cstr("any"), .size = sizeof(void*)};
-
+Type self_ty        = {.kind = TYPE_SELF,   .name = Core::cstr("Self")};
 
 
 
@@ -39,14 +39,16 @@ Type* type_init(TypeKind kind){
 Type* type_void(){
     return &void_ty;
 }
+Type* type_self(){
+    return &self_ty;
+}
 Type* type_int(int size = 64){
     assert(size == 8 or size == 16 or size == 32 or size == 64);
     switch(size){
         case 8:     return &int8_ty;
         case 16:    return &int16_ty;
         case 32:    return &int32_ty;
-        case 64:    return &int64_ty;
-    }
+        case 64:    return &int64_ty;    }
     assert(0);        
 }
 Type* type_float(int size = 64){
@@ -78,12 +80,12 @@ Type* type_array(Type* base, int size){
 }
 Type* type_struct(SVec<TypeField*> fields){
     Type* st = type_init(TYPE_STRUCT);
-    st->aggregate_items = fields;
+    st->aggregate.items = fields;
     return st;
 }
 Type* type_union(SVec<TypeField*> fields){
     Type* st = type_init(TYPE_UNION);
-    st->aggregate_items = fields;
+    st->aggregate.items = fields;
     return st;
 }
 Type* type_proc(SVec<TypeField*> params, Type* ret_type, bool is_vararg){
@@ -223,11 +225,23 @@ const char* Type::repr(){
             return str;
         }
         case TYPE_UNRESOLVED: return strf("<unresolved>");        
-        case TYPE_STRUCT:
-        case TYPE_UNION:        
-        
+
+        case TYPE_STRUCT:   {        
+            const char* str = strf("{ ");
+            for(TypeField* tf: this->aggregate.items){
+
+                str = strf("%s%s%s", str, tf->type->repr(), tf != this->aggregate.items.back()? ", ": "");
+            }
+            str = strf("%s } [AKA %s]", str, this->name);
+            
+            return str;
+
+        };
+        case TYPE_SELF: return strf("Self");
+        case TYPE_UNION:                
         case TYPE_NONE:        
         case TYPE_FIRST_ARITHMETRIC_TYPE:
+        
         case TYPE_LAST_ARITHMETRIC_TYPE:
         default: return strf("<undefined: %i>", this->kind);
     };

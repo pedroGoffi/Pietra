@@ -11,10 +11,11 @@
 using namespace Pietra;
 using namespace Pietra::Ast;
 using namespace Pietra::Lexer;
-#define unimplemented() printf("[ERR]: the Parser::%s is unimplemented for: %s", __FUNCTION__, token.name); exit(1);
+#define unimplemented() printf("[ERR]: the %s is unimplemented for: %s", __FUNCTION__, token.name); exit(1);
 
 
-Expr* Parser::literal_expr_assign(const char* name){
+namespace Pietra::Parser {
+Expr* literal_expr_assign(const char* name){
     assert(is_kind(TK_DDOT));
     next();
     TypeSpec*   ts   = nullptr;
@@ -29,13 +30,13 @@ Expr* Parser::literal_expr_assign(const char* name){
     return Utils::expr_assign(name, ts, init);
 
 }
-Expr* Parser::literal_expr(){
+Expr* literal_expr(){
     if(is_kind(TK_NAME)){
         const char* name = token.name;
         next();
         if(is_kind(Lexer::TK_DDOT)){
             // fast assign var :type = expr
-            return Parser::literal_expr_assign(name);
+            return literal_expr_assign(name);
         }
         else {
             return Utils::expr_name(name);
@@ -87,7 +88,7 @@ inline bool is_base_expr(){
         |   token.kind == Pietra::Lexer::TK_OPEN_SQUARED_BRACES        
         ;
 }
-Expr* Parser::base_expr(){
+Expr* base_expr(){
     Expr* base = literal_expr();
     while(is_base_expr()){
         if(is_kind(TK_DOT)){
@@ -137,7 +138,7 @@ static inline bool is_unary_expr(){
         |   token.kind == TK_AMPERSAND
         ;
 }
-Expr* Parser::unary_expr(){        
+Expr* unary_expr(){        
     while(is_unary_expr()){
         tokenKind kind = token.kind;
         next();                
@@ -156,7 +157,7 @@ static inline bool is_mult_expr(){
             token.kind == TK_MOD
     ;
 }
-Expr* Parser::mult_expr(){
+Expr* mult_expr(){
     Expr* unary = unary_expr();
     while(is_mult_expr()){
         tokenKind kind = token.kind; 
@@ -173,7 +174,7 @@ static inline bool is_add_expr(){
         |   token.kind == TK_SUB
     ;
 }
-Expr* Parser::add_expr(){
+Expr* add_expr(){
     Expr* mult = mult_expr();
     while(is_add_expr()){
         tokenKind kind = token.kind;
@@ -191,10 +192,11 @@ static inline bool is_cmp_expr(){
         |   token.kind == TK_LT
         |   token.kind == TK_GT
         |   token.kind == TK_LTE
+        |   token.kind == TK_NEQ
 
     ;
 }
-Expr* Parser::cmp_expr(){
+Expr* cmp_expr(){
     Expr* add = add_expr();
     while(is_cmp_expr()){
         tokenKind kind = token.kind;
@@ -211,7 +213,7 @@ static inline bool is_logic_expr(){
         |   token.name == keyword_lor
     ;
 }
-Expr* Parser::logic_expr(){
+Expr* logic_expr(){
     
     if(token.name == keyword_not){
         tokenKind kind = TK_NOT;
@@ -230,7 +232,7 @@ Expr* Parser::logic_expr(){
     }
     return cmp;
 }
-Expr* Parser::cast_expr(){    
+Expr* cast_expr(){    
     Expr* logic = logic_expr();
     if(token.name == keyword_as){
         next();
@@ -241,10 +243,10 @@ Expr* Parser::cast_expr(){
 }
 static inline bool is_assign(){
     return
-            token.kind == TK_EQ
+            token.kind == TK_EQ 
     ;
 }
-Expr* Parser::assign_expr(){
+Expr* assign_expr(){
     Expr* cast = cast_expr();
     if(is_assign()){
         tokenKind kind = token.kind;
@@ -257,7 +259,7 @@ Expr* Parser::assign_expr(){
 static inline bool is_ternary(){
     return token.name == keyword_if;
 }
-Expr* Parser::ternary_expr(){        
+Expr* ternary_expr(){        
     Expr* cast = assign_expr();    
     if (is_ternary()){
         printf("[WARN]: Ternary expressions are not implemented yet.\n");
@@ -265,11 +267,11 @@ Expr* Parser::ternary_expr(){
     }
     return cast;
 }
-Expr* Parser::expr(){
+Expr* expr(){
     Expr* e = ternary_expr();    
     return e;
 }
-SVec<Expr*> Parser::expr_list(){
+SVec<Expr*> expr_list(){
     SVec<Expr*> list;
     do {
         if(list.len() > 0){
@@ -280,7 +282,7 @@ SVec<Expr*> Parser::expr_list(){
     } while(is_kind(Lexer::TK_COMMA));
     return list;
 }
-TypeSpec* Parser::typespec_base(){
+TypeSpec* typespec_base(){
     if(is_kind(TK_NAME)){
         const char* name = token.name;
         next();
@@ -297,7 +299,7 @@ static inline bool is_typespec(){
             token.kind == TK_LT // fot templates TYPESPEC<TYPESPEC>
     ;
 }
-TypeSpec* Parser::typespec(){    
+TypeSpec* typespec(){    
     if(is_kind(Lexer::TK_OPEN_SQUARED_BRACES)){
         next();
         Expr* arr_size = nullptr;
@@ -333,7 +335,7 @@ TypeSpec* Parser::typespec(){
     }    
 }
 
-SVec<Stmt*> Parser::stmt_opt_curly_block(){
+SVec<Stmt*> stmt_opt_curly_block(){
     SVec<Stmt*> block = {};
 
     if(is_kind(Lexer::TK_OPEN_CURLY_BRACES)){
@@ -356,7 +358,7 @@ SVec<Stmt*> Parser::stmt_opt_curly_block(){
     }
     return block;
 }
-IfClause* Parser::stmt_if_clause(){
+IfClause* stmt_if_clause(){
     Expr* e = expr();
     SVec<Stmt*> block = stmt_opt_curly_block();
     return Utils::init_if_clause(e, block);
@@ -395,7 +397,7 @@ SwitchCasePattern* switch_case_pattern(){
     }    
     return pattern;
 }
-SVec<SwitchCasePattern*> Parser::switch_case_patterns(){
+SVec<SwitchCasePattern*> switch_case_patterns(){
     SVec<SwitchCasePattern*> patterns;
     do {
         if(patterns.len() > 0){
@@ -409,7 +411,7 @@ SVec<SwitchCasePattern*> Parser::switch_case_patterns(){
     return patterns;
 }
 
-SwitchCase* Parser::switch_case(){
+SwitchCase* switch_case(){
     assert(token.name == keyword_case);
     next();
 
@@ -426,7 +428,7 @@ static inline bool is_case(){
     |   token.name == keyword_default
     ;
 }
-Stmt* Parser::stmt_switch(){    
+Stmt* stmt_switch(){    
     assert(token.name == keyword_switch);
     next();
     Expr*               cond            = expr();
@@ -459,7 +461,7 @@ Stmt* Parser::stmt_switch(){
 
     return Utils::stmt_switch(cond, cases, has_default, default_block);
 }
-Stmt* Parser::stmt_for(){    
+Stmt* stmt_for(){    
     Expr* init          = nullptr;
     Expr* cond          = nullptr;
     Expr* inc           = nullptr;
@@ -499,7 +501,7 @@ Stmt* Parser::stmt_for(){
     }    
     return Utils::stmt_for(init, cond, inc, block);
 }
-Stmt* Parser::stmt_while(){
+Stmt* stmt_while(){
     assert(token.name == keyword_while);
     next();
     Expr* cond          = expr();
@@ -507,7 +509,7 @@ Stmt* Parser::stmt_while(){
     
     return Utils::stmt_while(cond, block);
 }
-Stmt* Parser::stmt_if(){    
+Stmt* stmt_if(){    
     assert(token.name == keyword_if);
     next();
     IfClause*       if_clause = stmt_if_clause();
@@ -527,7 +529,7 @@ Stmt* Parser::stmt_if(){
 
     return Utils::stmt_if(if_clause, elif_clauses, else_block);    
 }
-Stmt* Parser::stmt(){            
+Stmt* stmt(){            
     if(is_kind(Lexer::TK_DCOMMA)){
         next();
         return nullptr;
@@ -548,7 +550,7 @@ Stmt* Parser::stmt(){
         return Utils::stmt_expr(expr());        
     }
 }
-ProcParam* Parser::proc_param(){    
+ProcParam* proc_param(){    
     if(is_kind(Lexer::TK_TRIPLE_DOT)){
         next();
         return Utils::proc_param_varargs();
@@ -569,7 +571,7 @@ ProcParam* Parser::proc_param(){
 
     return Utils::proc_param(name, type, init);
 }
-SVec<ProcParam*> Parser::proc_params(){
+SVec<ProcParam*> proc_params(){
     SVec<ProcParam*> params;
     assert(is_kind(Lexer::TK_OPEN_ROUND_BRACES));
     next();
@@ -593,7 +595,7 @@ SVec<ProcParam*> Parser::proc_params(){
     
     return params;
 }
-Decl* Parser::decl_proc(const char* name){    
+Decl* decl_proc(const char* name){    
     if(token.name == keyword_proc) next();
     bool isVarargs = false;
     SVec<ProcParam*> params = proc_params();
@@ -619,7 +621,7 @@ Decl* Parser::decl_proc(const char* name){
     return Utils::decl_proc(name, params, ret, block, is_complete, isVarargs);
 }
 
-AggregateItem* Parser::aggregate_item(){
+AggregateItem* aggregate_item(){
     // NAME ':' or '::'
     assert(is_kind(TK_NAME));        
     SVec<const char*> names;
@@ -650,7 +652,7 @@ AggregateItem* Parser::aggregate_item(){
 
     return Utils::aggregate_item_field(names, type, init);
 }
-Decl* Parser::decl_aggregate(const char* name, aggregateKind kind){
+Decl* decl_aggregate(const char* name, aggregateKind kind){
     assert(is_kind(Pietra::Lexer::TK_OPEN_CURLY_BRACES));
     next();
     SVec<AggregateItem*> items;
@@ -664,18 +666,18 @@ Decl* Parser::decl_aggregate(const char* name, aggregateKind kind){
     
     return Utils::decl_aggregate(name, kind, items);
 }
-Decl* Parser::decl_struct(const char* name){
+Decl* decl_struct(const char* name){
     if(token.name == keyword_struct) next();
     assert(is_kind(Pietra::Lexer::TK_OPEN_CURLY_BRACES));
     return decl_aggregate(name, AGG_STRUCT);
 }
-Decl* Parser::decl_union(const char* name){
+Decl* decl_union(const char* name){
     assert(token.name == keyword_union);
     next();
     assert(is_kind(Pietra::Lexer::TK_OPEN_CURLY_BRACES));    
     return decl_aggregate(name, AGG_UNION);
 }
-Decl* Parser::decl_enum(const char* name){
+Decl* decl_enum(const char* name){
     assert(token.name == keyword_enum);
     next();
     assert(is_kind(Pietra::Lexer::TK_OPEN_CURLY_BRACES));    
@@ -701,7 +703,7 @@ Decl* Parser::decl_enum(const char* name){
     return Utils::decl_enum(name, items);
 
 }
-Decl* Parser::decl_base(const char* name, SVec<Note*> notes){
+Decl* decl_base(const char* name, SVec<Note*> notes){
     Decl* decl;
     if(token.name == keyword_proc or is_kind(Lexer::TK_OPEN_ROUND_BRACES)){
         decl = decl_proc(name);  
@@ -719,7 +721,7 @@ Decl* Parser::decl_base(const char* name, SVec<Note*> notes){
     decl->notes = notes;
     return decl;
 }
-Decl* Parser::decl_type(){
+Decl* decl_type(){
     assert(token.name == keyword_type);
     next();
     assert(is_kind(TK_NAME));
@@ -731,7 +733,7 @@ Decl* Parser::decl_type(){
     TypeSpec* type = typespec();
     return Utils::decl_type(name, type);
 }
-SVec<const char*> Parser::use_module_names(){    
+SVec<const char*> use_module_names(){    
     if(!is_kind(TK_NAME)) return {};    
     SVec<const char*> names = {};
     do {
@@ -746,7 +748,7 @@ SVec<const char*> Parser::use_module_names(){
 
     return names;
 }
-SVec<const char*> Parser::use_names(){
+SVec<const char*> use_names(){
     SVec<const char*> names = {};
     if(is_kind(TK_OPEN_CURLY_BRACES)){
         next();
@@ -765,7 +767,7 @@ SVec<const char*> Parser::use_names(){
     }
     return names;
 }
-Decl* Parser::decl_use(){
+Decl* decl_use(){
     assert(token.name == keyword_use);
     next();
     SVec<const char*> _mod_names = use_module_names();
@@ -785,16 +787,8 @@ Decl* Parser::decl_use(){
         rename = token.name;
         next();
     }
-
-
-    return Utils::decl_use(
-        _mod_names, 
-        _use_names, 
-        use_all, 
-        rename
-    );
-
-    
+    printf("<use> not implemented yet.\n");
+    exit(1);
 }
 
 SVec<Note*> parse_notes(){
@@ -813,14 +807,50 @@ SVec<Note*> parse_notes(){
 
     return notes;
 }
-Decl* Parser::decl(){
+SVec<Decl*> parse_impl_body(){
+    SVec<Decl*> body;
+    assert(is_kind(Pietra::Lexer::TK_OPEN_CURLY_BRACES));
+    next();
+    while(!is_kind(Pietra::Lexer::TK_CLOSE_CURLY_BRACES)){
+        Decl* node = decl();
+        if(!node){
+            exit(1);
+        }
+        if(node->kind == DECL_IMPL){
+            printf("[ERROR]: Impl can't be nested.\n");
+            exit(1);
+        }        
+        body.push(node);
+    }
+    assert(is_kind(Pietra::Lexer::TK_CLOSE_CURLY_BRACES));
+    next();
+    
+    return body;
+} 
+Decl* decl_impl(){
+    assert(token.name == keyword_impl);
+    next();
+    if(!is_kind(TK_NAME)){
+        printf("[ERR]: TODO DOC THIS.\n");
+        exit(1);
+    }
+    const char* target = token.name;
+    next();
+    SVec<Decl*> body = parse_impl_body();
+    
+    return Utils::decl_impl(target, body);
+}
+Decl* decl(){
     if(token.kind == TK_EOF) return nullptr;
     SVec<Note*> notes = parse_notes();
+
     if(token.name == keyword_type){        
         // type cstr :: *char
         return decl_type();
     } else if(token.name == keyword_use){
         return decl_use();
+    } else if(token.name == keyword_impl){
+        return decl_impl();
     }
     
     assert(is_kind(TK_NAME));
@@ -846,5 +876,5 @@ Decl* Parser::decl(){
     }
     exit(1);
 }
-
+}
 #endif /*PIETRA_PARSER*/

@@ -1,12 +1,13 @@
 #ifndef ARENA_HPP
 #define ARENA_HPP
 #include "smallVec.hpp" 
+#include <cmath>
 #include <cstddef>
 
 namespace Pietra::Core {
     template<typename T> class Arena {
         static constexpr int ARENA_ALIGNMENT  = 8;
-        static constexpr int ARENA_BLOCK_SIZE = 1024 * 1024;
+        static constexpr int ARENA_BLOCK_SIZE = 1024 * 1024 * 1024;
         
         void*   ptr;
         

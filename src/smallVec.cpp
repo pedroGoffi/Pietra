@@ -7,41 +7,43 @@
 #include <stdio.h>
 using namespace Pietra;
 
-#define __SVEC_BLOCK_SIZE(_type) sizeof(_type) * 1024
+#define __SVEC_BLOCK_SIZE(_type) sizeof(_type) * 1024 * 1024
+
+namespace Pietra::Core{
 
 template<typename T>
-Core::SVecHdr* Core::SVec<T>::get_head(){    
-    return this->data? ((Core::SVecHdr*)((char*)(this->data) - offsetof(Core::SVecHdr, buff))): 0;    
+SVecHdr* SVec<T>::get_head(){    
+    return this->data? ((SVecHdr*)((char*)(this->data) - offsetof(SVecHdr, buff))): 0;    
 }
 
 template<typename T>
-int Core::SVec<T>::len(){    
+int SVec<T>::len(){    
     return this->data? this->get_head()->len: 0;
 }
 
 template<typename T>
-int Core::SVec<T>::cap(){    
+int SVec<T>::cap(){    
     return this->data? this->get_head()->cap: 0;
 }
 
 template<typename T>
-T* Core::SVec<T>::end(){    
+T* SVec<T>::end(){    
     return this->data? (T*)(this->data + this->len()): 0;    
 }
 
 template<typename T>
-void Core::SVec<T>::make_fit(int size){    
+void SVec<T>::make_fit(int size){    
     if(!this->check_if_fits(size)){
         this->__grow_buffer__(size);
     }
 }
 
 template<typename T>
-bool Core::SVec<T>::check_if_fits(int size){    
+bool SVec<T>::check_if_fits(int size){    
     return size <= this->cap();
 }
 template<typename T>
-void Core::SVec<T>::free(){
+void SVec<T>::free(){
     if(this->data){
         SVecHdr* hdr = get_head();
         assert(hdr);
@@ -56,17 +58,17 @@ void Core::SVec<T>::free(){
     
 }
 template<typename T>
-void Core::SVec<T>::reset(){
+void SVec<T>::reset(){
     this->get_head()->len = 0;
 }
 template<typename T>
-void Core::SVec<T>::__grow_buffer__(int new_len) {
+void SVec<T>::__grow_buffer__(int new_len) {
     assert(this->cap() <= (SIZE_MAX - 1)/2);
     
     size_t new_cap = CLAMP_MIN(2*this->cap(), MAX(new_len, 16));
     assert(new_len <= new_cap);
-    assert(new_cap <= (SIZE_MAX - offsetof(Core::SVecHdr, buff))/sizeof(T));
-    size_t new_size = MAX(offsetof(Core::SVecHdr, buff) + new_cap*sizeof(T), 1);
+    assert(new_cap <= (SIZE_MAX - offsetof(SVecHdr, buff))/sizeof(T));
+    size_t new_size = MAX(offsetof(SVecHdr, buff) + new_cap*sizeof(T), 1);
     SVecHdr *new_hdr;
     if (this->data) {
         new_hdr = (SVecHdr *)std::realloc((void*)this->get_head(), new_size);
@@ -81,18 +83,18 @@ void Core::SVec<T>::__grow_buffer__(int new_len) {
     *(char**)&this->data = new_hdr->buff;    
 }
 template<typename T>
-T* Core::SVec<T>::begin(){
+T* SVec<T>::begin(){
     return this->data;
 }
 
 template<typename T>
-void Core::SVec<T>::push(T item){
+void SVec<T>::push(T item){
     this->make_fit(__SVEC_BLOCK_SIZE(T));
     this->data[this->len()] = item;
     this->get_head()->len++;
 }
 template<typename T>
-T Core::SVec<T>::pop(){
+T SVec<T>::pop(){
     assert(this->len() > 0);            
     
     T item = this->data[this->len() - 1];
@@ -105,7 +107,7 @@ T Core::SVec<T>::pop(){
     return item;
 }
 template<typename T>
-T& Core::SVec<T>::find(T item){
+T& SVec<T>::find(T item){
     for(T it: *this){
         if(it == item) return it;        
     }
@@ -113,7 +115,7 @@ T& Core::SVec<T>::find(T item){
     return nullptr;
 }
 template<typename T>
-T& Core::SVec<T>::at(int index){
+T& SVec<T>::at(int index){
     if(index > this->len()){
         printf("[ERR]: SVec.at | index(%i) > lenght(%i)\n", index, this->len());
         exit(1);
@@ -121,7 +123,7 @@ T& Core::SVec<T>::at(int index){
     return this->data[index];
 }
 template<typename T>
-T& Core::SVec<T>::back(){
+T& SVec<T>::back(){
     if(this->len() == 0){
         printf("[ERR]: SVec.back | size == 0\n");
         exit(1);
@@ -130,9 +132,9 @@ T& Core::SVec<T>::back(){
   
 }
 template<typename T>
-T& Core::SVec<T>::next(){
+T& SVec<T>::next(){
     return this->at(this->id++);
 }
 
-
+}
 #endif /*SMALLVEC_CPP*/

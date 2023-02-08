@@ -39,6 +39,9 @@ namespace Pietra::Parser{
 
 
     Decl* decl();
+    
+        Decl* decl_impl();
+            SVec<Decl*> parse_impl_body();
         Decl* decl_use();
             SVec<const char*> use_module_names();
             SVec<const char*> use_names();
