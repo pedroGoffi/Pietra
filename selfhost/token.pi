@@ -1,46 +1,48 @@
 #package "pietra.token"
+type TokenKind :: i64
 
-TokenKind :: enum {        
-    TK_EOF
-    TK_HASH
-    TK_MOD
-    TK_DOT
-    TK_DCOMMA
-    TK_LT
-    TK_PIPE
-    TK_LTE
-    TK_LAND
-    TK_LOR
-    TK_GT
-    TK_ADD
-    TK_AMPERSAND
-    TK_SUB
-    TK_DEC
-    TK_NOT
-    TK_INC
-    TK_NEQ
-    TK_MULT
-    TK_NOTE
-    TK_TRIPLE_DOT
-    TK_OPEN_ROUND_BRACES
-    TK_CLOSE_ROUND_BRACES
-    TK_DIV
-    TK_OPEN_SQUARED_BRACES
-    TK_CLOSE_SQUARED_BRACES
-    TK_OPEN_CURLY_BRACES
-    TK_CLOSE_CURLY_BRACES
-    TK_COMMA
-    TK_DDOT
-    TK_PREP
-    TK_EQ
-    TK_CMPEQ
-    TK_NAME
-    TK_KEYWORD
-    TK_INT
-    TK_STAR
-    TK_FLOAT
-    TK_STRING
-}
+TK_EOF  :: 0
+TK_NAME :: 1
+TK_INT  :: 2
+TK_HASH :: 0
+TK_MOD  :: 0
+TK_DOT  :: 0
+TK_DCOMMA   :: 0
+TK_LT   :: 0
+TK_PIPE :: 0
+TK_LTE  :: 0
+TK_LAND :: 0
+TK_LOR  :: 0
+TK_GT   :: 0
+TK_ADD  :: 0
+TK_AMPERSAND    :: 0
+TK_SUB  :: 0
+TK_DEC  :: 0
+TK_NOT  :: 0
+TK_INC  :: 0
+TK_NEQ  :: 0
+TK_MULT :: 0
+TK_NOTE :: 0
+TK_TRIPLE_DOT   :: 0
+TK_OPEN_ROUND_BRACES    :: 0
+TK_CLOSE_ROUND_BRACES   :: 0
+TK_DIV  :: 0
+TK_OPEN_SQUARED_BRACES  :: 0
+TK_CLOSE_SQUARED_BRACES :: 0
+TK_OPEN_CURLY_BRACES    :: 0
+TK_CLOSE_CURLY_BRACES   :: 0
+TK_COMMA    :: 0
+TK_DDOT :: 0
+TK_PREP :: 0
+TK_EQ   :: 0
+TK_CMPEQ    :: 0
+
+TK_KEYWORD  :: 0
+
+TK_STAR :: 0
+TK_FLOAT    :: 0
+TK_STRING   :: 0
+
 
 TokenVal :: union {
     I64: i64    
@@ -53,4 +55,9 @@ Token :: {
     as:         TokenVal
 }
 
+impl Token {
+    set_kind :: (self: *Self, kind: TokenKind){
+        self.kind = kind;
+    }
+}
 token: Token;

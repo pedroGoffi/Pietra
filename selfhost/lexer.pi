@@ -43,7 +43,7 @@ next_token      :: (){
     token.start = stream;
 
     if *stream == 0 {
-        (:i64)token.kind = 0;
+        token.kind = TK_EOF;
         return 0;
     }
     switch *stream {
@@ -54,7 +54,7 @@ next_token      :: (){
 
             token.end = stream;
             token.name = intern_range(token.start, token.end);
-
+            token.kind = TK_NAME
         }
 
         case '0'...'9': {
@@ -62,7 +62,7 @@ next_token      :: (){
                 stream = stream + 1
             }
             token.end = stream;
-            
+            token.kind = TK_INT
             token.name = intern_range(token.start, token.end);
         }
 

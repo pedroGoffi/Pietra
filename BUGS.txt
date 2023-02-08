@@ -9,3 +9,5 @@ NOTE:
 
 Feature procedure [__eq__] in impl structs
     3 [TODO]: When initialize any variable with non pointer type, the program will crash
+
+    0 [TODO]: When impl twice or more the program thinks it's a name colision

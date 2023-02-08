@@ -19,6 +19,32 @@ The resolver will
 #include <iostream>
 #include <memory>
 
+void show_all_decorators(){
+    /*
+        NOTE: those macros serve to use in the printf loop
+        they check if the item in the iteration is the last one
+        if the item is the last one in the list we dont print the ", "
+        otherwise we separate the itens with ", "
+    */
+    #define LIST_SIZEOF(__list)     (sizeof((__list)) / sizeof((__list)[0]))
+    #define LIST_LAST_ELEM(__list)  (__list)[LIST_SIZEOF(__list) - 1]
+    #define SAD_printf_cond(item, __list) ((item) == LIST_LAST_ELEM(__list))? "": ", " 
+    static const char* decorators_name[] = {
+        "todo", "inline", "error", "warn"
+    };
+    const char* last_decorator = LIST_LAST_ELEM(decorators_name);
+        
+    printf("Decorators = [");
+    for(const char* dc: decorators_name){
+        printf("@%s%s", 
+            dc, 
+            SAD_printf_cond(dc, decorators_name));
+    }
+    printf("]\n");
+    #undef LIST_SIZEOF
+    #undef LIST_LAST_ELEM
+    #undef SAD_printf_cond
+}
 namespace Pietra::Resolver{
     SVec<Sym*>          Syms;
     SVec<Sym*>          localSyms;
@@ -202,9 +228,9 @@ namespace Pietra::Resolver{
                     declare_ast(decl->use.module);
                 }
             }
-            else {                
-                Sym* sym = sym_new(decl->name, decl);            
-                Syms.push(sym);
+            else {                                
+                Sym* sym = sym_new(decl->name, decl);                            
+                Syms.push(sym);                
             }
         }
     }
@@ -814,17 +840,36 @@ namespace Pietra::Resolver{
                 }
                 
                 impls.push(snode);
-                resolve_sym_proc_impl(sym, snode);                
-                
-            }
-            
+                resolve_sym_proc_impl(sym, snode);                                
+            }                        
         }
         CBridge::tmp_self = nullptr;        
+        printf("ending %s\n", sym->name);
     }
     void resolve_decl_var(Decl* &d){
         resolve_var_init(d->name, d->var.type, d->var.init, false, false);        
     }
     void resolve_decl_proc(Decl* &d, Type* type){
+        if(d->notes.len() > 0){
+            SVec<Note*>& notes = d->notes;
+            for(Note* note: notes){
+                if(note->name == Core::cstr("todo")){
+                    printf("[TODO]: %s\n", d->name);
+                    for(Expr* arg: note->args){
+                        if(arg->kind != EXPR_STRING){
+                            printf("[INTERNAL-ERROR]: @todo expects only string inside it's arguments.\n");
+                            exit(1);
+                        }
+                        printf("\t%s\n", arg->string_lit);
+                    }
+                }
+                else {
+                    show_all_decorators();
+                    printf("[ERROR]: compiler doesn't understand the decl note %s\n", note->name);
+                    exit(1);
+                }
+            }
+        }
         assert(d->kind == DECL_PROC);
         localSyms.free();        
         CBridge::CProc* proc = CBridge::CreateProc(d->name, type);
@@ -907,7 +952,7 @@ namespace Pietra::Resolver{
         }
 
     }
-    Sym* resolve_sym(Sym* sym){        
+    Sym* resolve_sym(Sym* sym){
         assert(sym);
         if(sym->state == SYM_RESOLVED) return sym;
         if(sym->state == SYM_RESOLVING){

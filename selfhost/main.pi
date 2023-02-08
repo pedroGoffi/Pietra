@@ -1,12 +1,20 @@
 use std{std}
 use selfhost{lexer, parser}
 
-main :: (argc: i64, argv: *cstr){
+usage :: (fd: i64, program: cstr){
+    std.fdputs(1, "<Error>\n");    
+}
+main :: (argc: i64, argv: *cstr){    
     if argc != 2 {
+        usage(1, 0)
         std.puts("[ERROR]: expected <program> <input>\n");
         exit(1);
-    }
-    
-    init_stream("cum69420 + 1 ")
-    parse()
+    }        
+    init_stream("10 10cum69420 + 1 ")
+    parse()    
+
+    std.puts("token.name = '")
+    std.puts(token.name)
+    std.puts("'\ntoken.kind = ")
+    dump(token.kind)
 }

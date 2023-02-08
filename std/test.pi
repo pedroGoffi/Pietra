@@ -1,0 +1,8 @@
+#package "std.dev.test"
+use std{std}
+
+
+
+impl std {
+    test_all :: (){}
+}

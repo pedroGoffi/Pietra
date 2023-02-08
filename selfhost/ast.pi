@@ -88,6 +88,5 @@ expr_init :: (kind: i64): *Expr {
     return e;
 }
 
-expr_name :: (name: cstr): *Expr {
-    
-}
+expr_name   :: (name: cstr): *Expr {}
+expr_int    :: (num: i64): *Expr {}

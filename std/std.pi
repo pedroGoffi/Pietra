@@ -2,12 +2,18 @@
 use std::core{linux}
 use std{string}
 
-
 std :: {}
-
-impl std {    
-    puts :: (str: cstr){    
-        len := strlen(str);                
-        write(1, str, len)                
+impl std {   
+    @todo("implementation of FILE structure of fprint")
+    fdputs  :: (fd: i64, str: cstr){
+        len: i64 = strlen(str);                
+        write(fd, str, len)                
+    }
+    
+    puts    :: (str: cstr){    
+        std.fdputs(1, str)
     }        
+
+
+    @todo("std.stoi_base for now returns only zero") stoi_base :: (str: cstr, base: i64): i64 {}
 }

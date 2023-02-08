@@ -1161,7 +1161,7 @@ void makeLabel() {
             compile_decl_proc(node);
         }                    
     }
-    void compile_decl(Decl* decl){        
+    void compile_decl(Decl* decl){                
         switch(decl->kind){
             case DECL_PROC: 
                 compile_decl_proc(decl); 
