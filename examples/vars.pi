@@ -1,0 +1,33 @@
+VAR:    i64 = 10
+stdout: i64 = 1
+
+func :: (ptr: cstr) {
+    __syscall(13, ptr, 1, 1)
+    return ptr
+}
+
+strlen :: (str: *i8): i64{
+    len: i64 = 0
+    while *str {
+        len = len + 1
+        str = str + 1
+    }            
+    return len
+}
+__sys_write :: (ptr: *null, size: i64, stream: *i64){
+    __syscall(size, ptr, stream, 1)
+}
+fputs :: (file: i64, str: cstr){
+    len: i64 = strlen(str)
+    __print(file)
+    __print(str)
+}
+puts :: (str: cstr){
+    fputs(stdout, str)
+    __syscall(len, str, 1, 1)
+}
+
+main :: (){
+    str: i64 = "hello, world\n"
+    puts(str)    
+}

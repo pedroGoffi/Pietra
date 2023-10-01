@@ -1,0 +1,149 @@
+Assignment operators:
+    AUTO_ASSING     = ":="
+    ADD_ASSING      = "+="
+    SUB_ASSING      = "-="
+    OR_ASSING       = "|="
+    XOR_ASSING      = "^="
+    LSHIFT_ASSING   = "<<="
+    RSHIFT_ASSING   = ">>="
+    MUL_ASSING      = "*="
+    DIV_ASSING      = "/="
+    MOD_ASSING      = "%="
+
+Names/Literals:
+    NAME    = [a-zA-Z_][a-zA-Z_0-9]*
+    INT     = [1-9][0-9]* | 0[xX][0-9a-fA-F]+ | 0[o-7]+ | 0[bB][0-1]+
+    FLOAT   = [1-9]'.'[0-9]*([eE][+-]?[0-9])?
+    CHAR    = '\'' * '\''
+    STRING  = '\'' *[*]+ '\'' | '\"' * '\"' 
+    
+Statements:    
+    switch_block:
+        switch_case:
+            switch_case_pattern:
+                = CASE ('...' CASE)* (',' switch_case_pattern)*
+
+            'case' switch_case_pattern ':' stmt_block
+
+        '{' (switch_case*+ | DEFAULT) ':' stmt_block '}'
+    stmt 
+        = 'return' expr
+        | 'if' expr stmt_block ('elif' expr stmt_block)*+ ('else' stmt_block)*
+        | 'for' expr_init ('in' expr | ';' expr ';' expr) stmt_block
+        | 'while' expr stmt_block
+        | 'do' stmt_block 'while' '(' expr ')' ';'
+        | 'switch' '(' expr ')' switch_block
+        | 'continue' ';'
+        | 'break' ';'
+        | expr  (INC | DEC | assign_op expr)*
+
+
+typespec = NAME | '(' ':' type )'
+
+
+Expressions:
+    literal_expr    =   INT | FLOAT | STRING | NAME
+    operand_expr    =   literal_expr
+                    |   '(' ':' type ')' expr                    
+                    |   '{' expr_list '}'
+                    |   typespec ('{' expr_list '}')?
+                    
+    base_expr       =   operand_expr ('(' expr_list? ')' | '[' expr ']' | '.' NAME | '.' NAME '(' expr_list ')')*
+    unary_expr      =   ['&' | '*' | '-' | '+']  unary_expr |  base_expr
+    mul_expr        =   unary_expr (MUL unary_expr)
+    add_expr        =   mul_expr (ADD mul_expr)*    
+    cmp_expr        =   mul_expr (CMP mul_expr)*
+    and_expr        =   cmp_expr (CMP cmp_expr)*
+    or_expr         =   and_epr (OR and_expr)*    
+    ternary_expr    =   or_expr ('if' ternary_expr 'else' ternary_expr)*    
+    cast_expr       =   ternary_expr ('as' type)
+
+
+    
+    
+
+
+type_base 
+    = ('&' ('mut')* | '*')* NAME
+    | 'proc' '(' type_list? ')' (':' type)?
+    | '(' type ')'
+*&i64
+type  = type_base ('<' type '>' | '[' expr ']' )
+    
+Note_args: expr (',' Note_args)*
+
+Note:    
+    '@' Note_name ('(' Note_args ')')
+
+Note_list = Note (Note_list)*
+
+Procedures:
+    proc_param:
+        ('preprocess')* NAME ':' type 
+
+    proc_param_list:
+        proc_param (',' proc_param)*
+
+    (Note_list)* NAME '::' ('proc')* '(' proc_param_list ')' ':' type (stmt_block | ';')
+
+
+Aggregate:
+    [NOTE]: When no aggregate kind [struct|union] is passed: assumes struct
+    aggregate_field
+        = ('private' | 'pub')* NAME ':' type ';'
+        | Procedures
+        | Aggregate
+
+    aggregate_fields:
+        (aggregate_field)+
+        
+
+    NAME '::' ('struct' | 'union')* '{' aggregate_fields '}' ';'
+
+Enum:
+    NAME '::' 'enum' (':' typespec) '{' enum_fields '}'
+
+Variable:
+    ('let' ('mut')* | 'const') NAME ':' typespec (assign_operator expr)* ';'
+
+Typealias:
+    'type' typespec '=' typespec ';'
+
+
+Declarations:
+    Decl_base
+        = Enum
+        | Aggregate
+        | Procedures
+        | Variable
+        
+
+    Decl:
+        = Variable
+        | Typealias
+        | NAME '::' Decl_base
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

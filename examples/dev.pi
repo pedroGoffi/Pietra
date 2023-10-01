@@ -1,0 +1,11 @@
+@extern printf :: (format: cstr, ...): i64 {}
+
+
+main :: (): i64 {   
+    printf("essa linguagem esta sendo craida 100% por Github -> @pedroGoffi\n")        
+    printf("begin\n")
+    for x: i64 = 0; x < 10; x = x + 1{
+        printf("Hey x = %i!\n", x)
+    }
+    printf('End!\n')
+}

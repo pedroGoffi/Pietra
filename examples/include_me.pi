@@ -1,0 +1,18 @@
+I_AM_BEING_INCLUDED: int = 696969
+max :: (a: int, b: int): int{}
+min :: (a: int, b: int): int{}
+
+SVecHdr :: {
+    len: int
+    cap: int 
+    buff: char
+}
+
+
+SVec :: {
+    data: char
+
+
+    get_head: int
+    __grow_buffer__: int
+}

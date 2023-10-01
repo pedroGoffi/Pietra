@@ -1,0 +1,44 @@
+; ModuleID = 'PLang'
+source_filename = "PLang"
+
+@0 = private unnamed_addr constant [65 x i8] c"essa linguagem esta sendo craida 100% por Github -> @pedroGoffi\0A\00", align 1
+@1 = private unnamed_addr constant [7 x i8] c"begin\0A\00", align 1
+@2 = private unnamed_addr constant [13 x i8] c"Hey x = %i!\0A\00", align 1
+@3 = private unnamed_addr constant [6 x i8] c"End!\0A\00", align 1
+
+declare i64 @printf(i8*, ...)
+
+define i64 @pietra_main() {
+entry:
+  %0 = call i64 (i8*, ...) @printf(i8* getelementptr inbounds ([65 x i8], [65 x i8]* @0, i32 0, i32 0))
+  %1 = call i64 (i8*, ...) @printf(i8* getelementptr inbounds ([7 x i8], [7 x i8]* @1, i32 0, i32 0))
+  %x = alloca i64, align 8
+  store i64 0, i64* %x, align 4
+  br label %L0
+
+L0:                                               ; preds = %L1, %entry
+  %2 = load i64, i64* %x, align 4
+  %3 = icmp slt i64 %2, 10
+  %4 = sext i1 %3 to i64
+  %5 = icmp eq i64 %4, 0
+  %6 = xor i1 %5, true
+  br i1 %6, label %L1, label %L2
+
+L1:                                               ; preds = %L0
+  %7 = load i64, i64* %x, align 4
+  %8 = call i64 (i8*, ...) @printf(i8* getelementptr inbounds ([13 x i8], [13 x i8]* @2, i32 0, i32 0), i64 %7)
+  %9 = load i64, i64* %x, align 4
+  %10 = add i64 %9, 1
+  store i64 %10, i64* %x, align 4
+  br label %L0
+
+L2:                                               ; preds = %L0
+  %11 = call i64 (i8*, ...) @printf(i8* getelementptr inbounds ([6 x i8], [6 x i8]* @3, i32 0, i32 0))
+  ret i64 0
+}
+
+define void @main() {
+L3:
+  %0 = call i64 @pietra_main()
+  ret void
+}

@@ -1,0 +1,41 @@
+stdin:  i64 = 0
+stdout: i64 = 1
+stderr: i64 = 2
+
+
+strlen :: (str1: cstr) {
+    len: i64  = 0
+    iter: *i8 = str1
+        
+    while *iter {
+        len = len + 1
+        iter = iter + 1
+    }
+    return len
+}
+fputs :: (file: i64, str2: cstr) {    
+    len: i64 = strlen(str2)    
+    sys_write: i64 = 1
+    __syscall(len, str2, file, sys_write)
+}
+
+eputs :: (str: cstr) { 
+    fputs(stderr, str)
+}
+
+puts :: (str: cstr){
+    fputs(stdout, str)
+}
+
+exit :: (exit_code: i64) __syscall(exit_code, 60)
+
+main :: (argc: i64, argv: *cstr){    
+    while argc > 0 {
+        puts("argv = ")
+        puts(*argv)
+        puts("\n")
+
+        argv = argv + 8
+        argc = argc - 1
+    }
+}
