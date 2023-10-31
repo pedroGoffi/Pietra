@@ -228,9 +228,10 @@ void makeLabel() {
                 println("mov rax, rcx");
 	        
                 return lhs_t;
-            }
-            default: assert(0);
+            }            
         }
+        pPrint::expr(Utils::expr_binary(kind, lhs, rhs));
+        exit(1);
     }
    
     CProc* get_cp(){
@@ -467,11 +468,12 @@ void makeLabel() {
                 println("mov %s, rax", argreg64[id++]);
             }
         }
+
         Type* base_t = compile_expr(base, state);
-        if(!base_t->isCallable()){
-            err("[ERROR]: trying to call %s.\n", base_t->repr());
-            exit(1);
-        }
+        //if(!base_t->isCallable()){
+        //    err("[ERROR]: trying to call %s.\n", base_t->repr());
+        //    exit(1);
+        //}
         println("call rax");
         return base_t->proc.ret_type;
         
@@ -525,7 +527,7 @@ void makeLabel() {
 
 
     Type* compile_index(Expr* base, Expr* index, CState& state){
-        Type* tb = compile_expr(base, state);        
+        Type* tb = compile_expr(base, state_none);        
         push("rax");
     
         Type* ind = compile_expr(index, state);                
@@ -553,6 +555,8 @@ void makeLabel() {
 
     }
     Type* compile_expr(Expr* e, CState& state){                
+        static int i = 0;
+        
         switch(e->kind){
             case EXPR_INT:                
                 makeLabel();

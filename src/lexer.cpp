@@ -285,8 +285,7 @@ void Lexer::Scanners::scan_string(){
     buff.push(0);
     token.kind      = TK_STRING;
     token.str_end   = stream;
-    token.name      = Core::cstr(buff.data);
-    printf("strin = '%s'\n", token.name);
+    token.name      = Core::cstr(buff.data);    
     assert(*stream == '"');
     stream++;
     

@@ -164,6 +164,7 @@ namespace Pietra::CBridge{
         var->type = type;
         var->init = init;
         var->isGlobal = isGlobal;
+        
 
         if(isGlobal){
             push_global(var);
@@ -196,6 +197,7 @@ namespace Pietra::CBridge{
 
     std::map<const char*, Type*> aliasM;
     Type* type_get(const char* name){
+        name = Core::cstr(name);
         if(aliasM.find(name) != aliasM.end()){
             return aliasM[name];
         }
@@ -203,6 +205,7 @@ namespace Pietra::CBridge{
         return nullptr;
     }
     void type_set(const char* name, Type* type){
+        name = Core::cstr(name);
         assert(!type_get(name));
         aliasM[name] = type;
     }

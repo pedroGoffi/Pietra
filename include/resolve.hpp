@@ -65,7 +65,7 @@ namespace Pietra::Resolver {
     Operand resolve_expr(Expr* expr);
     Operand resolve_name(const char* name);
     Type* resolve_typespec(TypeSpec* &ts);
-
+    
     Operand resolve_var_init(const char* &name, TypeSpec* &type, Expr* &init, bool isLocal, bool isParam);
     void resolve_stmt(Stmt* &stmt);
     void resolve_stmt_block(SVec<Stmt*> block);

@@ -1,8 +1,34 @@
+type cstr:: *i8
 
-f :: (): i64{
+__heap_end: *i64 
+sbrk :: (size: i64){
+    if __heap_end == 0 {
+        __heap_end = syscall(0, 12)
+    }
 
+    __heap_end = __heap_end + 8;
+    syscall(__heap_end, 12);
+
+    return __heap_end - 8;
 }
-main :: (){
+
+strlen :: (str: cstr): i64{    
+    begin: cstr = str;
+    while *str 
+        str = str + 1;        
     
-    dump(10)
+    return str - begin;
+}
+
+main :: (){            
+    y: i64 = 20;    
+    p: *i64 = sbrk(8);
+    w: *i64 = __heap_end;
+    *p = 1;
+    dump(*w);    
+
+
+    str: cstr = "hello, fuck me please?\n";
+    len: i64 = strlen(str);
+    syscall(len, str, 1, 1)
 }

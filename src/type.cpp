@@ -195,7 +195,7 @@ const char* Type::repr(){
             const char* str = strf("proc(");
             for(TypeField* tf: this->proc.params){
                 const char* str_param_t = tf->type->repr();
-                str = strf("%s%s", str, str_param_t);
+                str = strf("%s%s:%s", str, tf->name, str_param_t);
 
                 if(tf != this->proc.params.back()){
                     str = strf("%s, ", str);
@@ -229,7 +229,7 @@ const char* Type::repr(){
         case TYPE_NONE:        
         case TYPE_FIRST_ARITHMETRIC_TYPE:
         case TYPE_LAST_ARITHMETRIC_TYPE:
-        default: assert(0);
+        default: return strf("<undefined: %i>", this->kind);
     };
     
 }
