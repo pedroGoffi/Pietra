@@ -14,6 +14,7 @@ namespace Pietra::Ast {
         TYPE_NONE,
         TYPE_UNRESOLVED,
         TYPE_VOID,        
+        TYPE_ANY,
         TYPE_FIRST_ARITHMETRIC_TYPE,
             TYPE_I8,
             TYPE_I16,
@@ -33,7 +34,7 @@ namespace Pietra::Ast {
     struct Type{
         TypeKind    kind;
         const char* name;
-        int         size;
+        int         size;        
         union {
             Type* base;
             SVec<TypeField*> aggregate_items;
@@ -47,13 +48,20 @@ namespace Pietra::Ast {
             struct {
                 SVec<TypeField*>    params;
                 Type*               ret_type;
-                bool                is_varag;
+                bool                is_vararg;
             } proc;
 
             struct {
                 SVec<TypeField*> items;
             } aggregate;
         };
+
+        bool typeCheck(Type* other);
+        const char* repr();
+        bool isCallable();
+        bool isLValue();
+        bool canCast(Type* type);
+        int calcSize();
     };
 
     struct TypeField {
@@ -64,18 +72,20 @@ namespace Pietra::Ast {
     Type* type_init(TypeKind kind);
     Type* type_int(int size);    
     Type* type_void();
+    Type* type_any();
     Type* type_float(int size);
     Type* type_ptr(Type* base);
     Type* type_array(Type* base, int size);
     Type* type_struct(SVec<TypeField*> fields);
     Type* type_union(SVec<TypeField*> fields);
-    Type* type_proc(SVec<TypeField*> params, Type* ret_type);
+    Type* type_proc(SVec<TypeField*> params, Type* ret_type, bool is_vararg);
     Type* type_string();
     Type* type_aggregate(SVec<TypeField*> items, bool isStruct = true);
     Type* type_unresolved();
     Type* unqualify_type(Type* type);
-    bool is_arithmetric_type(Type* type);
+    bool isNumericType(Type* type);
     bool can_add_type(Type* lhs, Type* rhs);
-
+    bool TypeCheck(Type* lhs, Type* rhs);    
+    Type* biggestNumericType(Type* lhs, Type* rhs);
 }
 #endif /*TYPES_HPP*/

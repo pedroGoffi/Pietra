@@ -12,19 +12,15 @@
 
 namespace Pietra::Utils {
 using namespace Pietra::Ast;
-Arena<void*> ast_arena;
-template<typename T>
-T* ast_alloc(){
-    return (T*) ast_arena.alloc(sizeof(T));    
-}
+
 Note* init_note(const char* name, SVec<Expr*> args){
-    Note* note = ast_alloc<Note>();
+    Note* note = arena_alloc<Note>();
     note->name = name;
     note->args = args;
     return note;
 }
 Expr* init_expr(ExprKind kind){        
-    Expr* e = ast_alloc<Expr>();
+    Expr* e = arena_alloc<Expr>();
     e->kind = kind;
     return e;
 }
@@ -76,6 +72,7 @@ Expr* expr_new(){
     assert(false && "unimplemented NEW expr");
 }
 Expr* expr_unary(Lexer::tokenKind unary_kind, Expr* expr){
+    assert(expr);
     Expr* e = init_expr(Ast::EXPR_UNARY);
     e->unary.unary_kind = unary_kind;
     e->unary.expr = expr;
@@ -121,9 +118,9 @@ Expr* expr_call(Expr* base, SVec<Expr*> args){
     return e;
 }
 TypeSpec* init_typespec(TypeSpecKind kind){
-    TypeSpec* ts = ast_alloc<TypeSpec>();    
-    ts->kind = kind;    
-    ts->resolved_type = ast_alloc<Ast::Type>();       
+    TypeSpec* ts = arena_alloc<TypeSpec>();    
+    ts->kind = kind;        
+    ts->resolvedTy = type_unresolved();
     return ts;
 }
 TypeSpec* typespec_name(const char* name){
@@ -161,7 +158,7 @@ TypeSpec* typespec_const(TypeSpec* base){
     return ts;
 }
 Stmt* init_stmt(StmtKind kind){
-    Stmt* stmt = ast_alloc<Stmt>();    
+    Stmt* stmt = arena_alloc<Stmt>();    
     stmt->kind = kind;
     return stmt;
 }
@@ -173,7 +170,7 @@ Stmt* stmt_expr(Expr* e){
 }
 Stmt* stmt_while(Expr* cond, SVec<Stmt*> block){
     Stmt* st = init_stmt(STMT_WHILE);
-    st->stmt_while = ast_alloc<StmtWhile>();
+    st->stmt_while = arena_alloc<StmtWhile>();
     st->stmt_while->cond = cond;
     st->stmt_while->block = block;
     
@@ -181,7 +178,7 @@ Stmt* stmt_while(Expr* cond, SVec<Stmt*> block){
 }
 
 IfClause* init_if_clause(Expr* cond, SVec<Stmt*> block){
-    IfClause* ifc = ast_alloc<IfClause>();    
+    IfClause* ifc = arena_alloc<IfClause>();    
     ifc->cond = cond;
     ifc->block = block;
     return ifc;
@@ -215,19 +212,19 @@ Stmt* stmt_switch(Expr* cond, SVec<SwitchCase*>   cases, bool has_default, SVec<
     return st;
 }
 SwitchCase* switch_case(SVec<SwitchCasePattern*> patterns, SVec<Stmt*> block){
-    SwitchCase* sc = ast_alloc<SwitchCase>();    
+    SwitchCase* sc = arena_alloc<SwitchCase>();    
     sc->patterns    = patterns;
     sc->block       = block;
     return sc;
 }
 SwitchCasePattern* init_pattern(){
-    SwitchCasePattern* pattern = ast_alloc<SwitchCasePattern>();
+    SwitchCasePattern* pattern = arena_alloc<SwitchCasePattern>();
     pattern->begin  = 0;
     pattern->end    = pattern->begin;
     return pattern;
 }
 Decl* init_decl(DeclKind kind){
-    Decl* d = ast_alloc<Decl>();
+    Decl* d = arena_alloc<Decl>();
     d->kind = kind;
     return d;    
 }
@@ -239,7 +236,7 @@ Decl* decl_var(const char* name, TypeSpec* type, Expr* init){
     return d;
 }    
 ProcParam* proc_param(const char* name, TypeSpec* type, Expr* init){
-    ProcParam* p    = ast_alloc<ProcParam>();
+    ProcParam* p    = arena_alloc<ProcParam>();
     p->name         = Core::cstr(name);
     p->type         = type;
     p->init         = init;
@@ -247,20 +244,21 @@ ProcParam* proc_param(const char* name, TypeSpec* type, Expr* init){
     return p;
 }
 ProcParam* proc_param_varargs(){
-    ProcParam* p    = ast_alloc<ProcParam>();
+    ProcParam* p    = arena_alloc<ProcParam>();
     p->name         = Core::cstr("<variadic argument>");
     p->isVararg     = true;
     return p;
 }
-Decl* decl_proc(const char* name, SVec<ProcParam*> params, TypeSpec* ret, SVec<Stmt*> block, bool is_complete, bool is_vararg = false, SVec<Note*> notes = {}){
+Decl* decl_proc(const char* name, SVec<ProcParam*> params, TypeSpec* ret, SVec<Stmt*> block, bool is_complete, bool is_vararg = false, SVec<Note*> notes = {}, bool is_internal = false){
     Decl* d = init_decl(Ast::DECL_PROC);
     d->name = Core::cstr(name);
-    d->proc.params      = params;
-    d->proc.ret         = ret;
-    d->proc.block       = block;
-    d->proc.is_complete = is_complete;    
-    d->proc.is_vararg    = is_vararg;
-    d->notes = notes;
+    d->proc.params          = params;
+    d->proc.ret             = ret;
+    d->proc.block           = block;
+    d->proc.is_complete     = is_complete;    
+    d->proc.is_vararg       = is_vararg;
+    d->proc.is_internal     = is_internal;
+    d->notes                = notes;
     return d;
 }
 Decl* decl_aggregate(const char* name, aggregateKind kind, SVec<AggregateItem*> items){
@@ -272,7 +270,7 @@ Decl* decl_aggregate(const char* name, aggregateKind kind, SVec<AggregateItem*> 
     return d;
 }
 EnumItem* EnumItem_new(const char* name, Expr* init){    
-    EnumItem* e = ast_alloc<EnumItem>();
+    EnumItem* e = arena_alloc<EnumItem>();
     e->name = Core::cstr(name);
     e->init = init;
     return e;
@@ -284,7 +282,7 @@ Decl* decl_enum(const char* name, SVec<EnumItem*> items){
     return d;
 }
 AggregateItem* aggregate_item_field(SVec<const char*> names, TypeSpec* type, Expr* init){
-    AggregateItem* field = ast_alloc<AggregateItem>();
+    AggregateItem* field = arena_alloc<AggregateItem>();
     field->kind = Ast::AGGREGATEITEM_FIELD;    
     field->field.names = names;
     field->field.type = type;

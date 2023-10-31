@@ -38,7 +38,7 @@ namespace Pietra::Ast {
         EXPR_CAST,                      //  expr as type | (:type) expr
         EXPR_TERNARY,                    //  expr if expr else expr
         EXPR_ARRAY_INDEX,
-        EXPR_CALL,
+        EXPR_CALL,        
     };
     
     struct Expr{
@@ -167,10 +167,10 @@ namespace Pietra::Ast {
         TYPESPECMUT_MUT_ADDR
     };
     struct TypeSpec{
-        TypeSpecKind kind;
-        TypeSpecMutablity mutablity;
-        TypeSpec* base;
-        Ast::Type* resolved_type;
+        TypeSpecKind        kind;
+        TypeSpecMutablity   mutablity;
+        TypeSpec*           base;    
+        Type*               resolvedTy; 
         union{            
             const char* name;
             struct {                
@@ -242,6 +242,7 @@ namespace Pietra::Ast {
             struct {                            
                 bool                is_complete; 
                 bool                is_vararg;
+                bool                is_internal;
                 SVec<ProcParam*>    params;
                 TypeSpec*           ret;
                 SVec<Stmt*>         block;

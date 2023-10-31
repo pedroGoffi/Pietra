@@ -11,7 +11,7 @@ using namespace Pietra;
 
 template<typename T>
 Core::SVecHdr* Core::SVec<T>::get_head(){    
-    return ((Core::SVecHdr*)((char*)(this->data) - offsetof(Core::SVecHdr, buff)));
+    return this->data? ((Core::SVecHdr*)((char*)(this->data) - offsetof(Core::SVecHdr, buff))): 0;    
 }
 
 template<typename T>
@@ -26,7 +26,7 @@ int Core::SVec<T>::cap(){
 
 template<typename T>
 T* Core::SVec<T>::end(){    
-    return (T*)(this->data + this->len());
+    return this->data? (T*)(this->data + this->len()): 0;    
 }
 
 template<typename T>
@@ -43,11 +43,17 @@ bool Core::SVec<T>::check_if_fits(int size){
 template<typename T>
 void Core::SVec<T>::free(){
     if(this->data){
-        std::free(this->get_head());
-    }
+        SVecHdr* hdr = get_head();
+        assert(hdr);
 
-    this->get_head()->len = 0;
-    this->get_head()->cap = 0;    
+        
+        hdr->len    = 0;
+        hdr->cap    = 0;
+        // NOTE: cant free this->data idk why
+        // TODO it latter
+    }
+    
+    
 }
 template<typename T>
 void Core::SVec<T>::reset(){
@@ -122,6 +128,10 @@ T& Core::SVec<T>::back(){
     }
     return this->at(this->len() - 1);
   
+}
+template<typename T>
+T& Core::SVec<T>::next(){
+    return this->at(this->id++);
 }
 
 

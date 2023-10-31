@@ -14,9 +14,12 @@ namespace Pietra::Core {
         void*   blocks_begin;
         SVec<void*>  blocks;
 
+
+    
     void grow(int min_size);
     void push_block(void* block);
     public:
+        Arena<T>();
         T* alloc(int size);
         void free();
         T*   begin();
@@ -32,7 +35,6 @@ namespace Pietra::Core {
 
 
     template<typename T> T* arena_alloc(int rep);
-    void arena_free();
-
+    void arenas_free();
 }
 #endif /*ARENA_HPP*/

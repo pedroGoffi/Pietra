@@ -3,6 +3,7 @@
 #include "../include/llvm.hpp"
 #include "arena.cpp"
 #include "pprint.cpp"
+#include <csetjmp>
 #include <cstdint>
 #include <fstream>
 #include <ios>
@@ -28,7 +29,8 @@ std::unique_ptr<Module>                             Mod;
 std::unique_ptr<IRBuilder<>>                        Builder;    
 std::map<std::string, AllocaInst*>                  NamedValues;
 std::map<std::string, LLVMCompiler::C_var*>         globalVars;
-std::map<std::string, LLVMCompiler::C_struct*>      NamedStructs;
+SVec<LLVMCompiler::C_struct*>                       NamedStructs;
+std::map<std::string, Value*>                       constExprVals;
 LLVMCompiler::UCtx                                  uctx;
 int count(){
     static int __count = 0;
@@ -44,7 +46,7 @@ BasicBlock* LLVMCompiler::new_bb(Function* curr_F){
 }
 Value* LLVMCompiler::compile_icmp_zero(Value* v){
     assert(v);
-    ConstantInt* zero = ConstantInt::get(*Ctx, APInt(64, 0));
+    Constant* zero = Constant::getNullValue(v->getType());    
     return Builder->CreateICmpEQ(v, zero);
 }
 Value* LLVMCompiler::cond_jmp(Value* cond, BasicBlock* True, BasicBlock* False){
@@ -56,13 +58,21 @@ Value* LLVMCompiler::cond_jmp(Value* cond, BasicBlock* True, BasicBlock* False){
 Value* LLVMCompiler::get_null(){
     return Constant::getNullValue(Builder->getCurrentFunctionReturnType());            
 }
-                
+Value* LLVMCompiler::compile_func_ret(){
+    Function* F = Builder->GetInsertBlock()->getParent();
+
+    if(!F->getReturnType()->isVoidTy()){
+        return Builder->CreateRet(get_null());
+    } else {
+        return Builder->CreateRetVoid();
+    }
+}
 Value* LLVMCompiler::compile_modify(Lexer::tokenKind kind, Expr* var, Expr* rhs){
     if(kind == Lexer::TK_EQ){
         uctx.set(U_GET_ADDR);
         Value* var_val = compile_expr(var);
         uctx.reset();
-        Value* rhs_val = compile_expr(rhs);                
+        Value* rhs_val = compile_expr(rhs);                        
         Builder->CreateStore(rhs_val, var_val);
     }
 }
@@ -76,6 +86,21 @@ Value* LLVMCompiler::compile_unary(Lexer::tokenKind kind, Expr* expr){
             assert(ptr->getType()->isPointerTy());
             return Builder->CreateLoad(ptr);
         }
+        case Lexer::TK_AMPERSAND:   {
+            printf("unary.\n");
+            uctx.set(U_GET_ADDR);            
+            Value* val = compile_expr(expr);            
+            assert(val->getType()->isPointerTy());
+            return val;            
+        }
+        case Lexer::TK_NOT: {
+            Value* val = compile_expr(expr);                        
+            return Builder->CreateNot(val);            
+        }
+        case Lexer::TK_SUB: {
+            Value* val = compile_expr(expr);
+            return Builder->CreateNeg(val);
+        }        
         default: assert(0);
     }
 }
@@ -86,6 +111,8 @@ Value* LLVMCompiler::compile_binary(Lexer::tokenKind kind, Expr* lhs, Expr* rhs)
     Value* left = compile_expr(lhs);
     Value* right = compile_expr(rhs);
     assert(left and right);
+    assert(left->getType() == right->getType());
+    
     switch(kind){
         case Lexer::TK_ADD:     return Builder->CreateAdd(left, right);
         case Lexer::TK_MULT:    return Builder->CreateMul(left, right);
@@ -94,6 +121,17 @@ Value* LLVMCompiler::compile_binary(Lexer::tokenKind kind, Expr* lhs, Expr* rhs)
             Value* val = Builder->CreateICmpSLT(left, right);
             return Builder->CreateIntCast(val, left->getType(), true);
         }            
+        case Lexer::TK_LTE:     {            
+            Value* val = Builder->CreateICmpSLE(left, right);
+            return Builder->CreateIntCast(val, left->getType(), true);
+        }
+        case Lexer::TK_CMPEQ:   {
+            if(left->getType()->isPointerTy() or right->getType()->isPointerTy()){
+                return Builder->CreatePtrDiff(left, right);
+            }
+            
+            return Builder->CreateICmpEQ(left, right);
+        }
         default: assert(0 && "undefined");
     }
 
@@ -112,14 +150,12 @@ Value* LLVMCompiler::compile_init_var(const char* name, TypeSpec* pts, Expr* rhs
     if(isGlobal){
         std::string sname = std::string(name);
         assert(globalVars.find(sname) == globalVars.end());
-        GlobalVariable* var = new GlobalVariable(
-            ltype, 
-            false, 
-            GlobalVariable::WeakAnyLinkage,
-            0,
-            name);
-
         Mod->getOrInsertGlobal(name, ltype);
+        GlobalVariable* var = Mod->getGlobalVariable(name);
+        var->setConstant(false);
+        var->setLinkage(GlobalVariable::WeakAnyLinkage);
+        var->setInitializer(Constant::getNullValue(ltype));
+                
         globalVars[sname] = C_var::New(name, var, opt_init);
         return var;
     }
@@ -145,26 +181,56 @@ Value* LLVMCompiler::compile_call(Expr* base, SVec<Expr*> pargs){
 
     return ret;
 }
-Value* LLVMCompiler::compile_field_access(Expr* parent, Expr* child){
-    Value* p = compile_expr(parent);
-    switch(child->kind){
-        case EXPR_NAME: {
-            const char* fieldn = child->name;
-            std::string pstname = std::string(p->getType()->getStructName());
-            assert(p->getType()->isAggregateType());
-            if(NamedStructs.find(pstname) != NamedStructs.end()){
-                C_struct* st = NamedStructs[pstname];
-
-                int offset = 0;
-                for(AggregateItem* item: st->items){
-                    for(auto name: item->field.names){
-                        if(name == Core::cstr(fieldn)){
-                            // Get this field with offset           
-                            assert(0 && "TODO");                            
-                        } else {
-                            offset += 1;
-                        }
+Value* LLVMCompiler::compile_Struct_GEP_by_offset(C_struct* st, Value* parent, int offset)
+{
+    printf("inside %s\n", __FUNCTION__);
+    return parent;
+    Builder->CreateStructGEP(parent, offset);
+}
+Value* LLVMCompiler::compile_Struct_GEP_by_name(C_struct* st, Value* parent, const char* name){
+    printf("inside %s\n", __FUNCTION__);
+    int offset = 0;
+    for(AggregateItem* item: st->items){
+        switch(item->kind){
+            case Ast::AGGREGATEITEM_FIELD:  {
+                for(const char* field_name: item->field.names){
+                    if(field_name == name){
+                        return compile_Struct_GEP_by_offset(st, parent, offset);
                     }
+                    else {
+                        offset++;
+                    }
+                }                
+            }            
+            
+        }
+    }
+    printf("[ERR]: Could not find: %s in the structure: %s\n", name, st->name);
+    exit(1);
+    
+}
+Value* LLVMCompiler::compile_Struct_GEP(C_struct* st, Value* parent, Expr* child){
+    printf("inside %s\n", __FUNCTION__);
+    int offset = 0;
+    switch(child->kind){
+        case EXPR_NAME:
+            return compile_Struct_GEP_by_name(st, parent, child->name);
+        
+    }
+    assert(0);
+    
+}
+Value* LLVMCompiler::compile_field_access(Expr* parent, Expr* child){    
+    uctx.set(U_GET_ADDR);
+    printf("inside %s\n", __FUNCTION__);
+    Value* p = compile_expr(parent);
+        
+    switch(child->kind){
+        case EXPR_NAME: {            
+            llvm::Type* ty = p->getType();
+            for(C_struct* st: NamedStructs){
+                if(st->type == ty){
+                    return compile_Struct_GEP_by_name(st, p, child->name);
                 }
             }
             
@@ -178,6 +244,12 @@ Value* LLVMCompiler::compile_field_access(Expr* parent, Expr* child){
     return p;
     //return Builder->CreateExtractElement(c, p);
 }
+Value* LLVMCompiler::compile_array_index(Expr* base, Expr* index){
+    uctx.reset();
+    Value* index_v = compile_expr(index);
+    Value* base_v  = compile_expr(base);
+    return Builder->CreateGEP(base_v, index_v);
+}
 Value* LLVMCompiler::compile_expr(Expr* expr){
     switch(expr->kind){
         case EXPR_INT:  {
@@ -188,21 +260,24 @@ Value* LLVMCompiler::compile_expr(Expr* expr){
             Value* val = ConstantFP::get(*Ctx, APFloat(expr->float_lit));        
             return Builder->Insert(val);
         }
-        case EXPR_NAME: {
-            auto opt_load_var = [](AllocaInst* val) -> Value* {
-
-                if(uctx.expect(U_GET_ADDR)){
-                    return val;    
-                }
-                return Builder->CreateLoad(val->getAllocatedType(), val);
-            };
-            if(NamedValues.find(expr->name) != NamedValues.end()){                
-                Value* val = NamedValues[expr->name];                                
-                return opt_load_var((AllocaInst*)val);
+        case EXPR_NAME: {            
+            #define opt_load_var(__var)                     \
+                uctx.expect(U_GET_ADDR)? __var: Builder->CreateLoad(__var);
                 
-            } else if(globalVars.find(expr->name) != globalVars.end()){
-              Value* val = globalVars[expr->name]->var;
-              return opt_load_var((AllocaInst*)val);
+            if(NamedValues.find(expr->name) != NamedValues.end()){                                
+                Value* val = NamedValues[expr->name];                                
+                return opt_load_var(val);
+                
+                
+            } else if(globalVars.find(expr->name) != globalVars.end()){                
+                Value* var = globalVars[expr->name]->var;
+                return (uctx.expect(U_GET_ADDR))
+                ?   var
+                :   Builder->CreateLoad(var);
+                              
+            } else if(constExprVals.find(expr->name) != constExprVals.end()){
+                return constExprVals[expr->name];
+
             } else if (Function* F = Mod->getFunction(expr->name)){
                 return F;
             }
@@ -211,64 +286,95 @@ Value* LLVMCompiler::compile_expr(Expr* expr){
             exit(1);
             
         }       
-        case EXPR_CALL:     return compile_call(expr->call.base, expr->call.args);    
-        case EXPR_STRING:   return Builder->CreateGlobalStringPtr(expr->string_lit);;
-        case EXPR_UNARY:    return compile_unary(expr->unary.unary_kind, expr->unary.expr);
-        case EXPR_BINARY:   return compile_binary(expr->binary.binary_kind, expr->binary.left, expr->binary.right);
-        case EXPR_INIT_VAR: return compile_init_var(expr->init_var.name, expr->init_var.type, expr->init_var.rhs, false);
-        case EXPR_FIELD:    return compile_field_access(expr->field_acc.parent, expr->field_acc.children);
+        case EXPR_CAST: {
+            Value* val          = compile_expr(expr->cast.expr);
+            llvm::Type* type_to = typespec(expr->cast.typespec);
+            return Builder->CreateAddrSpaceCast(val, type_to);
+
+            if(!CastInst::isBitCastable(val->getType(), type_to)){
+                printf("ERR: forbidden cast.\n");
+                exit(1);
+            }
+            Instruction::CastOps op = CastInst::getCastOpcode(val, true, type_to, true);
+            return Builder->CreateCast(op, val, type_to);
+        }
+        case EXPR_CALL:         return compile_call(expr->call.base, expr->call.args);    
+        case EXPR_STRING:       return Builder->CreateGlobalStringPtr(expr->string_lit);;
+        case EXPR_UNARY:        
+            assert(expr->unary.expr);
+            return compile_unary(expr->unary.unary_kind, expr->unary.expr);
+        case EXPR_BINARY:       return compile_binary(expr->binary.binary_kind, expr->binary.left, expr->binary.right);
+        case EXPR_INIT_VAR:     return compile_init_var(expr->init_var.name, expr->init_var.type, expr->init_var.rhs, false);
+        case EXPR_FIELD:        return compile_field_access(expr->field_acc.parent, expr->field_acc.children);
+        case EXPR_ARRAY_INDEX:  return compile_array_index(expr->array.base, expr->array.index);
         default: assert(0);
     }
 }
-Value* LLVMCompiler::compile_if_clause(IfClause* clause, BasicBlock* block, llvm::BasicBlock* abs_end){
-    assert(clause);    
-    Value* if_v = compile_expr(clause->cond);
-    assert(if_v);
-    
-    Value* zero_v = ConstantInt::get(*Ctx, APInt(64, 0, true));
-    
-    
-    if_v = Builder->CreateICmpNE(if_v, zero_v); // if_v == 0     
-    
-    Builder->CreateCondBr(if_v, block, abs_end);
-    Builder->SetInsertPoint(block);
-    compile_stmt_block(clause->block);
-    Builder->CreateBr(abs_end);
-    Builder->SetInsertPoint(abs_end);    
-    return nullptr;
-}
+
 Value* LLVMCompiler::compile_if(IfClause* ifc, SVec<IfClause*> elifs, SVec<Stmt*> else_block){            
     Function* F = Builder->GetInsertBlock()->getParent();
     assert(F);
-    BasicBlock* ifbb = new_bb(F);
-    SVec<BasicBlock*> elifs_bbs;
-    BasicBlock* elsebb = nullptr;
-    bool hasElse = false;
-    for(IfClause* _: elifs){
-        elifs_bbs.push(new_bb(F));
-    }
-    if(else_block.len() > 0){
-        hasElse = true;
-        elsebb = new_bb(F);
-    }
-    BasicBlock* end = new_bb(F);
     
-    compile_if_clause(ifc, ifbb, end);
-    int elif_id = 0;
+    SVec<BasicBlock*> bbs;    
+    bool hasElse = false;
+    bbs.push(new_bb(F));
+    // Create the blocks
+    {
+        for(IfClause* _: elifs){
+            bbs.push(new_bb(F)); // For Checking
+            bbs.push(new_bb(F)); // The block itself
+            
+        }
+        if(else_block.len() > 0){
+            hasElse = true;
+            bbs.push(new_bb(F));
+        }
+        bbs.push(new_bb(F)); // END block
+    }
+        
+    /////////////////////// Created all blocks now we compile the block inside code    
+    // Compile the first if block
+    
+    BasicBlock* if_b = bbs.next();
+    {         
+        Value* cond = compile_expr(ifc->cond);
+        cond_jmp(cond, if_b, bbs.at(1));
+        Builder->SetInsertPoint(if_b); // id in else
+        compile_stmt_block(ifc->block);
+        Builder->CreateBr(bbs.back()); // Jump to the final 
+    }
+    // Compile optioanl Elif blocks
+    
+
+    int id = 1;
     for(IfClause* elif: elifs){
-        BasicBlock* elif_bb = elifs_bbs.at(elif_id++);
-        Builder->SetInsertPoint(elif_bb);
-        compile_if_clause(elif, elif_bb, end);
+        BasicBlock* elif_check  = bbs.next();
+        BasicBlock* elif_block  = bbs.next();
+        
+        Builder->SetInsertPoint(elif_check);
+        BasicBlock* next_b  = bbs.at(id + 2);
+        Value* cond = compile_expr(elif->cond);
+        cond_jmp(cond, elif_block, next_b);
+        
+        Builder->SetInsertPoint(elif_block);
+        compile_stmt_block(elif->block);
+        Builder->CreateBr(bbs.back());
+        id += 2;
+        Builder->SetInsertPoint(bbs.at(id));
     }
-    if(hasElse){
-        assert(else_block.len() > 0);
-        assert(elsebb);
-        Builder->SetInsertPoint(elsebb);
-        compile_stmt_block(else_block);
-        Builder->CreateBr(end);
-        Builder->SetInsertPoint(end);
+    // Compile optional Else block
+    {
+        if(hasElse){
+            BasicBlock* else_b = bbs.next();
+            Builder->SetInsertPoint(else_b);
+            compile_stmt_block(else_block);
+            Builder->CreateBr(bbs.back());
+        }
     }
-    return nullptr;
+    id++;
+    
+    Builder->SetInsertPoint(bbs.back());
+    return get_null();
 }
 Value* LLVMCompiler::compile_for(Expr* init, Expr* cond, Expr* inc, SVec<Stmt*> block){    
     BasicBlock* curr    = Builder->GetInsertBlock();
@@ -371,19 +477,24 @@ llvm::Function* LLVMCompiler::compile_decl_proc(Decl* decl){
     if(decl->name == Core::cstr("main")){
         decl->name = "pietra_main";
     }
-    // Forward declaration
-    if(!decl->proc.is_complete){ 
-        assert(decl->proc.block.len() == 0);        
-        return nullptr;        
+    if(decl->proc.is_internal){
+        // TODO: declare internal proc
+        return nullptr;
     }
   
     Function* F = Mod->getFunction(decl->name);
     
     if(!F){
         F = proc_proto(decl->name, decl->proc.params, decl->proc.ret);
-    }    
-    assert(F);
+    }        
+    assert(F);    
     dvprint("declaring procedure: %s\n", decl->name);
+    
+
+    if(not decl->proc.is_complete){
+        return F;
+    }    
+    
     for(Note* note: decl->notes){
         if(note->name == Core::cstr("extern")){
             assert(note->args.len() == 0);
@@ -392,12 +503,21 @@ llvm::Function* LLVMCompiler::compile_decl_proc(Decl* decl){
     }
     llvm::BasicBlock* bb 
         = llvm::BasicBlock::Create(*Ctx, "entry", F);    
-    Builder->SetInsertPoint(bb);    
-
+    Builder->SetInsertPoint(bb);        
+    {
+        // Clean before arguments
+        NamedValues.clear(); 
+        // Allocate parameters
+        for(auto& arg: F->args()){                        
+            AllocaInst* alloca = Builder->CreateAlloca(arg.getType(), nullptr, arg.getName());            
+            Builder->CreateStore(&arg, alloca);
+            NamedValues[Core::cstr(arg.getName().data())] = alloca;
+        }
+        
+    }
     compile_stmt_block(decl->proc.block);           
-
-    Builder->CreateRet(Constant::getNullValue(F->getReturnType()));
-    assert(F);
+    compile_func_ret();
+    
     verifyFunction(*F);    
     return F;
 }        
@@ -449,12 +569,11 @@ Function* LLVMCompiler::proc_proto(const char* &name, SVec<ProcParam*> &params, 
             //assert(param == params.back()); // Assert that this param is the last parameter
             is_vararg = true;
             break;
-        }
+        }        
         assert(param->type);
         TypeSpec* ptype  = param->type;
         llvm::Type* ltype = typespec(ptype);
-        assert(ltype);
-
+        assert(ltype);        
         lparams.push_back(ltype);    
     }
     assert(ret);
@@ -491,10 +610,12 @@ llvm::Type* LLVMCompiler::typespec(TypeSpec* ts){
             return llvm::ArrayType::get(typespec(ts->base), size);
         }
         case Ast::TYPESPEC_NAME:    {
-            auto itt = NamedStructs.find(ts->name);
-            if(itt != NamedStructs.end()){
-                return NamedStructs[ts->name]->type;
+            for(C_struct* st: NamedStructs){
+                if(ts->name == st->name){
+                    return st->type;
+                }
             }
+            
             [[fallthrough]];
         }
         default: 
@@ -524,9 +645,11 @@ llvm::StructType* LLVMCompiler::compile_struct(const char* name, SVec<AggregateI
         items_ty, 
         name);       
 
-    assert(NamedStructs.find(name) == NamedStructs.end());
+    for(C_struct* st: NamedStructs){
+        assert(st->name != name);
+    }    
 
-    NamedStructs[name] = C_struct::Create(name, items, st);
+    NamedStructs.push(C_struct::Create(name, items, st));
     return st;
 }
 LCErr LLVMCompiler::compile_decl_aggregate(Decl* decl){
@@ -544,9 +667,18 @@ LCErr LLVMCompiler::compile_decl_aggregate(Decl* decl){
 
     
 }
+LCErr LLVMCompiler::compile_decl_constexpr(Decl* decl){
+    assert(decl->kind == Ast::DECL_CONSTEXPR);
+    std::string name = std::string(decl->name);
+    Value*      val  = compile_expr(decl->expr);
+    assert(val);
+    assert(constExprVals.find(name) == constExprVals.end());
+    constExprVals[name] = val;
+    return ERR_NONE;
+}
 LCErr LLVMCompiler::compile_decl(Decl* decl){
+    NamedValues.clear();
     assert(decl);
-
     switch(decl->kind){
         case DECL_PROC:
             compile_decl_proc(decl);
@@ -556,6 +688,9 @@ LCErr LLVMCompiler::compile_decl(Decl* decl){
             return ERR_NONE;
         case DECL_VAR:
             compile_init_var(decl->name, decl->var.type, decl->var.init, true);
+            return ERR_NONE;
+        case DECL_CONSTEXPR:
+            compile_decl_constexpr(decl);
             return ERR_NONE;
         default: assert(0 && "unimplemented compile llvm for this decl");
     }
@@ -581,10 +716,14 @@ void LLVMCompiler::compile__start(){
         printf("-= %s\n", var.first.data());
         C_var* c_var = var.second;
         if(c_var->init){                        
-            printf("TODO: init global variable.\n");
+            GlobalVariable* v = Mod->getNamedGlobal(c_var->name);
+            assert(v);
+                        
+            Builder->CreateStore(c_var->init, v);
+
         }
         
-    }    
+    }        
 
     // call main procedure
     Function* lmain = Mod->getFunction("pietra_main");
@@ -592,14 +731,14 @@ void LLVMCompiler::compile__start(){
     Builder->CreateCall(lmain);    
     Builder->CreateRetVoid();
 }
-LCErr LLVMCompiler::compile_ast(SVec<Decl*> ast){
-    // Initialize the compiler    
+void LLVMCompiler::init_compiler(){
     Ctx     = std::make_unique<LLVMContext>();
     Mod     = std::make_unique<Module>("PLang", *Ctx);    
     Builder = std::make_unique<IRBuilder<>>(*Ctx);
 
-
-
+}
+LCErr LLVMCompiler::compile_ast(SVec<Decl*> ast){
+    init_compiler();
     // Compile    
     for(Decl* decl: ast){                
         if(LCErr err = compile_decl(decl)) {
@@ -613,7 +752,7 @@ LCErr LLVMCompiler::compile_ast(SVec<Decl*> ast){
     // Debug
     printf("-----------------------------------------------\n");
     std::error_code err;    
-    llvm::raw_fd_ostream out("out.pietra", err);
+    llvm::raw_fd_ostream out("build/out.pietra", err);
     Mod->print(errs(), nullptr);
     Mod->print(out, nullptr);
     printf("-----------------------------------------------\n");

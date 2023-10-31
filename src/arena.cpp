@@ -6,9 +6,16 @@
 #include <cstdlib>
 
 using namespace Pietra;
-// GENENICAL USAGE ARENA
 
-Core::Arena<void*>          main_arena;
+SVec<Arena<void*>*> __arenas;
+Core::Arena<void*>  main_arena;
+
+
+
+template<typename T>
+Core::Arena<T>::Arena(){    
+    __arenas.push(reinterpret_cast<Arena<void*>*>(this));
+}
 
 template<typename T> 
 void Core::Arena<T>::grow(int min_size){    
@@ -33,7 +40,7 @@ T* Core::Arena<T>::alloc(int size){
     T* ptr = (T*)this->ptr;
     this->ptr = (char*) ALIGN_UP_PTR((char*)this->ptr + size, ARENA_ALIGNMENT);
     assert(this->ptr <= this->blocks_end);
-    assert(ptr == ALIGN_DOWN_PTR(ptr, ARENA_ALIGNMENT));
+    assert(ptr == ALIGN_DOWN_PTR(ptr, ARENA_ALIGNMENT));    
     return ptr;
 }
 template<typename T>
@@ -41,11 +48,11 @@ void Core::Arena<T>::push_block(void* block){
     this->blocks.push(block);
 }
 template<typename T>
-void Core::Arena<T>::free(){
+void Core::Arena<T>::free(){    
     for(void** block = this->blocks.begin(); block != this->blocks.end(); block++){        
-        std::free(*block);
+        if(block and *block)  std::free(*block);
     }
-    this->blocks.free();
+    
 }
 
 template<typename T> T* Core::Arena<T>::begin(){
@@ -58,13 +65,15 @@ template<typename T> T* Core::Arena<T>::end(){
 /// GENERICAL ARENA USAGE
 template<typename T>
 T* Core::arena_alloc(int rep){
-    T* ptr = (T*) main_arena.alloc(sizeof(T) * rep);    
-    assert(ptr && "Arena failed");
+    T* ptr = (T*) main_arena.alloc(sizeof(T) * rep);        
     return ptr;
 }
 
 void Core::arena_free(){
-    main_arena.free();    
+    for(Arena<void*>* arena: __arenas){
+        assert(arena);
+        arena->free();    
+    }    
 }
 
 

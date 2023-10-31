@@ -1,4 +1,5 @@
 #include "../include/pietra.hpp"
+#include <fcntl.h>
 // TODO: #include "preprocess.cpp"
 #include "package.cpp"
 #include "cursor.cpp"
@@ -10,32 +11,34 @@
 #include "pprint.cpp"
 #include "resolve.cpp"
 #include "type.cpp"
-#include "llvm.cpp"
+#include "preprocess.cpp"
+#include "Asmx86_64.cpp"
+//#include "GFSL_compiler.cpp"
+//#include "llvm.cpp"
 #include "cGen.cpp"
 #include <cstdlib>
 #include <string>
 
+
+#include <stdio.h>
+
+#include <stdlib.h>
+#include <sys/mman.h>
+#include <string.h>
+#include <unistd.h>
 using namespace Pietra::Lexer;
 using namespace Pietra::Utils;
 
-void arenas_cleanup(){
-    main_arena.free();
-    ast_arena.free();
-}
+
 
 int Pietra::Main(int argc, char** argv){              
     assert(argc == 2);
+    
     PPackage* package = PPackage::from(argv[1]);
-    Decl* dmain = package->get_sym("main");
+    SVec<Decl*> ast = resolve_package(package);
+    Asm::compile_ast(ast);
     
-
-    
-    SVec<Decl*> decls = resolve_ast(package->ast);
-    for(Decl* decl: decls){        
-        pPrint::decl(decl);
-        
-    }
-    LLVMCompiler::compile_ast(decls);    
-    arenas_cleanup();    
-    exit(1);    
+  
+    arena_free();
+    return EXIT_SUCCESS;
 }

@@ -13,8 +13,10 @@ namespace Pietra::Parser{
     Expr* add_expr();
     Expr* cmp_expr();
     Expr* logic_expr();
+    Expr* assign_expr();
     Expr* cast_expr();
     Expr* ternary_expr();
+    Expr* cast_expr();
     Expr* expr();
     SVec<Expr*> expr_list();
     TypeSpec* typespec_base();

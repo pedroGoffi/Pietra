@@ -91,20 +91,25 @@ namespace Pietra::LLVMCompiler {
             return this->state == test;
         }
     };
+    void init_compiler();
     BasicBlock* new_bb(Function* curr_F);
     Value* compile_icmp_zero(Value* v);
     Value* cond_jmp(Value* cond, BasicBlock* True, BasicBlock* False);
     Value* get_null();
+    Value* compile_func_ret();
     Value* compile_expr(Expr* expr);
+        Value* compile_Struct_GEP_by_offset(C_struct* st, Value* parent, int offset);
+        Value* compile_Struct_GEP_by_name(C_struct* st, Value* parent, const char* name);
+        Value* compile_Struct_GEP(C_struct* st, Value* parent, Expr* child);
         Value* compile_field_access(Expr* parent, Expr* field);
+        Value* compile_array_index(Expr* base, Expr* index);
         Value* compile_unary(Lexer::tokenKind kind, Expr* expr);
         Value* compile_binary(Lexer::tokenKind kind, Expr* lhs, Expr* rhs);
         Value* compile_init_var(const char* name, TypeSpec* pts, Expr* rhs, bool isGlobal);
         Value* compile_call(Expr* base, SVec<Expr*> pargs);
         Value* compile_modify(Lexer::tokenKind kind, Expr* var, Expr* rhs);
     Value* compile_stmt(Stmt* stmt);
-        Value* compile_if(IfClause* ifc, SVec<IfClause*> elifs, SVec<Stmt*> else_block);
-            Value* compile_if_clause(IfClause* clause, BasicBlock* block, BasicBlock* abs_end);
+        Value* compile_if(IfClause* ifc, SVec<IfClause*> elifs, SVec<Stmt*> else_block);            
         Value* compile_for(Expr* init, Expr* cond, Expr* inc, SVec<Stmt*> block);
         Value* compile_while(Expr* cond, SVec<Stmt*> block);
     Value* compile_stmt_block(SVec<Stmt*> block);
@@ -115,6 +120,7 @@ namespace Pietra::LLVMCompiler {
             llvm::Function* proc_proto(const char* &name, SVec<ProcParam*> &params, TypeSpec* &ret);
         LCErr compile_decl_aggregate(Decl* decl);
             llvm::StructType* compile_struct(const char* name, SVec<AggregateItem*> items);
+        LCErr compile_decl_constexpr(Decl* decl);
     LCErr compile_ast(Core::SVec<Decl*> sym);
 
     llvm::Type* type(Ast::Type* ptype);

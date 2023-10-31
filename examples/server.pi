@@ -88,23 +88,13 @@ close :: (fd: i64) {
     syscall(fd, SYS_CLOSE)
 }
 
-my :: (x: i64){
-    buff: *i64 = sbrk(32);    
-    buff_sz: i64 = 0;
-
-    
-    
-    while x {                
-        offset: i64 = 32 - buff_sz - 1;
-        (offset + *buff) = x % 10 + '0';
-        x = x / 10
-        buff_sz = buff_sz + 1        
-    }
-    dump(buff_sz)
-
-    write(buff_sz, (buff_sz + buff), STDOUT)
+type Socket :: *i64
+SA_sin_family :: (sock: Socket): *i64{
+    return (sock + 8)
 }
 main :: (){
+    p: *any = __builtin_buffer_alloc(10);
     
-    my(120)
+    
+    
 }

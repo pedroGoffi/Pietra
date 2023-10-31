@@ -1,7 +1,7 @@
 #ifndef DEV_DEBUG
 #define DEV_DEBUG
 
-#define DEBUG_MODE true
+#define DEBUG_MODE false
 
 
 

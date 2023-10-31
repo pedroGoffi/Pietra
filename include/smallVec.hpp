@@ -35,7 +35,8 @@ namespace Pietra::Core {
     
     template<typename T>
     struct SVec{        
-        T*  data = NULL;
+        T*      data = NULL;
+        size_t  id   = 0;
 
         SVecHdr* get_head();
 
@@ -60,14 +61,7 @@ namespace Pietra::Core {
         T& find(T item);        
         T& at(int index);
         T& back();
-    };
-
-
-
-
-
-    
-    
-    
+        T& next();
+    };            
 }
 #endif /*SMALLVEC_HPP*/

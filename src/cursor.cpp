@@ -7,13 +7,13 @@
 using namespace Pietra;
 
 
-PCursor* PCursor::from(const char *filename){    
+PStreamCursor* PStreamCursor::from(const char *filename){    
     std::FILE* fd = fopen(filename, "r");
     if(!fd){
         return nullptr;
     }
     
-    PCursor* cursor = Core::arena_alloc<PCursor>();
+    PStreamCursor* cursor = Core::arena_alloc<PStreamCursor>();
     cursor->stream = fileReader::read_file(filename);
     assert(cursor->stream);
         
@@ -22,8 +22,33 @@ PCursor* PCursor::from(const char *filename){
 
 }
 
-void PCursor::next(){    
+void PStreamCursor::next(){    
     this->decl = Parser::decl();    
 }
 
+PCursor::PCursor(SVec<Decl*>& Decls)
+   : mDecls(Decls){}
+   
+Decl* PCursor::next(){
+   this->mDecl =  this->mDecls.next();
+   return this->mDecl;
+}
+const char* PCursor::getName(){
+    assert(this->mDecl);    
+    return this->mDecl->name;
+}
+
+void PCursor::setDecls(SVec<Decl*> Decls){
+   this->mDecls = Decls;
+   this->mDecl = this->mDecls.at(0);
+}
+Decl* PCursor::find(const char* name){    
+    name = Core::cstr(name); // Makign intern string
+    for(auto& node: this->mDecls){
+        if(name == node->name){
+            return node;
+        }
+    }
+    return nullptr;
+}
 #endif /*CURSOR_CPP*/

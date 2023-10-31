@@ -54,11 +54,22 @@ Expr* Parser::literal_expr(){
         return Utils::expr_string(str);
     } else if(is_kind(Lexer::TK_OPEN_ROUND_BRACES)){
         next();
-        Expr* e = expr();
+        if(is_kind(TK_DDOT)){
+            // Casting
+            next();
+            TypeSpec* ts = typespec();
+            assert(is_kind(Lexer::TK_CLOSE_ROUND_BRACES));
+            next();
+            Expr* base = unary_expr();
+            return Utils::expr_cast(ts, base);
+        }
+        else {
+            Expr* e = expr();
 
-        assert(is_kind(Lexer::TK_CLOSE_ROUND_BRACES));
-        next();
-        return e;
+            assert(is_kind(Lexer::TK_CLOSE_ROUND_BRACES));
+            next();
+            return e;
+        }
 
     }
     else {
@@ -139,7 +150,10 @@ Expr* Parser::unary_expr(){
 }
 static inline bool is_mult_expr(){
     return 
-            token.kind == TK_MULT         
+            token.kind == TK_MULT   or
+            token.kind == TK_DIV    or
+            token.kind == TK_PIPE   or
+            token.kind == TK_MOD
     ;
 }
 Expr* Parser::mult_expr(){
@@ -176,6 +190,7 @@ static inline bool is_cmp_expr(){
             token.kind == TK_CMPEQ
         |   token.kind == TK_LT
         |   token.kind == TK_GT
+        |   token.kind == TK_LTE
 
     ;
 }
@@ -199,8 +214,8 @@ static inline bool is_logic_expr(){
 Expr* Parser::logic_expr(){
     
     if(token.name == keyword_not){
-        tokenKind kind = token.kind;        
-        assert(kind == TK_NOT);
+        tokenKind kind = TK_NOT;
+        
 
         next();
         return Utils::expr_unary(kind, logic_expr());
@@ -217,6 +232,11 @@ Expr* Parser::logic_expr(){
 }
 Expr* Parser::cast_expr(){    
     Expr* logic = logic_expr();
+    if(token.name == keyword_as){
+        next();
+        TypeSpec* ts = typespec();
+        return Utils::expr_cast(ts, logic);
+    }
     return logic;
 }
 static inline bool is_assign(){
@@ -224,13 +244,24 @@ static inline bool is_assign(){
             token.kind == TK_EQ
     ;
 }
-Expr* Parser::ternary_expr(){    
+Expr* Parser::assign_expr(){
     Expr* cast = cast_expr();
     if(is_assign()){
         tokenKind kind = token.kind;
         next();
         Expr* rhs = expr();
         cast = Utils::expr_binary(kind, cast, rhs);
+    }
+    return cast;
+}
+static inline bool is_ternary(){
+    return token.name == keyword_if;
+}
+Expr* Parser::ternary_expr(){        
+    Expr* cast = assign_expr();    
+    if (is_ternary()){
+        printf("[WARN]: Ternary expressions are not implemented yet.\n");
+        exit(1);
     }
     return cast;
 }
@@ -308,14 +339,20 @@ SVec<Stmt*> Parser::stmt_opt_curly_block(){
     if(is_kind(Lexer::TK_OPEN_CURLY_BRACES)){
         next();
         while(!is_kind(Lexer::TK_CLOSE_CURLY_BRACES)){
-            block.push(stmt());            
+            Stmt* st = stmt();
+            if(st){
+                block.push(st);            
+            }
         }
 
         assert(is_kind(Lexer::TK_CLOSE_CURLY_BRACES));
         next();
     }
     else {
-        block.push(stmt());        
+        Stmt* st = stmt();
+        if(st){
+            block.push(st);            
+        }
     }
     return block;
 }
@@ -491,6 +528,10 @@ Stmt* Parser::stmt_if(){
     return Utils::stmt_if(if_clause, elif_clauses, else_block);    
 }
 Stmt* Parser::stmt(){            
+    if(is_kind(Lexer::TK_DCOMMA)){
+        next();
+        return nullptr;
+    }
     if(token.name == keyword_if){
         return stmt_if();
     } else if(token.name == keyword_while){
@@ -504,7 +545,7 @@ Stmt* Parser::stmt(){
         return Utils::stmt_return(expr());
     }
     else {
-        return Utils::stmt_expr(expr());
+        return Utils::stmt_expr(expr());        
     }
 }
 ProcParam* Parser::proc_param(){    
@@ -567,11 +608,10 @@ Decl* Parser::decl_proc(const char* name){
     }
 
     SVec<Stmt*> block;
-    bool is_complete = true;
+    bool is_complete = true;    
 
-    if(is_kind(Lexer::TK_DCOMMA)){
-        
-        next();
+    if(is_kind(Lexer::TK_DCOMMA)){        
+        next();        
         is_complete = false;                
     } else {    
         block = stmt_opt_curly_block();

@@ -14,12 +14,9 @@ using namespace Pietra;
 using namespace Pietra::Core;
 
 SVec<Intern_string*> intern_strs;
-// STRING TRAITS
 
-
-char *strf(const char *fmt, ...) {
-    va_list args;
-    
+char *Core::strf(const char *fmt, ...) {        
+    va_list args;    
     va_start(args, fmt);
     size_t n = 1 + vsnprintf(NULL, 0, fmt, args);
     va_end(args);
@@ -35,7 +32,7 @@ const char* Core::cstr_range(const char *begin, const char *end){
     size_t len = end - begin;
     char* str = strf("%.*s", len, begin);
     for(Intern_string* intern: intern_strs){                
-        if(intern->len == len and !strncmp(intern->data, begin, len)){            
+        if(intern->len == len and !strncmp(intern->data, begin, len)){                        
             return intern->data;
         }
     }

@@ -62,11 +62,19 @@ void Lexer::skip_empty(){
         stream++;
     }
 }
-
+void Lexer::skip_opt_comment(){
+    if(stream[0] == '/' and stream[1] == '/'){
+        while(*stream != '\0' and *stream != '\n'){
+            stream++;
+        }
+    }
+}
 void Lexer::next(){    
     Lexer::skip_empty();
+    Lexer::skip_opt_comment();
     token.str_start = stream;
     while(isspace(*stream)) stream++;
+
     switch(*stream){
         __ALL_CASE_KWDS: 
         {
@@ -166,8 +174,9 @@ void Lexer::next(){
         CASE1('}', TK_CLOSE_CURLY_BRACES)
         CASE1(',', TK_COMMA)
         CASE1(';', TK_DCOMMA)
+        CASE1('/', TK_DIV)
         CASE1('*', TK_MULT)
-        CASE1('<', TK_LT)       
+        CASE1('%', TK_MOD)
         CASE1('>', TK_GT)
         CASE1('&', TK_AMPERSAND)
         CASE1('@', TK_NOTE)
@@ -176,7 +185,10 @@ void Lexer::next(){
         
         CASE2('+', TK_ADD, '+', TK_INC)
         CASE2('-', TK_SUB, '-', TK_DEC)
-        
+        CASE2('<', TK_LT, '=', TK_LTE)       
+        CASE2('!', TK_NOT, '=', TK_NEQ)
+        CASE1('|', TK_PIPE)
+
        
         #undef CASE1
         #undef CASE2
@@ -201,6 +213,7 @@ void Lexer::next(){
         */        
         default:
             printf("[ERR]: token.text = %s\nistr = %c\n", token.name, *stream);
+            stream++;
     }
     
     
@@ -390,10 +403,9 @@ void Lexer::Scanners::scan_int_base(int base){
 
         if(val > (UINT64_MAX - digit)/base){
             printf("[ERR]: integer overflow.\n");
-
-            while(isdigit(*stream++));
-            break;
+            while(isdigit(*stream)) stream++;            
             val = 0;
+            break;
         }
 
         val = val*base + digit;        
@@ -470,6 +482,8 @@ void Lexer::fprint_token(FILE* file, Token token){
 }
 const char* Lexer::tokenKind_repr(tokenKind k){
     switch(k){
+        case TK_PIPE:                   return "|";
+        case TK_DIV:                    return "/";
         case TK_EOF:                    return "EOF";
         case TK_DOT:                    return ".";
         case TK_DCOMMA:                 return ";";

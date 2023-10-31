@@ -101,6 +101,13 @@ namespace Pietra::pPrint{
                 }
                 pprint("))");
             )
+            CASE(EXPR_CAST,
+                pprint("(cast (");
+                expr(e->cast.expr);
+                pprint(") -> (");
+                typespec(e->cast.typespec);
+                pprint("))");
+            )
             CASE(EXPR_ARRAY_INDEX,
                 pprint("(");
                 pprint(("("));

@@ -9,6 +9,6 @@ namespace Pietra::Core {
 
     const char* cstr_range(const char* begin, const char* end);
     const char* cstr(const char* str);
-
+    char *strf(const char *fmt, ...);
 }
 #endif /*INTERN_HPP*/

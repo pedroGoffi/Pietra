@@ -1,0 +1,100 @@
+type cstr:: *i8
+type Addr_t:: *i64
+
+exit :: (exit_code: i64) {
+    syscall(exit_code, 60)
+}
+
+
+strlen :: (str: cstr): i64{
+    len: i64 = 0;
+    while *str {        
+        len = len + 1;
+        str = str + 1;
+    }
+    dump(len)
+    return len;
+}
+read :: (fd: i64, buf: *null, count: i64): i64 {
+    return 
+        syscall(count, buf, fd, 0)
+}
+write :: (size: i64, ptr: *null, fd: i64){
+    syscall(size, ptr, fd, 1)
+}
+
+__heap_begin :: (): *i64 {
+    return asm("mov rax, __heap_begin__");
+}
+
+__last_brk: *i64 = __heap_begin()
+brk :: (addr: *null): Addr_t{    
+    SYS_BRK: i64 = 12;    
+    __last_brk = syscall(addr, SYS_BRK);                    
+    return __last_brk;
+}
+sbrk :: (size: i64): *any {        
+
+    f: *i64 = brk(__last_brk + size);
+    return f;
+    *f = 420;
+    dump(*f)
+    exit(1)
+    
+}
+alloc :: (size: i64): *any {    
+    ptr: *any = sbrk(size);
+    if ptr < 0{
+        puts("[ERROR]: at alloc, invalid pointer:\n")
+        dump(ptr)
+        dump(-ptr)        
+    }
+    return ptr;
+}
+fputs :: (fd: i64, str: cstr){     
+    len: i64 = strlen(str)
+    write(len, str, fd)
+    
+}
+puts :: (str: cstr){
+    fputs(1, str)
+}
+
+S_IWUSR:    i64 = 128
+S_IRUSR:    i64 = 256
+S_IXUSR:    i64 = 64
+S_IWOTH:    i64 = 2
+S_IROTH:    i64 = 4
+O_READONLY: i64 = 0
+O_WRONLY:   i64 = 1
+O_RDWR:     i64 = O_WRONLY | O_READONLY | O_CREAT
+O_CREAT:    i64 = 64
+O_APPEND:   i64 = 1024
+open :: (filename: cstr, flags: i64, mode: i64): i64 {    
+    return syscall(mode, flags, filename, 2)    
+}
+
+
+fd_getText :: (fd: *null): cstr{    
+    ptr_len: i64 = 1024;
+    ptr: cstr = alloc(ptr_len);        
+    read(fd, ptr, ptr_len);            
+    return ptr;
+}
+
+close :: (fd: i64) {
+    syscall(fd, 3)
+}
+
+cat :: (fn: cstr)
+{    
+    fd: i64 = open(fn, O_READONLY, S_IWOTH | S_IROTH);
+    text: cstr = fd_getText(fd);
+    puts(text)
+    close(fd)    
+}
+
+main :: (argc: i64, argv: *cstr){
+    brk(0);        
+    cat(argv[1])
+}

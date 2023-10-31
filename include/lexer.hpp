@@ -10,9 +10,12 @@
 namespace Pietra::Lexer{    
     enum tokenKind {
         TK_EOF,
+        TK_MOD,
         TK_DOT, 
         TK_DCOMMA,
         TK_LT,
+        TK_PIPE,
+        TK_LTE,
         TK_LAND,
         TK_LOR,
         TK_GT,
@@ -22,11 +25,13 @@ namespace Pietra::Lexer{
         TK_DEC,
         TK_NOT,
         TK_INC,
+        TK_NEQ,        
         TK_MULT,
         TK_NOTE,
         TK_TRIPLE_DOT,
         TK_OPEN_ROUND_BRACES, 
         TK_CLOSE_ROUND_BRACES,
+        TK_DIV,
         TK_OPEN_SQUARED_BRACES,
         TK_CLOSE_SQUARED_BRACES,
         TK_OPEN_CURLY_BRACES,
@@ -68,7 +73,7 @@ namespace Pietra::Lexer{
         will skip all empty charactes and uptade the token position
     */
     void skip_empty();
-
+    void skip_opt_comment();
     /**/
     inline bool is_keyword(char c);
     inline bool is_numeric(char c);

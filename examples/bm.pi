@@ -1,0 +1,21 @@
+write :: (tam: i64, ptr: *any, saida: i64){
+    syscall(tam, ptr, saida, 1)
+}
+
+strlen :: (str: *i8): i64{
+    tam: i64 = 0
+    while *str{
+        str = str + 1
+        tam = tam + 1
+    }
+    return tam
+}
+
+puts :: (str: *i8){
+    tam: i64 = strlen(str)
+    write(tam, str, 1)
+}
+main :: (){
+    puts("hello world\n")
+    dump(10)
+}

@@ -1,7 +1,9 @@
 #ifndef RESOLVE_HPP
 #define RESOLVE_HPP
 #include "ast.hpp"
+#include "packages.hpp"
 #include "type.hpp"
+#include "bridge.hpp"
 
 using namespace Pietra::Ast;
 
@@ -13,7 +15,7 @@ namespace Pietra::Resolver {
         SYM_RESOLVED
     };
     enum SymKind{
-        SYM_NONE        = 0,
+        SYM_NONE,
         SYM_VAR,
         SYM_CONST,
         SYM_PROC,
@@ -44,8 +46,9 @@ namespace Pietra::Resolver {
         SymKind     kind;
         const char* name;
         Decl*       decl;            
+        Expr*       expr;
         Type*       type;
-        Val         val;
+        Val         val;        
     };
     
 
@@ -55,34 +58,20 @@ namespace Pietra::Resolver {
         bool    is_const;
         Val     val;
     };
+    Operand operand_rvalue(Type* type);
+    Operand operand_lvalue(Type* type, Val val);
+    
+    Sym* sym_constexpr_int(Expr* e);
+    Operand resolve_expr(Expr* expr);
+    Operand resolve_name(const char* name);
+    Type* resolve_typespec(TypeSpec* &ts);
 
-    struct ResolvedExpr {
-        Expr* expr;
-        Type* type;
-    };
-    /* 
-        returns the resolved ast
-    */
-    SVec<Decl*> resolve_ast(SVec<Decl*> ast);
-    void declare_decl(Decl* decl);
-    Sym* sym_from_decl(Decl* decl);    
-    void init_builtin_syms();
-    void sym_push(Sym* sym);
-    void resolved_sym_push(Sym* sym);
-    Sym* sym_get(const char* name);
-    Sym* new_sym_decl(SymKind kind, const char* name, Decl*& decl);
-    Type* resolve_expr(Expr* expr);
-    void resolve_stmt(Stmt* stmt);
+    Operand resolve_var_init(const char* &name, TypeSpec* &type, Expr* &init, bool isLocal, bool isParam);
+    void resolve_stmt(Stmt* &stmt);
     void resolve_stmt_block(SVec<Stmt*> block);
-    Type* resolve_typespec(TypeSpec*& type);
-    Type* type_from_typespec(TypeSpec* typespec);
-    void resolve_decl_var(Decl* dvar);
-    void resolve_decl_aggregate(Decl* decl);
-    void resolve_decl_constexpr(Decl* decl);
-    void resolve_decl_proc(Decl* decl);
-    void resolve_decl(Decl* decl);
+    void resolve_decl_var(Decl*& var);
+    void resolve_decl(Decl* &decl);
     void resolve_sym(Sym* sym);
-    Sym* resolve_name(const char* name);
-    void resolve_init_var(const char* name, TypeSpec* typespec, Expr*& init);
+    SVec<Decl*> resolve_package(PPackage* &package);
 }
 #endif /*RESOLVE_HPP*/
