@@ -255,8 +255,7 @@ namespace Pietra::Ast {
                 TypeSpec* type;
             } type_alias;
             struct {
-                SVec<Decl*>         module;                
-                SVec<const char*>   use_names;
+                SVec<Decl*>         module;
                 bool                use_all;                
                 const char*         rename;
             } use;

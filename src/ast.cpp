@@ -301,11 +301,10 @@ Decl* decl_constexpr(const char* name, Expr* expr){
     d->expr = expr;
     return d;
 }
-Decl* decl_use(SVec<Decl*> module, SVec<const char*> use_names, bool use_all, const char* rename){
+Decl* decl_use(SVec<Decl*> module, bool use_all, const char* rename){
     Decl* d = init_decl(DECL_USE);
     d->name = rename?: Core::cstr("<use>");
-    d->use.module       = module;
-    d->use.use_names    = use_names;
+    d->use.module       = module;    
     d->use.use_all      = use_all;                
     d->use.rename       = rename;
     return d;

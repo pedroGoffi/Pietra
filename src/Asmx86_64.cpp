@@ -135,6 +135,38 @@ void makeLabel() {
     }
     Type* compile_binary(Lexer::tokenKind kind, Ast::Expr* lhs, Ast::Expr* rhs, CState& state){        
         switch(kind){
+            case Lexer::TK_LAND:{
+                int end_fail    = count();
+                int end_ok      = count();
+                int end         = count();
+                
+                
+                Type* lhs_t = compile_expr(lhs, state_none);
+                cmp_zero(lhs_t);
+                println("je .L%i", end_fail);
+                Type* rhs_t = compile_expr(rhs, state_none);
+                cmp_zero(rhs_t);
+                println("je .L%i", end_fail);
+                
+                makeLabel(end_ok);
+                println("mov rax, 1");
+                println("jmp .L%i", end);
+                makeLabel(end_fail);                
+                println("mov rax, 0");
+                makeLabel(end);
+                
+                return lhs_t;
+            }
+            case Lexer::TK_LOR: {
+                Type* lhs_t = compile_expr(lhs, state_none);
+                cmp_zero(lhs_t);
+                push("rax", lhs_t);
+                Type* rhs_t = compile_expr(rhs, state_none);
+                cmp_zero(rhs_t);
+                pop("rbx");
+                println("add rax, rbx");                       
+                return lhs_t;
+            }
             case Lexer::TK_EQ:  {                
                 Type* lhs_t = compile_expr(lhs, state_getaddr);
                 push("rax", lhs_t);                
@@ -222,8 +254,11 @@ void makeLabel() {
                 return type;
                 
             };
-            case Lexer::TK_LT:  {
-                // lhs < rhs
+            
+            case Lexer::TK_GT:              
+            case Lexer::TK_LT:  
+            case Lexer::TK_LTE:  {
+                // lhs < rhs                
                 Type* rhs_t = compile_expr(rhs, state);
                 push("rax", rhs_t);                
                 Type* lhs_t = compile_expr(lhs, state);
@@ -234,7 +269,15 @@ void makeLabel() {
                 println("mov rcx, 0");
                 println("mov rdx, 1");
                 println("cmp rax, rbx");
-                println("cmovl rcx, rdx");
+                if(kind == Lexer::TK_LT){
+                    println("cmovl rcx, rdx");
+                }
+                else if(kind == Lexer::TK_GT) {                    
+                    println("cmovg rcx, rdx");
+                }
+                else if(kind == Lexer::TK_LTE) {
+                    println("cmovle rcx, rdx");
+                }
                 println("mov rax, rcx");
 	        
                 return lhs_t;
@@ -308,7 +351,10 @@ void makeLabel() {
         println("push %s", what);
         stack.push_back(type);
     }
-    
+    Type* pop(){
+        println("pop rax");
+        return type_void();
+    }
     Type* pop(const char* target){
         assert(stack.size() > 0);
         println("pop %s", target);
@@ -342,7 +388,7 @@ void makeLabel() {
         case TYPE_I32:
         case TYPE_I64:  
         case TYPE_ANY: 
-        default: {
+        default: {            
             const char* word = get_word_size(type->size);
             const char* inst = "movs";
             if(type->size == 1){
@@ -434,7 +480,7 @@ void makeLabel() {
         }
     }
 
-    Type* compile_call(Expr* base, SVec<Expr*> args, CState& state){            
+    Type* compile_call(Expr* base, SVec<Expr*> args, CState& state){                    
         if(base->kind == EXPR_NAME){
             if(base->name == Core::cstr("asm")){
                 println(";; NOTE: inline asm here.\n");
@@ -500,56 +546,119 @@ void makeLabel() {
                 println("syscall");
                 return type_int(64);
             }
+            
+            else if(base->name == Core::cstr("va_begin")){                
+                assert(args.len() == 1);
+                Expr* e = args.at(0);                
+                Type* v = compile_expr(e, state);
+                if(v->kind != TYPE_PTR){
+                    err("[ERROR]: va_next expects a pointer.\n");
+                    exit(1);
+                }
+                push("rax", v);
+                // NOTE: rsp + 8 is the return addr then we add 8
+                println("mov rax, rbp");
+                println("add rax, 16");                
+                println("mov rax, [rax]");
+                println("mov QWORD [__va_offset__], 16");
+                store();
+                return type_void();
+            }   
+
+            else if(base->name == Core::cstr("va_next")){
+                assert(args.len() == 1);
+                Expr* e = args.at(0);                
+                Type* v = compile_expr(e, state_none);
+                if(v->kind != TYPE_PTR){
+                    err("[ERROR]: va_next expects a pointer.\n");
+                    exit(1);
+                }
+                push("rax", v);
+                println("mov rbx, __va_offset__");
+                println("mov rax, [rbx]");
+                println("add rax, 8");
+                println("mov [__va_offset__], rax");
+                println("mov rax, rbp");
+                println("mov rbx, [rbx]");
+                println("add rax, rbx");
+                println("mov rax, [rax]");                                
+                store();
+                return v;
+            }
+            else if(base->name == Core::cstr("va_end")){
+                assert(args.len() == 1);
+                Expr* e = args.at(0);                
+                Type* v = compile_expr(e, state_none);
+                if(v->kind != TYPE_PTR){
+                    err("[ERROR]: va_next expects a pointer.\n");
+                    exit(1);
+                }                
+                println("mov QWORD [rax], 0");
+                println("mov QWORD [__va_offset__], 16");
+                return type_void();
+            }
             else if(base->name == Core::cstr("dump")){
                 assert(args.len() == 1);
-                compile_expr(args.at(0), state);
+                compile_expr(args.at(0), state_none);
                 println("mov rdi, rax");
                 println("call dump");
                 return type_void();
             }
-            else if(base->name == Core::cstr("__builtin_buffer_begin")){
-                assert(args.len() == 0);
-                println("mov rax, buffer");
-                return type_ptr(type_void());
+        }
+        if(args.len() > 0){
+                
+            Type* base_t = compile_expr(base, state_none);        
+            bool isVa  = false;
+            int  vaPos = 0;
+            if(base_t->kind == TYPE_PROC){
+                isVa  = base_t->proc.is_vararg;
+                vaPos = base_t->proc.params.len();
+            }            
+                        
+            if(!isVa){
+                push("rax", base_t);
+                assert(args.len() < MAX_ARGREG);
             }
-            else if(base->name == Core::cstr("__builtin_buffer_alloc")){
-                if(args.len() != 1){
-                    err("[ERR]: __builtin_get_buffer expects 1 argument.\n");
-                    exit(1);
-                }
-                if(args.at(0)->kind != EXPR_INT){
-                    err("__builtin_buffer_alloc expects a int size.\n");
-                    exit(1);
-                }
-                if(buffer_size > 0){
-                    println("mov rax, buffer + %i", buffer_size);
+            int id = 0;
+            
+            for(Expr* arg: args) {
+                if(isVa and id + 1 >= vaPos){                                        
+                    for(int i = args.len(); i >= vaPos; i--){
+                        compile_expr(args.at(i - 1), state);
+                        println("push rax");
+                    }
+                    
+                    break;
                 }
                 else {
-                    println("mov rax, buffer");
+                    compile_expr(arg, state_none);
+                    println("mov %s, rax", argreg64[id++]);        
                 }
-                buffer_size += args.at(0)->int_lit;
-                return type_ptr(type_void());
-            }
-        }
-        {   
-            assert(args.len() < MAX_ARGREG);
-            int id = 0;
-            for(Expr* arg: args) {
-                compile_expr(arg, state);
-                println("mov %s, rax", argreg64[id++]);
-            }
-        }
+            }        
 
-        Type* base_t = compile_expr(base, state);
-        println("call rax");
-        return base_t->proc.ret_type;
+            if(!isVa){
+                pop("rax");            
+            }
+            else {
+                compile_expr(base, state_none);
+            }           
+            
+            println("call rax");
+            return base_t;
+        }
+        else {
+            Type* base_t = compile_expr(base, state_none);        
+            assert(base_t->kind == TYPE_PROC);
+            println("call rax");
+            return base_t->proc.ret_type;
+        }
         
     }
     Type* compile_name(const char* name, CState& state){                
         // Check for procedures
         if(CProc* cp = GetProc(name)){            
             println("mov rax, %s", cp->name);            
-            assert(cp->type);                        
+            assert(cp->type);             
             return cp->type;
         }        
         
@@ -566,7 +675,11 @@ void makeLabel() {
         
         if(cp){
             CProc* proc = GetProc(cp->name);
-            assert(proc);
+
+            if(!proc){
+                err("got no proc %s\n", cp->name);
+                exit(1);
+            }
             if(CVar* param = proc->find_param(name)){
                 makeLabel();
                 lea(param);
@@ -624,25 +737,7 @@ void makeLabel() {
 
         Type* in = compile_expr(index, state_none);                
         int base_sz = tb->base->size;
-        // TEST: return compile_index_offset(tb, state);
-
-        if(base_sz > 1){            
-            println("mov rdx, %i", base_sz);
-            println("mul rdx");
-            pop("rbx");
-            println("add rax, rbx");
-        }
-        else {                         
-            pop("rbx");            
-            println("add rax, rbx");               
-        }
-                
-        if(state != state_getaddr){
-            load(tb->base);
-        }
-
-        
-        return tb->base;
+        return compile_index_offset(tb, state);        
     }
     Type* compile_field(Expr* parent, Expr* children, CState& state){    
         Type* p = compile_expr(parent, state_getaddr);
@@ -660,16 +755,20 @@ void makeLabel() {
                 SymImpl& impls = sym->impls;
                 const char* target = Core::cstr(strf("%s_impl_%s", p->name, children->name));
                 if(Sym* impl = impls.find(target)){
+                    println("mov rax, rdi");
                     assert(impl->kind == SYM_PROC);
                     println("mov rax, %s", impl->name);
                     return impl->type->proc.ret_type;
                 }
             }        
-            if(p->kind == TYPE_STRUCT){
+            if(p->kind == TYPE_STRUCT or p->kind == TYPE_UNION){
+                bool isUnion = p->kind == TYPE_UNION;
                 size_t offset = 0;
                 for(TypeField* field: p->aggregate.items){
                     if(field->name != children->name){
-                        offset += field->type->size;                    
+                        if(!isUnion){
+                            offset += field->type->size;
+                        }                        
                         continue;
                     }
 
@@ -858,7 +957,10 @@ void makeLabel() {
 
         CProc* proc = GetProc(d->name);
         cp = d;
-        assert(proc);
+        if(!proc){
+            err("Got no proc in proc %s\n", d->name);
+            exit(1);
+        }
         compile_cproc_params(proc, d->proc.params);
 
         printf("%s:\n", proc->name);
@@ -927,18 +1029,15 @@ void makeLabel() {
     void compile_segment_bss(){
         printf("segment .bss\n");
         println("__heap_end__: resq 1");
-
-        if(buffer_size > 0 or globals.len() > 0){            
-            if(buffer_size > 0){
-                println("buffer: resb %i", buffer_size);
-            }
+        println("__va_offset__: resq 1");
+        if(buffer_size > 0 or globals.len() > 0){                        
             for(CVar* global: globals){
                     printc("G%s: resb %i\n", global->name, global->type->calcSize());
             }
         }
     }
 
-    void compile_ast(SVec<Decl*> ast){                        
+    void compile_ast(SVec<Decl*> ast){
         ctx.OUT = fopen("pietra.asm", "w");
         assert(ctx.OUT);
 

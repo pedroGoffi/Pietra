@@ -1,0 +1,5 @@
+#package "std.types"
+
+type cstr   :: *i8
+type int    :: i64
+type Addr_t :: int

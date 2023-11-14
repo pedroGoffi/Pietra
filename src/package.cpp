@@ -11,10 +11,16 @@ PPackage* PPackage::from(const char *filename){
     PStreamCursor* Streamcursor = PStreamCursor::from(filename);
     if(!Streamcursor) return nullptr;
     
-    while((Streamcursor->decl = Parser::decl())){
-        package->ast.push(Streamcursor->decl);        
-        
+    int i = 0;
+    
+    package->ast = Parser::parser_loop();
+    
+    Streamcursor->decl = nullptr;
+    if(package->ast.len() > 0){
+        Streamcursor->decl = package->ast.at(0);
     }
+    
+    
     package->cursor = arena_alloc<PCursor>();
     package->cursor->setDecls(package->ast);    
     return package;
@@ -32,4 +38,6 @@ Decl* PPackage::getSymFromName(const char* name){
     }
     return nullptr;
 }
+
+
 #endif /*PACKAGE_CPP*/

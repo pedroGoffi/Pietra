@@ -41,6 +41,8 @@ T* Core::Arena<T>::alloc(int size){
     this->ptr = (char*) ALIGN_UP_PTR((char*)this->ptr + size, ARENA_ALIGNMENT);
     assert(this->ptr <= this->blocks_end);
     assert(ptr == ALIGN_DOWN_PTR(ptr, ARENA_ALIGNMENT));    
+
+    this->size += size;
     return ptr;
 }
 template<typename T>
@@ -52,6 +54,7 @@ void Core::Arena<T>::free(){
     for(void** block = this->blocks.begin(); block != this->blocks.end(); block++){        
         if(block and *block)  std::free(*block);
     }
+    this->size = 0;
     
 }
 

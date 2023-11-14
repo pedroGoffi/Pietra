@@ -40,7 +40,11 @@ const char* PCursor::getName(){
 
 void PCursor::setDecls(SVec<Decl*> Decls){
    this->mDecls = Decls;
-   this->mDecl = this->mDecls.at(0);
+   this->mDecl  = nullptr;
+   
+   if(Decls.len() > 0){
+        this->mDecl = this->mDecls.at(0);
+   }   
 }
 Decl* PCursor::find(const char* name){    
     name = Core::cstr(name); // Makign intern string

@@ -111,7 +111,7 @@ namespace Pietra::Resolver{
                 }
                 Type*               ret = resolve_typespec(decl->proc.ret);
                 
-                sym->type = type_proc(params, ret, decl->proc.is_vararg);
+                sym->type = type_proc(sym->name, params, ret, decl->proc.is_vararg);
 
                 break;
             }
@@ -119,6 +119,12 @@ namespace Pietra::Resolver{
                 sym->kind = SYM_AGGREGATE;
                 SVec<TypeField*> fields;
                 size_t size = 0;
+
+                bool isUnion = decl->aggregate.aggkind == Ast::AGG_UNION;
+                if(!isUnion){
+                    assert(decl->aggregate.aggkind == Ast::AGG_STRUCT);
+                }
+
                 for(AggregateItem* item: decl->aggregate.items){
                     
                     switch(item->kind){
@@ -126,7 +132,15 @@ namespace Pietra::Resolver{
                             resolve_typespec(item->field.type);
                             for(const char* name: item->field.names){
                                 TypeField* field = init_typefield(name, item->field.type->resolvedTy);
-                                size += field->type->size;
+                                if(isUnion){
+                                    if (size < field->type->size){
+                                        size = field->type->size;
+                                    }
+                                }
+
+                                else {
+                                    size += field->type->size;
+                                }
                                 fields.push(field);                                
                             }
                         } break;
@@ -149,9 +163,15 @@ namespace Pietra::Resolver{
     }
 
     void declare_ast(SVec<Decl*> ast){
-        for(Decl* decl: ast){            
-            Sym* sym = sym_new(decl->name, decl);            
-            Syms.push(sym);
+        for(Decl* decl: ast){                                                
+            if(decl->name == Core::cstr("<use>")){
+                assert(decl->kind == DECL_USE);
+                declare_ast(decl->use.module);
+            }
+            else {                
+                Sym* sym = sym_new(decl->name, decl);            
+                Syms.push(sym);
+            }
         }
     }
     void declare_package(PPackage* package){
@@ -208,7 +228,11 @@ namespace Pietra::Resolver{
                 "dump",
                 "syscall",
                 "asm",
-                "sizeof"
+                "sizeof",
+                "va_next",
+                "va_begin",
+                "va_end",
+                
             };
             for(auto& str: builtin_procs){
                 DEFINE_BUILTIN(str,
@@ -359,57 +383,50 @@ namespace Pietra::Resolver{
         }
         return operand_rvalue(sym->type);        
     }
-    Operand resolve_call(Expr* base, SVec<Expr*> *args){
-        Operand bop = resolve_expr(base);
+    Operand resolve_call(Expr* base, SVec<Expr*> &args){                        
+        Operand bop = resolve_expr(base);        
         assert(bop.type);
         if(!bop.type->isCallable()){
             printf("[ERROR]: trying to call a non-callable object %s\n", bop.type->repr());
             exit(1);
-        }
-        int asz = args->len();
-        int psz = bop.type->proc.params.len();
-        
-        
-        if(not bop.type->proc.is_vararg){        
-            if(bop.type->kind == TYPE_PROC){         
-                TypeField* tf = bop.type->proc.params.at(0);    
-                if(tf->name == Core::cstr("self")){
-                    assert(base->kind == Ast::EXPR_FIELD);                    
-                    SVec<Expr*> *new_args = arena_alloc<SVec<Expr*>>();
-                    Expr* self;
+        }        
+        int asz = args.len();
+        int psz = bop.type->proc.params.len();    
+        // TODO: type check the function and the callee arguments|parameters
+        if(not bop.type->proc.is_vararg){                               
+            if(bop.type->kind == TYPE_PROC and psz > 0){                                                         
+                    TypeField* tf = bop.type->proc.params.at(0);                                         
+                    if(tf->name == Core::cstr("self")){
+                        assert(base->kind == Ast::EXPR_FIELD);                    
+                        SVec<Expr*> new_args;
+                        Expr* self = base->field_acc.parent;
+                        Operand base_parent_op = resolve_expr(base->field_acc.parent);                    
 
-                    Operand base_parent_op = resolve_expr(base->field_acc.parent);                    
-                    if(base_parent_op.type->kind != TYPE_PTR){
-                        self = Utils::expr_unary(Lexer::TK_AMPERSAND, base->field_acc.parent);
-                    }
-                    else {
-                        self = base->field_acc.parent;
-                    }
-
-                    assert(self);
-                    new_args->push(self);
-                    for(Expr* arg: *args) new_args->push(arg);
-                    *args = *new_args;              
-                    asz = args->len();                    
-                }                                                                                                                                
-            }    
+                        if(base_parent_op.type->kind != TYPE_PTR){
+                            // if self is not a poiner, then we make self be &self
+                            self = Utils::expr_unary(Lexer::TK_AMPERSAND, self);
+                        }
+                        assert(self);
+                        new_args.push(self);
+                        for(Expr* arg: args) {
+                            resolve_expr(arg);
+                            new_args.push(arg);
+                        }
+                        args = new_args;              
+                        asz = args.len();                    
+                    }                                    
+            }                
             if(asz != psz){
                 printf("[ERROR]: Got the wrong amount of arguments when calling an implementation procedure: %s\n", 
                     bop.type->repr());
                 printf("[NOTE]: expected %i got %i\n",
                     psz, asz);
                 exit(1);
-            }                                                    
-        }
-                
-        Type* ret = bop.type->proc.ret_type;
+            }                                                        
+        }                
+        Type* ret = bop.type->proc.ret_type;                        
+        return operand_rvalue(ret);
         
-        if(bop.type->kind == TYPE_PTR){
-            return operand_rvalue(ret);
-        }
-        else {
-            return operand_lvalue(ret, {});
-        }
     }
     Operand resolve_unary(Lexer::tokenKind kind, Expr* expr){
         switch(kind){
@@ -469,6 +486,8 @@ namespace Pietra::Resolver{
             return resolve_assign(lhs, rhs);
         }
         switch(kind){            
+            case Lexer::TK_LAND:
+            case Lexer::TK_LOR:
             case Lexer::TK_PIPE:    {
                 Operand l = resolve_expr(lhs);
                 Operand r = resolve_expr(rhs);
@@ -506,6 +525,7 @@ namespace Pietra::Resolver{
             case Lexer::TK_GT:
             case Lexer::TK_MULT:
             case Lexer::TK_LT:
+            case Lexer::TK_LTE:            
             case Lexer::TK_MOD:
             case Lexer::TK_ADD: {
                 Operand l = resolve_expr(lhs);
@@ -551,32 +571,37 @@ namespace Pietra::Resolver{
         return op;
     }
     Operand resolve_field(Expr* parent, Expr* children){        
-        Operand op = resolve_expr(parent);
+        int f = 0;        
+        Operand op = resolve_expr(parent);        
         if(op.type->kind == TYPE_PTR){
-            if(op.type->base->kind == Ast::TYPE_STRUCT){
+            if(op.type->base->kind == Ast::TYPE_STRUCT or op.type->base->kind == Ast::TYPE_UNION){
                 op.type = op.type->base;
             }
-        }
+        }        
         // Check for TypeImpl in op.type        
-        if(children->kind == Ast::EXPR_NAME){
+        if(children->kind == Ast::EXPR_NAME){            
             if(Sym* sym = sym_get(op.type->name)){                            
-                SymImpl& impls = sym->impls;
-                const char* target = Core::cstr(strf("%s_impl_%s", impls.self->name, children->name));
-                if(Sym* impl = impls.find(target)){
-                    assert(impl->type->kind == TYPE_PROC);                    
-                    return operand_rvalue(impl->type);
-                
-                }
-            }                                
+                if(sym->state == SYM_UNRESOLVED){
+                    resolve_sym(sym);
+                }            
+                SymImpl& impls = sym->impls;                
+                if(impls.self){
+                    const char* target = Core::cstr(strf("%s_impl_%s", impls.self->name, children->name));                
+                    if(Sym* impl = impls.find(target)){
+                        assert(impl->type->kind == TYPE_PROC);                    
+                        return operand_rvalue(impl->type);
 
-            if(op.type->kind == TYPE_STRUCT){                                
+                    }
+                }
+            }                                            
+            if(op.type->kind == TYPE_STRUCT or op.type->kind == TYPE_UNION){                                
                 for(TypeField* field: op.type->aggregate.items){
                     if(field->name != children->name){
                         continue;
                     }                                
                     return operand_rvalue(field->type);
                 }            
-            }        
+            }                   
         }
         
         printf("[ERROR]: field not found: ");
@@ -585,15 +610,31 @@ namespace Pietra::Resolver{
         exit(1);
         
     }
-    Operand resolve_expr(Expr* expr){        
+    Operand resolve_expr(Expr* &expr){        
+        if(!expr){
+            return operand_lvalue(type_void(), {0});
+        }
+
         switch(expr->kind){
             case EXPR_INT:          return operand_lvalue(type_int(64), {.ul = expr->int_lit});
             case EXPR_STRING:       return operand_lvalue(type_string(), {});
             case EXPR_NAME:         return resolve_name(expr->name);
-            case EXPR_CALL:         return resolve_call(expr->call.base, &expr->call.args);            
+            case EXPR_CALL:         return resolve_call(expr->call.base, expr->call.args);            
             case EXPR_INIT_VAR:     return resolve_var_init(expr->init_var.name, expr->init_var.type, expr->init_var.rhs, true, false);
             case EXPR_UNARY:        return resolve_unary(expr->unary.unary_kind, expr->unary.expr);
-            case EXPR_BINARY:       return resolve_binary(expr->binary.binary_kind, expr->binary.left, expr->binary.right);
+            case EXPR_BINARY:   {
+                if(expr->binary.binary_kind == Lexer::TK_LTE){
+                    // T: lhs <= rhs --> not(lhs > rhs);                    
+                    Expr* lhs = expr->binary.left;
+                    Expr* rhs = expr->binary.right;
+                    Expr* base_gt = Utils::expr_binary(Lexer::TK_GT, lhs, rhs);
+                    expr = Utils::expr_unary(Lexer::TK_NOT, base_gt);
+                    return resolve_expr(expr);                    
+                }
+                else {
+                    return resolve_binary(expr->binary.binary_kind, expr->binary.left, expr->binary.right);
+                }
+            }
             case EXPR_ARRAY_INDEX:  return resolve_index(expr);
             case EXPR_CAST:         return resolve_cast(expr->cast.typespec, expr->cast.expr);
             case EXPR_FIELD:        return resolve_field(expr->field_acc.parent, expr->field_acc.children);
@@ -616,10 +657,14 @@ namespace Pietra::Resolver{
                 resolve_stmt_block(stmt->stmt_while->block);
                 break;
             }
-            case Ast::STMT_RETURN: {
-                Operand got         = resolve_expr(stmt->expr);
-                Type*   expected    = CBridge::ctx.Cp->type;
-                
+            case Ast::STMT_RETURN: {                
+                if(!CBridge::ctx.Cp){
+                    printf("wtf where is CBridge::ctx.Cp?\n");
+                    exit(1);                
+                }
+                Operand got         = resolve_expr(stmt->expr);                
+                Type*   expected    = CBridge::ctx.Cp->type->proc.ret_type;                
+
                 if(!expected->typeCheck(got.type)){
                     printf("[ERROR]: expected %s in the return of the procedure %s, but got: %s\n",
                         expected->repr(),
@@ -628,7 +673,7 @@ namespace Pietra::Resolver{
                     );
                     exit(1);
                 }
-
+                
                 break;
             }
             default: assert(0);
@@ -653,7 +698,7 @@ namespace Pietra::Resolver{
             exit(1);
         }
 
-        resolve_decl_proc(sym->decl);
+        resolve_decl_proc(sym->decl, sym->type);
     }
     void resolve_impl(const char* target, SVec<Decl*> body){        
         Sym* sym = sym_get(target);
@@ -685,8 +730,9 @@ namespace Pietra::Resolver{
                     exit(1);
                 }
                 
-                resolve_sym_proc_impl(sym, snode);                
                 impls.push(snode);
+                resolve_sym_proc_impl(sym, snode);                
+                
             }
             
         }
@@ -695,31 +741,38 @@ namespace Pietra::Resolver{
     void resolve_decl_var(Decl* &d){
         resolve_var_init(d->name, d->var.type, d->var.init, false, false);        
     }
-    void resolve_decl_proc(Decl* &d){
+    void resolve_decl_proc(Decl* &d, Type* type){
         assert(d->kind == DECL_PROC);
-        localSyms.free();
-        Type* type = resolve_typespec(d->proc.ret);
+        localSyms.free();        
         CBridge::CProc* proc = CBridge::CreateProc(d->name, type);
-        
-
+                
         for(ProcParam* pp: d->proc.params){
             resolve_var_init(pp->name, pp->type, pp->init, false, true);
-        }
+        }        
 
         resolve_stmt_block(d->proc.block);
     }
-    
-    void resolve_decl(Decl* &decl){
+    void resolve_decl_use(Decl* &decl){
+        assert(decl->kind == DECL_USE);
+        for(Decl* node: decl->use.module){
+            Sym* sym = sym_new(node->name, node);
+            resolve_sym(sym);            
+        }
+    }
+    void resolve_decl(Decl* &decl, Type* type){
         switch(decl->kind){
             case DECL_VAR:
                 resolve_decl_var(decl);
                 break;                
             case DECL_PROC:
-                resolve_decl_proc(decl);
+                resolve_decl_proc(decl, type);
                 break;
             case DECL_CONSTEXPR: 
                 CBridge::save_constexpr(decl->name, PreprocessExpr::expr(decl->expr));
-                break;                                    
+                break;                 
+            case DECL_USE:
+                resolve_decl_use(decl);
+                break;
             case DECL_AGGREGATE:    break;
             case DECL_TYPE:         break;
             case DECL_IMPL: 
@@ -727,12 +780,13 @@ namespace Pietra::Resolver{
                 break;
             case DECL_NONE:             
             case DECL_ENUM:            
+            default:
                 printf("[ERR]: Resolving unimplemented for:\n");
                 pPrint::decl(decl);                        
         }
 
     }
-    Sym* resolve_sym(Sym* sym){
+    Sym* resolve_sym(Sym* sym){        
         assert(sym);
         if(sym->state == SYM_RESOLVED) return sym;
         if(sym->state == SYM_RESOLVING){
@@ -742,19 +796,19 @@ namespace Pietra::Resolver{
 
         sym->state = SYM_RESOLVED;
         if(sym->decl){ 
-            if(sym->decl->kind == DECL_PROC){
-                if(sym->decl->proc.params.len() > 0){
-                    if(sym->decl->proc.params.at(0)->name == Core::cstr("self")){
-                        printf("[ERROR]: The parameter named self is reserved to be inside implementation context.\n");
-                        exit(1);
-                    }
+            if(sym->decl->kind == DECL_PROC and sym->decl->proc.params.len() > 0){                
+                if(sym->decl->proc.params.at(0)->name == Core::cstr("self")){
+                    printf("[ERROR]: The parameter named self is reserved to be inside implementation context.\n");
+                    exit(1);
                 }
+                
             }
-            // some syms are expressions
-            resolve_decl(sym->decl);
+            
+            // some syms are expressions            
+            resolve_decl(sym->decl, sym->type);
+            
         }
         sym->state = SYM_RESOLVED;
-
         
         if(sym->decl){
             final_ast_push(sym->decl);

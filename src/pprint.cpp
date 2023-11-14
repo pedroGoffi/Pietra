@@ -354,11 +354,7 @@ namespace Pietra::pPrint{
                 if(d->use.use_all){
                     pprint("...");
                 }
-                else {
-                    for(const char* name: d->use.use_names){
-                        pprint("| %s |", name);
-                    }
-                }
+                
                 pprint("} ");                
                 
                 if(d->use.rename){

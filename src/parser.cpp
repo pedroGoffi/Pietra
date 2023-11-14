@@ -15,6 +15,7 @@ using namespace Pietra::Lexer;
 
 
 namespace Pietra::Parser {
+
 Expr* literal_expr_assign(const char* name){
     assert(is_kind(TK_DDOT));
     next();
@@ -767,6 +768,7 @@ SVec<const char*> use_names(){
     }
     return names;
 }
+
 Decl* decl_use(){
     assert(token.name == keyword_use);
     next();
@@ -787,10 +789,56 @@ Decl* decl_use(){
         rename = token.name;
         next();
     }
-    printf("<use> not implemented yet.\n");
-    exit(1);
+
+    const char* path = ".";
+    for(auto& pnode: _mod_names){
+        path = strf("%s/%s", path, pnode);
+    }
+    path = Core::cstr(path);
+
+
+    // TODO: Check if the package is already included.
+    if(_use_names.len() == 0){
+        printf("[WARN]: Cant include all package yet, use_names.len == 0.\n");
+        exit(1);
+    }
+
+
+    
+    SVec<Decl*> module;    
+    for(auto& use: _use_names){        
+        const char* new_path = strf("%s/%s.pi", path, use);
+        
+        
+        Lexer::stream_snaphot();
+        PPackage* package = PPackage::from(new_path);
+        if(!package){
+            printf("[ERROR]: Could not find the package in '%s'\n", new_path);
+            exit(1);
+        }
+        for(auto& node: package->ast){
+            module.push(node);
+        }                
+        Lexer::stream_rewind();                            
+    }            
+    return Utils::decl_use(module, use_all, rename);
 }
 
+SVec<Expr*> note_args(){
+    if(!is_kind(Lexer::TK_OPEN_ROUND_BRACES)){
+        return {};        
+    }
+    next();    
+    SVec<Expr*> args;
+    while(*stream and !is_kind(Lexer::TK_CLOSE_ROUND_BRACES)){
+        Expr* arg = expr();
+        assert(arg);
+        args.push(arg);
+    }
+    assert(is_kind(Lexer::TK_CLOSE_ROUND_BRACES));
+    next();
+    return args;
+}
 SVec<Note*> parse_notes(){
     SVec<Note*> notes;
 
@@ -799,10 +847,10 @@ SVec<Note*> parse_notes(){
         assert(is_kind(TK_NAME));
         const char* name = token.name;
         next();
-        SVec<Expr*> args;
+        SVec<Expr*> args = note_args();
         Note* note = Utils::init_note(name, args);
         assert(note);
-        notes.push(note);
+        notes.push(note);        
     }
 
     return notes;
@@ -840,20 +888,60 @@ Decl* decl_impl(){
     
     return Utils::decl_impl(target, body);
 }
-Decl* decl(){
-    if(token.kind == TK_EOF) return nullptr;
-    SVec<Note*> notes = parse_notes();
+Decl* parse_comptime(){    
+    if(!is_kind(TK_NAME)){
+        printf("[ERROR]: comptime expects token name.\n");
+        exit(1);
+    }
 
+    if(token.name == Core::cstr("package")){       
+        next();
+        if(!is_kind(Lexer::TK_STRING)){
+            printf("[ERROR]: comptime 'package' expects string. #package \"myPackage\".\n");
+            exit(1);
+        }
+
+        const char* package_name = token.name;
+        next();
+        if(is_included(package_name)){            
+            printf("Skipping package %s\n", package_name);
+            while(stream and *stream and *stream++);
+            
+            token.kind = TK_EOF;            
+            return nullptr;
+        }
+        include_me(package_name);        
+        return nullptr;
+    }
+    else {
+        printf("[ERROR]: Undefined comptime expressions '%s'\n", token.name);
+        exit(1);
+    }    
+}
+
+Decl* decl(){
+    if(token.kind == TK_EOF or not *stream) return nullptr;
+
+    if(token.kind == Lexer::TK_HASH){
+        next();
+        return parse_comptime();                
+    }
+    
+    SVec<Note*> notes = parse_notes();    
     if(token.name == keyword_type){        
         // type cstr :: *char
         return decl_type();
     } else if(token.name == keyword_use){
-        return decl_use();
+        return Parser::decl_use();
+        
     } else if(token.name == keyword_impl){
         return decl_impl();
+    } 
+            
+    if( not *stream ){
+        return nullptr;
     }
-    
-    assert(is_kind(TK_NAME));
+
     const char* name = token.name;
     next();
     
@@ -875,6 +963,18 @@ Decl* decl(){
         exit(1);
     }
     exit(1);
+}
+
+SVec<Decl*> parser_loop(){
+    SVec<Decl*> ast;
+    while(token.kind != Lexer::TK_EOF){        
+        Decl* node = decl();               
+        if(node){        
+            ast.push(node);
+        } 
+        
+    }
+    return ast;
 }
 }
 #endif /*PIETRA_PARSER*/

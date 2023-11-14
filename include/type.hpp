@@ -82,7 +82,7 @@ namespace Pietra::Ast {
     Type* type_struct(SVec<TypeField*> fields);
     Type* type_self();
     Type* type_union(SVec<TypeField*> fields);
-    Type* type_proc(SVec<TypeField*> params, Type* ret_type, bool is_vararg);
+    Type* type_proc(const char* name, SVec<TypeField*> params, Type* ret_type, bool is_vararg);
     Type* type_string();
     Type* type_aggregate(SVec<TypeField*> items, bool isStruct = true);
     Type* type_unresolved();

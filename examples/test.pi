@@ -1,31 +1,23 @@
-String :: struct {
-    data: *i8
-    size: i64
+foo :: {
+    d: *i64
+    s: i64
 }
 
-impl String {    
-    init :: (self: *Self, str: *i8){
-        self.data = str
-        self.size = 0;
-        while not(self.data[self.size] == 0) self.size = self.size + 1;                
+impl foo {
+    d1 :: (self: *Self){
+        *self = (:foo) 6969;
     }
-
+    d2 :: (self: *Self, inc: i64){
+        dump(*self)
+    }
     
-    cout :: (self: *Self) {
-        syscall(self.size, self.data, 1, 1)
-    }
-    base :: (self: *Self): Self {
-        return *self;
-    }
 }
 
-impl i64 {
-    add :: (self: *Self, other: Self){
-        *self = *self + other;        
-    }
-}
-main :: (){
-    x: i64 = 20;
-    x.add(20)
-    dump(x)
+f: foo
+main :: () {
+    asm(";CUM")
+    f.d1()
+    f.d2(69)
+
+    dump(f)
 }

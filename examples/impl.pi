@@ -107,13 +107,18 @@ impl Arena {
 
     grow :: (self: *Self, size: i64) {                
         self.ptr = self.allocator.alloc(size);        
-        self.blocks.push(self.ptr)
-        self.blocks_end = self.ptr + size;        
+        self.blocks.push(self.ptr)        
+        self.blocks_begin   = self.ptr
+        self.blocks_end     = self.ptr + size;            
     }
+    
     alloc :: (self: *Self, size: i64): *any {
         if self.blocks_end - self.blocks_begin < size
         {            
             self.grow(size);
+        }
+        else {
+            puts("Allocating.\n")
         }
         
         ptr: *any = self.ptr;        
@@ -153,16 +158,24 @@ impl Test {
 }
 main :: (){    
     arena: Arena
-    arena.init()
-    minha_palavra: *cstr = arena.alloc(8);
-
-    *minha_palavra = "essa linguagem de programação pertence a Pedro H.\n"
-
-    puts(*minha_palavra)
-    arena.free()    
-
-    test: Test;
-    test.f2()
-
-    dump(test.n2)
+    arena.init();
+    
+    arena.alloc(1)
+    arena.alloc(1)
+    arena.alloc(1)
+    arena.alloc(1)
+    arena.alloc(1)
+    arena.alloc(1)
+    arena.alloc(1)
+    arena.alloc(1)
+    arena.alloc(1)
+    arena.alloc(1)
+    arena.alloc(1)
+    arena.alloc(1)
+    arena.alloc(1)
+    arena.alloc(1)
+    arena.alloc(1)
+    arena.alloc(1)
+    
+    
 }

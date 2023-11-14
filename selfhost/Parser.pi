@@ -1,0 +1,129 @@
+#package "pietra.parser"
+
+use std{Std}
+use selfhost{Lexer, Ast}
+
+expr_literal_assign :: (name: cstr): *Expr{
+    if not token.kind == TK_DDOT {
+        puts("wtf why u called me?\n");
+        exit(1);
+    }
+    lexer.next();
+    
+}
+expr_literal :: (){
+    val: any;
+    if token.kind == TK_INT {
+        val = token.digit;
+        lexer.next();            
+        return make_expr_int(val)            
+    }
+    if token.kind == TK_NAME {
+        val = token.name;
+        lexer.next();
+        if token.kind == TK_DDOT {
+            return expr_literal_assign(val);
+        }
+        return make_expr_name(val);
+    }
+    puts("[ERROR]: Expected Expression.\n");
+    exit(1)
+}    
+isBase  :: (kind: i64): i64 {
+    return  kind == TK_PREP                  or
+            kind == TK_DOT                   or
+            kind == TK_OPEN_ROUND_BRACES     or
+            kind == TK_OPEN_SQUARED_BRACES        
+}
+expr_base    :: (){
+    lit: *Expr = expr_literal();
+    while   isBase(token.kind){
+        puts("BASE UNIMPLEMENTED\n");
+        exit(1)
+    }
+    return lit;
+}
+isUnary :: (kind: i64): i64 {        
+    return  kind == TK_ADD  or 
+            kind == TK_SUB  or 
+            kind == TK_NOT  or 
+            kind == TK_MULT or 
+            kind == TK_AMPERSAND
+}
+expr_unary   :: (){
+    while isUnary(token.kind){
+        kind: i64 = token.kind;
+        lexer.next();
+        e: *Expr = expr_unary();
+        return make_expr_unary(kind, e);
+    }
+    return expr_base();
+    
+}
+isMult  :: (kind: i64): i64 {
+    return kind == TK_MULT or kind == TK_DIV;
+}        
+expr_mult    :: (){
+    lhs: *Expr = expr_unary();
+    while isMult(token.kind){
+        kind: i64 = token.kind;
+        lexer.next();
+        
+        rhs: *Expr = expr_unary();
+        lhs = make_expr_binary(kind, lhs, rhs)
+    }
+    return lhs;
+}
+isAdd :: (kind: i64): i64 {        
+    return kind == TK_ADD or kind == TK_SUB;
+}
+expr_add     :: (){
+    lhs: *Expr = expr_mult();
+    while isAdd(token.kind){
+        kind: i64 = token.kind;
+        lexer.next();
+        
+        rhs: *Expr = expr_mult();
+        lhs = make_expr_binary(kind, lhs, rhs)
+    }
+    return lhs;
+}
+expr_cmp     :: (){
+    add: *Expr = expr_add();
+    return add;
+}
+
+expr_logic    :: (){
+    if streq(token.name, "neg"){
+        lexer.next();
+        kind: i64 = TK_NOT;
+        base: *Expr = expr_logic();
+        return make_expr_unary(kind, base);
+    }
+    logic: *Expr = expr_cmp();
+    return logic;
+}
+expr_cast   :: (){
+    logic: *Expr = expr_logic();    
+    return logic;
+}
+expr_assign  :: (){
+    cast: *Expr = expr_cast();    
+    if streq("as", token.name){
+        puts("CAST = ")
+        puts(token.name)
+        exit(1)
+    }
+    return cast;
+}
+expr_ternary :: (){    
+    e: *Expr = expr_assign();
+    if streq(token.name, "if"){
+        puts("IF NOT IMPLEMETED YET.\n");
+        exit(1);
+    }
+    return e;
+}
+expr_parse :: (){
+    return expr_ternary();
+}

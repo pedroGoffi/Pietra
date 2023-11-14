@@ -12,7 +12,7 @@ namespace Pietra::Core {
         void*   ptr;
         
         void*   blocks_end;
-        void*   blocks_begin;
+        void*   blocks_begin;        
         SVec<void*>  blocks;
 
 
@@ -20,6 +20,7 @@ namespace Pietra::Core {
     void grow(int min_size);
     void push_block(void* block);
     public:
+        size_t  size;
         Arena<T>();
         T* alloc(int size);
         void free();

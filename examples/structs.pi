@@ -1,0 +1,47 @@
+type cstr   :: *i8
+STDOUT      :: 1
+SYS_write   :: 1
+
+
+strlen :: (str: cstr): i64{
+    len: i64 = 0;
+    while *str {        
+        len = len + 1;
+        str = str + 1;
+    }    
+    return len;
+}
+
+fputs :: (fd: i64, str: cstr){     
+    len: i64 = strlen(str)
+    syscall(len, str, fd, SYS_write)    
+    
+}
+
+String :: {
+    data: cstr
+    size: i64
+}
+impl String {
+    set :: (self: *Self, str: cstr){
+        self.data = str
+        self.size = strlen(self.data)
+    }
+
+    fcout :: (self: *Self, str: cstr, fd: i64){
+        fputs(fd, str)
+    }    
+
+    cout :: (self: *Self, str:cstr){
+        self.fcout(str, STDOUT)
+    }
+    
+}
+
+
+main :: (){
+    str: String;
+    str.set("Hello, world\n");
+
+    str.cout(str.data)
+}

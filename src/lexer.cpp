@@ -13,9 +13,28 @@
 #include <vector>
 #include "interns.cpp"
 using namespace Pietra;
+struct StreamInfo {
+    const char*  stream;
+    Lexer::Token token;
+};
+
 const char* stream;
 Lexer::Token token;
+namespace Pietra::Lexer {
+    std::vector<StreamInfo*> streams;
+    void stream_snaphot(){
+        StreamInfo* si = new StreamInfo {.stream = Core::cstr(stream), .token = token};        
+        streams.push_back(si);
+    }
+    void stream_rewind(){
+        auto* si = streams.back();
+        streams.pop_back();
 
+        stream = si->stream;
+        token  = si->token;
+    }
+    
+}
 
 
 const char* keyword_if          = cstr("if");
@@ -167,6 +186,7 @@ void Lexer::next(){
                 token.name  = Core::cstr_range(token.str_start, token.str_end); \
                 break;
 
+        CASE1('#', TK_HASH)
         CASE1('(', TK_OPEN_ROUND_BRACES)
         CASE1(')', TK_CLOSE_ROUND_BRACES)
         CASE1('[', TK_OPEN_SQUARED_BRACES)
@@ -245,7 +265,7 @@ inline bool Lexer::expects_kind(tokenKind kind){
     }
     return false;
 }
-char Lexer::Scanners::scape_to_char(char c){
+char Lexer::Scanners::scape_to_char(char c){    
     switch(c) {
         case '0':   return '\0';
         case '\'':  return '\'';
@@ -302,7 +322,7 @@ void Lexer::Scanners::scan_char(){
         if(*stream == '\\'){            
             stream++;
             char escape = Scanners::scape_to_char(*stream);
-            if(*stream != '\0' and escape == 0){
+            if(*stream != '0' and escape == 0){
                 printf("[SYNTAX-ERROR]: Invalid escape literal: %c\n", *stream);
                 exit(1);
             }
@@ -488,6 +508,7 @@ const char* Lexer::tokenKind_repr(tokenKind k){
         case TK_DOT:                    return ".";
         case TK_DCOMMA:                 return ";";
         case TK_LT:                     return "<";
+        case TK_LTE:                    return "<=";        
         case TK_SUB:                    return "-";
         case TK_DEC:                    return "--";
         case TK_GT:                     return ">";
@@ -514,7 +535,18 @@ const char* Lexer::tokenKind_repr(tokenKind k){
         case TK_LAND:                   return "and";
         case TK_LOR:                    return "or";
         case TK_NOT:                    return "not";
+
         default: return "<unknown>";
+    }      
+}
+SVec<const char*> included_packages;
+bool is_included(const char* str){
+    for(auto& p: included_packages){
+        if( p == str) return true;
     }
+    return false;
+}                
+void include_me(const char* str){
+    included_packages.push(Core::cstr(str));
 }
 #endif /*LEXER_CPP*/

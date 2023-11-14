@@ -37,7 +37,7 @@ namespace Pietra::Parser{
 
     Stmt* stmt();
 
-
+    SVec<Decl*> parser_loop();
     Decl* decl();
     
         Decl* decl_impl();

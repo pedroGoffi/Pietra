@@ -1,0 +1,12 @@
+#package "pietra.compiler"
+
+use selfhost::Ast{Expr, Stmt, Decl}
+use std{Std}
+
+compile_expr :: (fd: i64, e: *Expr){
+    if e.kind == EXPR_INT {
+        puts("\tmov rax, ")
+        puti(e.val.int_lit)
+        puts("\n")
+    }
+}

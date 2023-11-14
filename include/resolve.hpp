@@ -76,7 +76,7 @@ namespace Pietra::Resolver {
     Operand operand_lvalue(Type* type, Val val);
     
     Sym* sym_constexpr_int(Expr* e);
-    Operand resolve_expr(Expr* expr);
+    Operand resolve_expr(Expr* &expr);
     Operand resolve_name(const char* name);
     Type* resolve_typespec(TypeSpec* &ts);
     
@@ -84,9 +84,10 @@ namespace Pietra::Resolver {
     void resolve_stmt(Stmt* &stmt);
     void resolve_stmt_block(SVec<Stmt*> block);
     void resolve_decl_var(Decl*& var);
-    void resolve_decl(Decl* &decl);
+    void resolve_decl(Decl* &decl, Type* type);
     Sym* resolve_sym(Sym* sym);
-    void resolve_decl_proc(Decl* &d);    
+    void resolve_decl_use(Decl* &d);
+    void resolve_decl_proc(Decl* &d, Type* type);
     SVec<Decl*> resolve_package(PPackage* &package);
 }
 #endif /*RESOLVE_HPP*/

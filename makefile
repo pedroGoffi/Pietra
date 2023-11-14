@@ -1,2 +1,2 @@
 compile:
-	g++ main.cpp -std=c++20 -o pietra
+	g++ main.cpp -g -std=c++20 -o pietra

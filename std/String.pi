@@ -1,0 +1,12 @@
+#package "std.string"
+
+use std{Std}
+
+strlen :: (str: cstr): i64{
+    len: i64 = 0;
+    while *str {        
+        len = len + 1;
+        str = str + 1;
+    }    
+    return len;
+}

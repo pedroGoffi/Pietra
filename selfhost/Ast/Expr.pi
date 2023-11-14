@@ -1,0 +1,109 @@
+#package "pietra.ast.expr"
+
+EXPR_NONE                           :: 0        //  Undefined    
+EXPR_INT                            :: 1        //  integers           
+EXPR_FLOAT                          :: 2        //  floating point     
+EXPR_STRING                         :: 3        //  c based string literal      
+EXPR_NAME                           :: 4        //  name identifier    
+EXPR_INIT_VAR                       :: 5        //  name :type = expr
+EXPR_COMPOUND                       :: 6        //  (:type)* {expr}
+EXPR_FIELD                          :: 7        //  expr ". :: " expr
+EXPR_COMPOUND_LIST_INDEXING         :: 8        //  [expr] = expr
+EXPR_COMPOUND_NAME                  :: 9        //  :name = expr
+EXPR_NEW                            :: 10       //  new int
+EXPR_UNARY                          :: 11       //  -expr
+EXPR_BINARY                         :: 12       //  expr BIN_OP expr        
+EXPR_CMP                            :: 13       //  expr == expr
+EXPR_LOGIC                          :: 14       //  expr and expr
+EXPR_CAST                           :: 15       //  expr as type | (:type) expr
+EXPR_TERNARY                        :: 16       //  expr if expr else expr
+EXPR_ARRAY_INDEX                    :: 17       
+EXPR_CALL                           :: 18       
+
+ExprBinary :: {
+    kind:       i64
+    lhs:        *any // NOTE: those are pointers to Expr, TODO: make resolving process not raise an error in this context
+    rhs:        *any // NOTE: those are pointers to Expr, TODO: make resolving process not raise an error in this context
+}
+ExprUnary :: {
+    kind: i64 
+    expr: *any
+}
+ExprVal :: union {
+    int_lit:    i64
+    string_lit: cstr
+    name:       cstr      
+    unary:      ExprUnary  
+    binary:     ExprBinary
+}
+Expr :: {
+    kind:       i64 
+    val:        ExprVal        
+}
+make_expr_init :: (kind: i64): *Expr {
+    expr: *Expr = std_arena.alloc(sizeof(Expr));
+    expr.kind   = kind;
+    return expr;    
+}
+
+make_expr_int :: (val: i64): *Expr {
+    expr: *Expr         = make_expr_init(EXPR_INT);
+    expr.val.int_lit    = val;
+    return expr;
+}
+
+make_expr_name :: (name: cstr): *Expr {
+    expr: *Expr     = make_expr_init(EXPR_NAME);
+    expr.val.name   = name;
+    return expr;
+}
+make_expr_unary :: (kind: i64, e: *Expr): *Expr {
+    expr: *Expr = make_expr_init(EXPR_UNARY);
+    expr.val.unary.kind = kind;
+    expr.val.unary.expr = e;
+    return expr;
+}
+make_expr_binary :: (kind: i64, lhs: *Expr, rhs: *Expr){
+    expr: *Expr = make_expr_init(EXPR_BINARY);
+    expr.val.binary.kind = kind;
+    expr.val.binary.lhs = lhs;
+    expr.val.binary.rhs = rhs;
+    return expr;
+}
+
+print_expr :: (e: *Expr){
+    if not e return null;
+    
+
+    if e.kind == EXPR_INT {
+        puts("<Expr int: ");
+        puti(e.val.int_lit)
+        puts(">");
+        return null
+    }
+    if e.kind == EXPR_NAME {
+        puts("<Expr name: ");
+        puts(e.val.name)
+        puts(">");
+        return null
+    }
+    if e.kind == EXPR_BINARY {
+        puts("<Expr Binary: ")
+        print_expr(e.val.binary.lhs)
+        puts(" - ")
+        print_expr(e.val.binary.rhs)
+        puts(">\n")                
+        return null
+    }
+    if e.kind == EXPR_UNARY {
+        puts("<Expr Unary: ")
+        dump(e.val.unary.kind)
+        puts(" - (");
+        print_expr(e.val.unary.expr)
+        puts(")>")
+        return null
+    }
+    puts("IDK HOW TO PRINT THIS KIND: ")
+    puti(e.kind)
+    puts("!!\n")    
+}

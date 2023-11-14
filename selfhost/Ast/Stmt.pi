@@ -1,0 +1,27 @@
+#package "pietra.ast.stmt"
+
+use selfhost::Ast{Expr}
+
+
+StmtVal :: union {
+    expr: *Expr
+}
+
+STMT_NONE   :: 0
+STMT_EXPR   :: 1
+Stmt :: {
+    kind:   i64 
+    val:    StmtVal
+}
+
+__stmt_init :: (kind: i64): *Stmt{
+    s: *Stmt    = std_arena.alloc(sizeof(Stmt))
+    s.kind      = kind;
+    return s;
+}
+make_stmt_expr :: (e: *Expr): *Stmt{
+    s: *Stmt = __stmt_init(STMT_EXPR);
+    s.val.expr = e;
+    return s;
+    
+}

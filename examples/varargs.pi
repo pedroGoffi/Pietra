@@ -1,0 +1,43 @@
+use std{Std}
+
+fprintf :: (fd: *FILE, fmt: cstr, ...){
+    va: *any;
+    va_begin(&va);
+    i: i64 = 0; 
+    while not fmt[i] == 0 {
+        if fmt[i] == '%' {
+            i = i + 1;
+            if fmt[i] == 'i' {                                
+                s: cstr = itos(va)                
+                puts(s)                                                
+            }
+            if fmt[i] == 's' {                
+                puts(va)
+            }
+
+            va_next(&va)
+        }
+        else {            
+            putc(fmt[i])
+        }
+        
+        i = i + 1;
+    }
+    va_end(&va);    
+}
+strcat :: (s1: cstr, s2: cstr): cstr{
+    len1: i64 = strlen(s1)
+    len2: i64 = strlen(s2)
+    
+    len: i64 = len2 + len1;
+    str: cstr = std_arena.alloc(len);
+    memcpy(str, s1, len1)
+    memcpy(str + len1, s2, len2)
+    
+    return str;
+}
+
+main :: (){        
+    std_arena.init()    
+    fprintf(1, "hello %s\n", "jackson")
+}

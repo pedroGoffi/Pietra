@@ -1,0 +1,14 @@
+type cstr :: *i8
+f :: (){}
+FILE :: {
+    fd:     i64
+    flags:  i64
+    ptr:    *null    
+    buffer_end, buffer_begin: *null
+}
+
+fopen :: (pathname: cstr, flags: cstr): *FILE {            
+    file: *FILE = f(sizeof(FILE));             
+    
+    return file;
+}

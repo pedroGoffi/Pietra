@@ -88,8 +88,9 @@ Type* type_union(SVec<TypeField*> fields){
     st->aggregate.items = fields;
     return st;
 }
-Type* type_proc(SVec<TypeField*> params, Type* ret_type, bool is_vararg){
+Type* type_proc(const char* name, SVec<TypeField*> params, Type* ret_type, bool is_vararg){
     Type* t = type_init(TYPE_PROC);
+    t->name = Core::cstr(name);
     t->proc.params   = params;
     t->proc.ret_type = ret_type;
     t->proc.is_vararg = is_vararg;
@@ -194,7 +195,7 @@ const char* Type::repr(){
             return strf("const %s", base);
         }
         case TYPE_PROC: {
-            const char* str = strf("proc(");
+            const char* str = strf("%s(", this->name);
             for(TypeField* tf: this->proc.params){
                 const char* str_param_t = tf->type->repr();
                 str = strf("%s%s:%s", str, tf->name, str_param_t);
@@ -238,10 +239,10 @@ const char* Type::repr(){
 
         };
         case TYPE_SELF: return strf("Self");
+        
         case TYPE_UNION:                
         case TYPE_NONE:        
-        case TYPE_FIRST_ARITHMETRIC_TYPE:
-        
+        case TYPE_FIRST_ARITHMETRIC_TYPE:        
         case TYPE_LAST_ARITHMETRIC_TYPE:
         default: return strf("<undefined: %i>", this->kind);
     };

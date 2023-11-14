@@ -1,0 +1,118 @@
+#package "lexer"
+
+use selfhost{Token}
+
+LexerUtil :: {}
+impl LexerUtil {
+    isDigit :: (self: *Self, c: i8){        
+        return '0' <= c and c <= '9';
+        
+    }
+    isLiteral :: (self: *Self, c: i8){        
+        return ('a' <= c and c <= 'z') or ('A' <= c and c <= 'Z') or c == '_'
+    }
+}
+
+Lexer :: {    
+    stream: cstr
+    util:   LexerUtil
+}
+lexer: Lexer
+impl Lexer {        
+    ret_token_kind_range :: (self: *Self, kind: i64, begin: *cstr): *Token {
+        len: i64   = self.stream - begin;        
+        token.name = std_arena.alloc(len);        
+        memcpy(token.name, begin, len)        
+        
+        token.kind  = kind;
+        token.digit = stoi(token.name);
+        
+        return &token;
+
+    }
+    next :: (self: *Self){                
+        len: i64  = 0;        
+        str: cstr = null;
+
+        while *self.stream == ' ' or *self.stream == '\n' {
+            self.stream = self.stream + 1;
+        }
+
+        begin: cstr = self.stream;
+        if *self.stream == '\0' {
+            return self.ret_token_kind_range(TK_EOF, begin);            
+        }                
+
+        if self.util.isDigit(*self.stream){            
+            while self.util.isDigit(*self.stream){
+                self.stream = self.stream + 1;
+            }
+            return self.ret_token_kind_range(TK_INT, begin)                        
+        }
+
+        if self.util.isLiteral(*self.stream){
+            while self.util.isLiteral(*self.stream) {
+                self.stream = self.stream + 1;
+            }
+            return self.ret_token_kind_range(TK_NAME, begin)
+            
+        }
+        if *self.stream == '+' {
+            self.stream = self.stream + 1;
+            return self.ret_token_kind_range(TK_ADD, begin);            
+        }
+
+        if *self.stream == '-' {
+            self.stream = self.stream + 1;
+            return self.ret_token_kind_range(TK_SUB, begin);            
+        }
+        
+        if *self.stream == '*' {
+            self.stream = self.stream + 1;
+            return self.ret_token_kind_range(TK_MULT, begin);            
+        }
+        
+        if *self.stream == '/' {
+            self.stream = self.stream + 1;
+            return self.ret_token_kind_range(TK_DIV, begin);            
+        }
+        
+        if *self.stream == ';' {
+            self.stream = self.stream + 1;
+            return self.ret_token_kind_range(TK_DCOMMA, begin);            
+        }
+        
+        if *self.stream == ',' {
+            self.stream = self.stream + 1;
+            return self.ret_token_kind_range(TK_COMMA, begin);            
+        }
+        
+        if *self.stream == '.' {
+            self.stream = self.stream + 1;
+            return self.ret_token_kind_range(TK_DOT, begin);
+        }
+        
+        if *self.stream == '(' {
+            self.stream = self.stream + 1;
+            return self.ret_token_kind_range(TK_OPEN_ROUND_BRACES, begin);            
+        }
+        
+        if *self.stream == ')' {
+            self.stream = self.stream + 1;
+            return self.ret_token_kind_range(TK_CLOSE_ROUND_BRACES, begin);            
+        }
+        
+        if *self.stream == ':' {
+            self.stream = self.stream + 1;
+            return self.ret_token_kind_range(TK_DDOT, begin);            
+        }
+        
+        puts("UNKNOWN TOKEN.\n");
+        exit(1);
+    }
+
+    init :: (self: *Self, stream: cstr){                
+        self.stream = stream
+        self.next()
+    }    
+}

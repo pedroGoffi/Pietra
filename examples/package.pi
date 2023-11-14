@@ -1,0 +1,7 @@
+
+use std{Std, String}
+
+main :: (){
+    puts("ok\n")
+
+}

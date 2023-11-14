@@ -38,11 +38,13 @@ using namespace Pietra::Utils;
 int Pietra::Main(int argc, char** argv){              
     assert(argc == 2);
     
-    PPackage* package = PPackage::from(argv[1]);
+    PPackage* package = PPackage::from(argv[1]);        
     SVec<Decl*> ast = resolve_package(package);
+    
     Asm::compile_ast(ast);
     
-    
-    arena_free();        
+    printf("Pietra compiled successfuly.\n");
+    printf("Pietra Arena usage: %zu bytes\n", main_arena.size);
+    arena_free();            
     return EXIT_SUCCESS;
 }
