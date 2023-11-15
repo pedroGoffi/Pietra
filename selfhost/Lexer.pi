@@ -9,7 +9,9 @@ impl LexerUtil {
         
     }
     isLiteral :: (self: *Self, c: i8){        
-        return ('a' <= c and c <= 'z') or ('A' <= c and c <= 'Z') or c == '_'
+        return  ('a' <= c and c <= 'z') or 
+                ('A' <= c and c <= 'Z') or 
+                c == '_'
     }
 }
 
@@ -106,6 +108,13 @@ impl Lexer {
             self.stream = self.stream + 1;
             return self.ret_token_kind_range(TK_DDOT, begin);            
         }
+
+        if *self.stream == '=' {
+            self.stream = self.stream + 1;
+            return self.ret_token_kind_range(TK_EQ, begin);            
+        }
+
+        
         
         puts("UNKNOWN TOKEN.\n");
         exit(1);

@@ -1,12 +1,27 @@
 #package "std.string"
+use std{Std, Arena}
 
-use std{Std}
 
 strlen :: (str: cstr): i64{
-    len: i64 = 0;
-    while *str {        
-        len = len + 1;
-        str = str + 1;
-    }    
-    return len;
+    c: cstr = str;
+    while *c {
+        c = c + 1;
+    }
+    return c - str;
 }
+
+streq :: (s1: cstr, s2: cstr): i64 {
+    l1: cstr = strlen(s1);
+
+    if l1 != strlen(s2)
+        return false
+    
+    i: i64 = 0;
+    while i < l1{
+        if s1[i] != s2[i] return false;
+        i = i + 1
+    }
+
+    return s1[i] == s2[i];
+}
+

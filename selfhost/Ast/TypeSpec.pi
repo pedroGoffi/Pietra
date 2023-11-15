@@ -1,0 +1,58 @@
+#package "pietra.ast.typespec"
+use std{Std}
+
+
+TS_NONE         :: 0
+TS_NAME         :: 1 
+TS_POINTER      :: 2
+TS_ARRAY        :: 3
+TS_PROC         :: 4
+TS_CONST        :: 5
+TS_TEMPLATE     :: 6
+
+
+TSArray :: {
+    size: *any // NOTE: this is an Expr
+}
+
+TSProc :: {
+    params:     Vector
+    ret:        *any
+    has_vararg: i64
+}
+
+TypeSpecVal :: union {
+    name:   cstr
+    array:  TSArray
+    proc:   TSProc
+}
+
+TypeSpec :: {
+    kind:   i64
+    base:   *any
+    as:     TypeSpecVal
+}
+
+__ts_init :: (kind: i64): *TypeSpec {
+    ts: *TypeSpec = std_arena.alloc(sizeof(TypeSpec));
+    ts.kind = kind;
+    return ts;
+}
+
+ts_name :: (name: cstr): *TypeSpec {
+    ts: *TypeSpec = __ts_init(TS_NAME);
+    ts.as.name = name;
+    return ts;
+}
+
+print_ts :: (ts: *TypeSpec){
+    if ts.kind == TS_NAME {
+        puts("TypeSpec = ");
+        puts(ts.as.name)
+        puts("\n");
+        return null;
+    }
+
+    puts("IDK THIS TypeSpec\n");
+    exit(1)
+}

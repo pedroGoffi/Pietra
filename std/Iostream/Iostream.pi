@@ -1,0 +1,103 @@
+#package "pietra.std.iostream.iostream"
+use std{Std, Arena, Errno}
+
+
+SEEK_SET 	                :: 0
+SEEK_CUR 	                :: 1
+SEEK_END 	                :: 2
+O_READONLY                  ::  0	
+O_WRONLY	                ::  1	
+O_CREAT	                    ::  64	
+O_APPEND	                ::  1024	
+O_TRUNC	                    ::  512 	
+S_IWUSR     :: 128
+S_IRUSR     :: 256
+S_IXUSR     :: 64
+S_IWOTH     :: 2
+S_IROTH     :: 4
+
+FILE :: {
+    fd:             i64
+    flags:          i64
+    perm:           i64
+    ptr:            *null    
+    buffer_end:     *null
+    buffer_begin:   *null
+}
+impl FILE {
+    isOpen :: (self: *Self): i64 {        
+        return 0 < self.fd
+    }
+
+    delete :: (self: *Self){
+        if not self.isOpen(){
+            return false
+        }
+
+        return true
+    }
+    close :: (self: *Self) {
+        close(self.fd)        
+        self.ptr = self.buffer_end = self.buffer_begin = self.fd = self.flags = 0
+    }
+    
+}
+stdin:  *FILE = file_from_fd(0)
+stdout: *FILE = file_from_fd(1)
+stderr: *FILE = file_from_fd(2)
+
+file_from_fd :: (fd: i64): *FILE {
+    file: *FILE = std_arena.alloc(sizeof(FILE));
+    file.fd     = fd;
+    return file;
+}
+
+fclose :: (fd: *FILE){
+    *fd = (:FILE) 0;
+    close(fd.fd);
+}
+
+fopen :: (pathname: cstr, flags: cstr): *FILE {    
+    _flags: i64 = -1;
+    if streq(flags, "r"){        
+        _flags = O_READONLY
+    }
+    elif streq(flags, "w"){        
+        _flags = O_WRONLY
+    }
+    elif streq(flags, "r+"){    
+        _flags = O_WRONLY | O_CREAT | O_READONLY
+    }        
+
+    file: *FILE = std_arena.alloc(sizeof(FILE));
+    file.flags = _flags
+
+    file.perm = S_IROTH | S_IRUSR | S_IWOTH | S_IWUSR;
+    file.fd = open(pathname, file.flags, file.perm);
+   
+    
+    file.buffer_begin = sbrk(4096);
+    size: i64 = read(file.fd, file.buffer_begin, 4096);
+    
+    
+    file.ptr = file.buffer_begin
+    file.buffer_end = file.buffer_begin + size;
+            
+    return file;
+}
+fread :: (ptr: *null, size: i64, n: i64, stream: *FILE){    
+    exit(1);
+}
+
+
+
+// OSTREAM
+fputs :: (file: *FILE, str: cstr){
+    len: i64 = strlen(str);
+    write(file.fd, str, len);
+}
+
+
+puts :: (str: cstr){
+    fputs(stdout, str);
+}

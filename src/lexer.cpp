@@ -13,6 +13,7 @@
 #include <vector>
 #include "interns.cpp"
 using namespace Pietra;
+
 struct StreamInfo {
     const char*  stream;
     Lexer::Token token;
@@ -73,7 +74,9 @@ const char* keyword_default     = cstr("default");
 inline bool Lexer::is_eof(){    
     return token.kind == TK_EOF;
 }
-void Lexer::init_stream(const char* str){
+void Lexer::init_stream(const char* filename, const char* str){
+    token.pos = {0};
+    token.pos.filename = filename;
     stream = str;    
     next();    
 }
@@ -89,12 +92,32 @@ void Lexer::skip_opt_comment(){
         }
     }
 }
+
+
+const char* old_pos;
+void set_token_start(){
+    old_pos = stream;
+}
+void get_token_offset(Lexer::Token& token){
+    Lexer::tokenPos& pos = token.pos;
+    
+    for(const char* cs = old_pos; cs != stream; cs++){
+        char c = *cs;
+        if(c == '\n'){
+            pos.col = 0;
+            pos.line++;
+        }
+        else {
+            pos.col++;
+        }
+    }
+}
 void Lexer::next(){    
     Lexer::skip_empty();
     Lexer::skip_opt_comment();
     token.str_start = stream;
-    while(isspace(*stream)) stream++;
-
+    set_token_start();    
+    while(isspace(*stream)) stream++;    
     switch(*stream){
         __ALL_CASE_KWDS: 
         {
@@ -113,7 +136,7 @@ void Lexer::next(){
             } else {
                 token.kind = Lexer::TK_NAME;                        
             }
-            return;
+            break;
         }
         
         __ALL_CASE_NUMS:
@@ -132,7 +155,7 @@ void Lexer::next(){
                 Lexer::Scanners::scan_int();   
             }
             
-            return;
+            break;
         }
         case '.':
         {
@@ -142,8 +165,7 @@ void Lexer::next(){
             
             if(isdigit(*stream)){
                 stream = token.str_start;
-                Lexer::Scanners::scan_float();
-                return;
+                Lexer::Scanners::scan_float();                                
             }   
             else if (*stream == '.'){
                 stream++;
@@ -155,10 +177,10 @@ void Lexer::next(){
                     printf("TOKEN .. is unimplemented.\n");
                     exit(1);
                 }
-            }
+            }            
             token.str_end = stream;
             token.name = Core::cstr_range(token.str_start, token.str_end);
-            return;
+            break;
         }
         #define CASE1(_CHAR, _KIND)  \
             case _CHAR: {                   \
@@ -216,10 +238,10 @@ void Lexer::next(){
 
         case '\'':
             Lexer::Scanners::scan_char();
-            return;
+            break;
         case '"':            
             Lexer::Scanners::scan_string();
-            return;
+            break;
 
         
         case '\0': 
@@ -227,7 +249,7 @@ void Lexer::next(){
             stream++;  
             token.name = Core::cstr("<EOF>");
             token.kind = Lexer::TK_EOF;            
-            return;
+            break;
         }
         /*
             TODO: warn for undefined tokens
@@ -236,9 +258,8 @@ void Lexer::next(){
             printf("[ERR]: token.text = %s\nistr = %c\n", token.name, *stream);
             stream++;
     }
-    
-    
 
+    get_token_offset(token);        
 }
 inline bool Lexer::is_numeric(char c){
     switch(c){
@@ -408,7 +429,7 @@ int  Lexer::Scanners::char_to_int(char c){
 }
 void Lexer::Scanners::scan_int_base(int base){
     token.str_start = stream;
-    uint64_t val = 0;
+    uint64_t val = 0;    
     for(;;){
         int digit = Lexer::Scanners::char_to_int(*stream);        
 

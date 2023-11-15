@@ -28,7 +28,8 @@ namespace Pietra::Asm {
 using namespace Pietra;
 using namespace Ast;
 
-
+bool has_extern = false;
+const char* extern_paths = "";
 const char* argreg8[]  = {"dil", "sil", "dl", "cl", "r8b", "r9b"};
 const char *argreg16[] = {"di", "si", "dx", "cx", "r8w", "r9w"};
 const char *argreg32[] = {"edi", "esi", "edx", "ecx", "r8d", "r9d"};
@@ -134,7 +135,7 @@ void makeLabel() {
         }
     }
     Type* compile_binary(Lexer::tokenKind kind, Ast::Expr* lhs, Ast::Expr* rhs, CState& state){        
-        switch(kind){
+        switch(kind){            
             case Lexer::TK_LAND:{
                 int end_fail    = count();
                 int end_ok      = count();
@@ -954,8 +955,21 @@ void makeLabel() {
     void compile_decl_proc(Decl* d){        
         if(d->proc.is_internal) return;
         if(d->name == Core::cstr("dump")) return;
+        for(Note* note: d->notes){
+            if(note->name == Core::cstr("extern")) {
+                has_extern = true;
+                if(note->args.len() != 1){
+                    printf("[ERROR]: extern expects the path to the .asm of the extern file.\n");
+                    exit(1);
+                }
+                assert(note->args.at(0)->kind == Ast::EXPR_STRING);
 
-        CProc* proc = GetProc(d->name);
+                extern_paths = strf("%s %s", extern_paths, note->args.at(0)->string_lit);
+                return;
+            }
+        }
+
+        CProc* proc = GetProc(d->name);        
         cp = d;
         if(!proc){
             err("Got no proc in proc %s\n", d->name);
@@ -1089,9 +1103,14 @@ void makeLabel() {
         compile_segment_bss();
                 
         fclose(ctx.OUT);
-
+        err("extern = %s\n", extern_paths);
         if(!DEBUG_MODE){
-            system(strf("nasm -felf64 pietra.asm"));
+            if(has_extern){                
+                system(strf("nasm -felf64 pietra.asm"));
+            }
+            else {
+
+            }
             system(strf("ld pietra.o -o pietra.bin"));
             system(strf("rm pietra.o"));
         }

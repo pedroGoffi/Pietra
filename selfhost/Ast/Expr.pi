@@ -1,4 +1,5 @@
 #package "pietra.ast.expr"
+use selfhost::Ast{TypeSpec}
 
 EXPR_NONE                           :: 0        //  Undefined    
 EXPR_INT                            :: 1        //  integers           
@@ -29,17 +30,40 @@ ExprUnary :: {
     kind: i64 
     expr: *any
 }
+ExprCall        :: {
+    base: *any
+    args: *Vector
+}
+
+ExprArray       :: {
+    base:   *any
+    index:  *any
+}
+
+InitVar         :: {
+    name: cstr
+    ts:   *TypeSpec
+    init: *any      // *Expr
+}
+ExprField       :: {}
+ExprCompound    :: {}
 ExprVal :: union {
     int_lit:    i64
     string_lit: cstr
     name:       cstr      
-    unary:      ExprUnary  
+    call:       ExprCall
+    array:      ExprArray
+    var:        InitVar
+    field_acc:  ExprField
+    compount:   ExprCompound
+    unary:      ExprUnary
     binary:     ExprBinary
 }
 Expr :: {
     kind:       i64 
     val:        ExprVal        
 }
+////////////////////////////////////////////////////////////////////////////////////////
 make_expr_init :: (kind: i64): *Expr {
     expr: *Expr = std_arena.alloc(sizeof(Expr));
     expr.kind   = kind;
@@ -71,6 +95,13 @@ make_expr_binary :: (kind: i64, lhs: *Expr, rhs: *Expr){
     return expr;
 }
 
+make_expr_assign :: (name: cstr, ts: *TypeSpec, init: *Expr): *Expr {
+    e: *Expr = make_expr_init(EXPR_INIT_VAR);
+    e.val.var.name = name;
+    e.val.var.ts   = ts;
+    e.val.var.init = init;
+    return e;
+}
 print_expr :: (e: *Expr){
     if not e return null;
     
@@ -102,6 +133,21 @@ print_expr :: (e: *Expr){
         print_expr(e.val.unary.expr)
         puts(")>")
         return null
+    }
+
+    if e.kind == EXPR_INIT_VAR {
+        var: *InitVar = &e.val.var;
+        puts("<Init var: ");       
+        puts(var.name) 
+        puts(", ")
+        print_ts(var.ts);
+
+        if(var.init) {
+            puts(" = ")
+            print_expr(var.init);        
+        }
+        puts(">\n")
+        exit(1)
     }
     puts("IDK HOW TO PRINT THIS KIND: ")
     puti(e.kind)

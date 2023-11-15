@@ -1,28 +1,10 @@
-use std{Std, String}
-use selfhost{Parser, Compiler}
+#package "entry"
+use std{Std}
+use std::Test{Extern}
 
 
-main :: (argc: i64, argv: **i8){                    
-    std_intern_strings.init(&std_arena);    
-    if not(argc == 2){        
-        puts("[ERROR]: expected program <input-filepath>\n");
-        exit(1)
-    }
-    
-    fd: *FILE = fopen(argv[1], "r");
-    if not fd.isOpen() {
-        puts("Could not open makefile.\n")
-        exit(1);
-    }                
-    lexer.init(fd.buffer_begin);    
 
-
-    while not(token.kind == TK_EOF){
-        e: *Expr = expr_parse();
-        
-
-        
-        compile_expr(STDOUT, e)
-        
-    }                
+main :: (argc: i64, argv: **i8){                                
+    my_extern();
 }
+

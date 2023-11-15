@@ -8,16 +8,21 @@
 
 #include "../include/parser.hpp"
 #include <cassert>
+#include <iterator>
+
 using namespace Pietra;
 using namespace Pietra::Ast;
 using namespace Pietra::Lexer;
 #define unimplemented() printf("[ERR]: the %s is unimplemented for: %s", __FUNCTION__, token.name); exit(1);
 
 
-namespace Pietra::Parser {
 
+namespace Pietra::Parser {
+    PPackage* cpack;    
 Expr* literal_expr_assign(const char* name){
-    assert(is_kind(TK_DDOT));
+    
+    
+    assert(is_kind(TK_DDOT));    
     next();
     TypeSpec*   ts   = nullptr;
     Expr*       init = nullptr;
@@ -287,7 +292,7 @@ TypeSpec* typespec_base(){
     if(is_kind(TK_NAME)){
         const char* name = token.name;
         next();
-        return Utils::typespec_name(name);
+        return Utils::typespec_name(name, token);
     }
     else {
         printf("[ERR]: expected typespec, got: %s\n", token.name);
@@ -310,13 +315,13 @@ TypeSpec* typespec(){
         assert(is_kind(Lexer::TK_CLOSE_SQUARED_BRACES));
         next();
 
-        return Utils::typespec_array(typespec(), arr_size);
+        return Utils::typespec_array(typespec(), arr_size, token);
     } else if(token.name == keyword_const){
         next();
-        return Utils::typespec_const(typespec());
+        return Utils::typespec_const(typespec(), token);
     } else if(token.kind == TK_MULT){
         next();
-        return Utils::typespec_pointer(typespec());
+        return Utils::typespec_pointer(typespec(), token);
     }
     else {
         TypeSpec* ts = typespec_base();
@@ -326,7 +331,7 @@ TypeSpec* typespec(){
                 TypeSpec* base = typespec();
                 assert(is_kind(TK_GT));
                 next();
-                ts = Utils::typespec_template(ts, base);
+                ts = Utils::typespec_template(ts, base, token);
             }
             else {
                 unimplemented();
@@ -786,7 +791,7 @@ Decl* decl_use(){
     const char* rename = 0;
     if(token.name == keyword_as){
         next();
-        rename = token.name;
+        rename = Core::cstr(token.name);
         next();
     }
 
@@ -806,9 +811,8 @@ Decl* decl_use(){
 
     
     SVec<Decl*> module;    
-    for(auto& use: _use_names){        
+    for(const char* use: _use_names){        
         const char* new_path = strf("%s/%s.pi", path, use);
-        
         
         Lexer::stream_snaphot();
         PPackage* package = PPackage::from(new_path);
@@ -820,7 +824,7 @@ Decl* decl_use(){
             module.push(node);
         }                
         Lexer::stream_rewind();                            
-    }            
+    }
     return Utils::decl_use(module, use_all, rename);
 }
 
@@ -903,14 +907,14 @@ Decl* parse_comptime(){
 
         const char* package_name = token.name;
         next();
-        if(is_included(package_name)){            
-            printf("Skipping package %s\n", package_name);
-            while(stream and *stream and *stream++);
-            
+        
+        if(is_included(package_name)){                        
+            while(stream and *stream and *stream++);            
             token.kind = TK_EOF;            
             return nullptr;
-        }
-        include_me(package_name);        
+        }        
+        // TODO: make the package be in an PPackage list
+        include_me(package_name); // Push the package in the packages        
         return nullptr;
     }
     else {
@@ -920,7 +924,10 @@ Decl* parse_comptime(){
 }
 
 Decl* decl(){
-    if(token.kind == TK_EOF or not *stream) return nullptr;
+    if(token.kind == TK_EOF or not *stream) {
+        token.kind = TK_EOF; // TO avoid end of the stream infinite loop
+        return nullptr;
+    }
 
     if(token.kind == Lexer::TK_HASH){
         next();

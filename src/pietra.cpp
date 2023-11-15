@@ -15,19 +15,7 @@
 #include "Asmx86_64.cpp"
 //#include "GFSL_compiler.cpp"
 //#include "llvm.cpp"
-#include "cGen.cpp"
-#include <cstdlib>
-#include <string>
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/mman.h>
-#include <string.h>
-#include <unistd.h>
-
-
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <netinet/in.h>
+#
 
 
 using namespace Pietra::Lexer;

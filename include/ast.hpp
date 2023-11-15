@@ -167,6 +167,7 @@ namespace Pietra::Ast {
         TYPESPECMUT_MUT_ADDR
     };
     struct TypeSpec{
+        Lexer::Token        token;
         TypeSpecKind        kind;
         TypeSpecMutablity   mutablity;
         TypeSpec*           base;    

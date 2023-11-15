@@ -17,7 +17,7 @@ PStreamCursor* PStreamCursor::from(const char *filename){
     cursor->stream = fileReader::read_file(filename);
     assert(cursor->stream);
         
-    init_stream(cursor->stream);        
+    init_stream(filename, cursor->stream);        
     return cursor;
 
 }

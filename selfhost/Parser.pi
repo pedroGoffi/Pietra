@@ -3,14 +3,42 @@
 use std{Std}
 use selfhost{Lexer, Ast}
 
+typespec_base :: (): *TypeSpec {
+    if not(token.kind == TK_NAME){
+        puts("[ERR]: expected typespec, got: ")
+        puts(token.name)
+        puts("\n");
+        exit(1);
+    }
+
+    name: cstr = token.name;
+    lexer.next();
+    return ts_name(name);
+}
+typespec :: (): *TypeSpec {
+    ts: *TypeSpec = typespec_base();    
+    return ts;    
+}
 expr_literal_assign :: (name: cstr): *Expr{
     if not token.kind == TK_DDOT {
         puts("wtf why u called me?\n");
         exit(1);
     }
     lexer.next();
+
+    ts:     *TypeSpec;
+    init:   *Expr;
     
+    if not(token.kind == TK_EQ){
+        ts = typespec()
+    }
+    if token.kind == TK_EQ{
+        puts("[ERROR]: can't initialize a variable in it's assignment.\n");
+        exit(1)
+    }    
+    return make_expr_assign(name, ts, init)    
 }
+
 expr_literal :: (){
     val: any;
     if token.kind == TK_INT {
@@ -116,7 +144,7 @@ expr_assign  :: (){
     }
     return cast;
 }
-expr_ternary :: (){    
+expr_ternary :: (): *Expr{
     e: *Expr = expr_assign();
     if streq(token.name, "if"){
         puts("IF NOT IMPLEMETED YET.\n");
@@ -124,6 +152,17 @@ expr_ternary :: (){
     }
     return e;
 }
-expr_parse :: (){
-    return expr_ternary();
+
+stmt :: (): *Stmt {
+    if streq(token.name, "if") {
+        puts("ok\n");
+        exit(1)
+    }
+
+    e: *Expr = expr_ternary();
+    return make_stmt_expr(e);
+}
+
+parse :: (){
+    return stmt()
 }

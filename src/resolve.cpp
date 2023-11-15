@@ -14,6 +14,7 @@ The resolver will
 #include "bridge.cpp"
 #include "preprocess.cpp"
 #include <clocale>
+#include <cstdio>
 #include <cstring>
 #include <iostream>
 #include <memory>
@@ -22,7 +23,17 @@ namespace Pietra::Resolver{
     SVec<Sym*>          Syms;
     SVec<Sym*>          localSyms;
     SVec<Decl*>         final_ast;
-    
+    SVec<PPackage*>     packages;
+    PPackage* get_package(const char* name){
+        for(PPackage* pa: packages){
+            if(pa->name == name){
+                return pa;
+            }
+        }
+
+        return nullptr;
+    }
+
     Sym* SymImpl::find(const char* name){
         for(Sym* node: this->body){                        
             if( node->name == name) return node;            
@@ -166,7 +177,14 @@ namespace Pietra::Resolver{
         for(Decl* decl: ast){                                                
             if(decl->name == Core::cstr("<use>")){
                 assert(decl->kind == DECL_USE);
-                declare_ast(decl->use.module);
+                if(decl->use.rename){
+                    printf("[ERROR]: decl-Use with rename..\n");
+                    exit(1);
+                }
+
+                else {
+                    declare_ast(decl->use.module);
+                }
             }
             else {                
                 Sym* sym = sym_new(decl->name, decl);            
@@ -187,7 +205,7 @@ namespace Pietra::Resolver{
 
         DEFINE_BUILTIN("true",
             Utils::decl_var("true", 
-                Utils::typespec_name("i64"),
+                Utils::typespec_name("i64", {}),
                 Utils::expr_int(1)));
 
 
@@ -216,12 +234,12 @@ namespace Pietra::Resolver{
 
         DEFINE_BUILTIN("false",
             Utils::decl_var("false", 
-                Utils::typespec_name("i64"),
+                Utils::typespec_name("i64", {}),
                 Utils::expr_int(0)));
 
         DEFINE_BUILTIN("null",
             Utils::decl_var("null", 
-                Utils::typespec_name("i64"),
+                Utils::typespec_name("i64", {}),
                 Utils::expr_int(0)));
         {
             const char* builtin_procs[] = {
@@ -239,7 +257,7 @@ namespace Pietra::Resolver{
                     Utils::decl_proc(
                         str,
                         {},
-                        Utils::typespec_name("any"),
+                        Utils::typespec_name("any", {}),
                         {},
                         false,
                         true,
@@ -260,7 +278,7 @@ namespace Pietra::Resolver{
 
     Type* resolve_typespec(TypeSpec* &ts){    
         if(!ts){
-            ts = Utils::typespec_name("any");
+            ts = Utils::typespec_name("any", {});
             return resolve_typespec(ts);
         }
 
@@ -301,8 +319,7 @@ namespace Pietra::Resolver{
                     ts->resolvedTy = CBridge::tmp_self;                    
                     break;
                 }
-
-                printf("Undefined type: %s \n", ts->name);
+                tok_err(ts->token, "Undefined type: %s\n", ts->name);                
                 exit(1);
 
 
@@ -423,7 +440,9 @@ namespace Pietra::Resolver{
                     psz, asz);
                 exit(1);
             }                                                        
-        }                
+        }               
+        
+
         Type* ret = bop.type->proc.ret_type;                        
         return operand_rvalue(ret);
         
@@ -579,7 +598,7 @@ namespace Pietra::Resolver{
             }
         }        
         // Check for TypeImpl in op.type        
-        if(children->kind == Ast::EXPR_NAME){            
+        if(children->kind == Ast::EXPR_NAME){                        
             if(Sym* sym = sym_get(op.type->name)){                            
                 if(sym->state == SYM_UNRESOLVED){
                     resolve_sym(sym);
@@ -629,6 +648,14 @@ namespace Pietra::Resolver{
                     Expr* rhs = expr->binary.right;
                     Expr* base_gt = Utils::expr_binary(Lexer::TK_GT, lhs, rhs);
                     expr = Utils::expr_unary(Lexer::TK_NOT, base_gt);
+                    return resolve_expr(expr);                    
+                }
+                else if (expr->binary.binary_kind == Lexer::TK_NEQ){
+                    // T: lhs != rhs --> not(lhs == rhs);                    
+                    Expr* lhs = expr->binary.left;
+                    Expr* rhs = expr->binary.right;
+                    Expr* base_eq = Utils::expr_binary(Lexer::TK_CMPEQ, lhs, rhs);                    
+                    expr = Utils::expr_unary(Lexer::TK_NOT, base_eq);                    
                     return resolve_expr(expr);                    
                 }
                 else {
@@ -685,19 +712,8 @@ namespace Pietra::Resolver{
             resolve_stmt(stmt);
     }
     void resolve_sym_proc_impl(Sym* self, Sym* sym){
-        assert(sym->kind == SYM_PROC);
-        self->impls.self = self;
-        if(sym->decl->proc.params.len() < 1){
-            printf("[ERROR]: procedures inside impl must have self: *Self in the first parameter.\n");
-            exit(1);
-        }
-
-        ProcParam* param1 = sym->decl->proc.params.at(0);
-        if(param1->name != Core::cstr("self")){
-            printf("[ERORR]: the first parameter in impl methodos must be named 'self'.\n");
-            exit(1);
-        }
-
+        assert(sym->kind == SYM_PROC);        
+        self->impls.self = self;                
         resolve_decl_proc(sym->decl, sym->type);
     }
     void resolve_impl(const char* target, SVec<Decl*> body){        
@@ -752,11 +768,25 @@ namespace Pietra::Resolver{
 
         resolve_stmt_block(d->proc.block);
     }
-    void resolve_decl_use(Decl* &decl){
+    void resolve_decl_use(Decl* &decl){        
         assert(decl->kind == DECL_USE);
-        for(Decl* node: decl->use.module){
-            Sym* sym = sym_new(node->name, node);
-            resolve_sym(sym);            
+
+        if(decl->use.rename){            
+            PPackage* package = arena_alloc<PPackage>();
+            package->ast    = decl->use.module;
+            package->name   = decl->use.rename;            
+            packages.push(package);
+
+            for(auto& f: package->ast){
+                printf("IN PACKAGE %s got %s\n", package->name, f->name);
+            }
+            
+        }
+        else {        
+            for(Decl* node: decl->use.module){
+                Sym* sym = sym_new(node->name, node);
+                resolve_sym(sym);            
+            }
         }
     }
     void resolve_decl(Decl* &decl, Type* type){
@@ -826,6 +856,6 @@ namespace Pietra::Resolver{
         }   
         
         return final_ast;        
-    }
+    }    
 }
 #endif /*RESOLVE_CPP*/

@@ -50,9 +50,14 @@ namespace Pietra::Lexer{
         TK_STRING,
     };
     const char* tokenKind_repr(tokenKind k);
+    struct tokenPos{
+        const char* filename    = "<stdin>";
+        int         col         = 0;
+        int         line        = 0;
+    };
     struct Token{    
         tokenKind   kind;            
-
+        tokenPos    pos;
         const char* str_start;
         const char* str_end;
         const char* name;        
@@ -81,7 +86,7 @@ namespace Pietra::Lexer{
     inline bool is_kind(tokenKind kind);
     inline bool expects_kind(tokenKind kind);
     inline bool is_eof();
-    void init_stream(const char* str);        
+    void init_stream(const char* filename, const char* str);        
     void lexer_test();
 
     void fprint_token(FILE* file, Token token);

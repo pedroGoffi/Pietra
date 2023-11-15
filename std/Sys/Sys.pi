@@ -1,12 +1,5 @@
-STDOUT                      :: 1
-SEEK_SET 	                :: 0
-SEEK_CUR 	                :: 1
-SEEK_END 	                :: 2
-O_READONLY                  ::  0	
-O_WRONLY	                ::  1	
-O_CREAT	                    ::  64	
-O_APPEND	                ::  1024	
-O_TRUNC	                    ::  512 	
+#package "pietra.linux.syscall.table"
+
 AT_FDCWD	                :: 0
 MAP_SHARED                  ::  1 
 MAP_PRIVATE                 ::  2 

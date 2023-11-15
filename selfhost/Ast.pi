@@ -1,3 +1,2 @@
 #package "pietra.ast"
-
-use selfhost::Ast{Expr, Stmt, Decl}
+use selfhost::Ast{TypeSpec, Expr, Stmt, Decl}

@@ -1,0 +1,49 @@
+#package "pietra.std.sys.syscalls"
+use std::Sys{Sys}
+
+exit :: (exit_code: i64) {
+    syscall(exit_code, SYS_exit)
+}
+
+read :: (fd: i64, buf: *null, count: i64): i64 {
+    return syscall(count, buf, fd, SYS_read)
+}
+write :: (fd: i64, ptr: *null, size: i64){
+    syscall(size, ptr, fd, SYS_write)
+}
+
+brk :: (addr: *Addr_t): Addr_t {    
+    return syscall(addr, SYS_brk)
+}
+
+sbrk :: (size: i64): *any{
+    heap_end: *any = asm("mov rax, __heap_end__");
+    *heap_end = *heap_end + size;
+    brk(*heap_end)
+    return *heap_end - size;
+}
+open :: (filename: cstr, flags: i64, mode: i64): i64 {    
+    return syscall(mode, flags, filename, SYS_open)    
+}
+socket :: (domain: i64, type: i64, protocol: i64): i64 { 
+    return syscall(protocol, type, domain, SYS_socket);
+}
+accept :: (sockfd: i64, addr: *any, addrlen: i64): i64 {
+    return syscall(addrlen, addr, sockfd, SYS_accept);
+}
+
+bind :: (sockfd: i64, addr: *any, addrlen: i64): i64 {
+    return syscall(addrlen, addr, sockfd, SYS_bind);    
+}
+listen :: (sockfd: i64, backlog: i64): i64 {
+    return syscall(backlog, sockfd, SYS_listen)
+}
+fork :: (): i64{
+    return syscall(SYS_fork);
+}
+execve :: (pathname: cstr, argv: *cstr, envp: *cstr): i64 {    
+    return syscall(envp, argv, pathname, SYS_execve);        
+}
+close :: (fd: i64) {
+    return syscall(fd, SYS_close)    
+}

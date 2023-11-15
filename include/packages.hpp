@@ -11,7 +11,8 @@ using namespace Pietra::Core;
 
 
 namespace Pietra {
-    struct PPackage {
+    struct PPackage {        
+        const char* name;
         PCursor*    cursor;        
         Decl*       at;
         SVec<Decl*> ast;
@@ -19,7 +20,7 @@ namespace Pietra {
 
         static PPackage* from(const char* filename);
         Decl*        getSymFromName(const char* name);
-        SVec<Decl*>  getAst();
+        SVec<Decl*>  getAst();        
     };
 }
 #endif /*PACKAGES_HPP*/

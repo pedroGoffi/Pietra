@@ -1,0 +1,4 @@
+#package "test.extern"
+
+@extern("my_extern.o")
+my_extern :: ();

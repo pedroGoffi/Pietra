@@ -1,0 +1,14 @@
+#package "pietra.std.errno"
+
+ENOMEM :: -1
+
+errno: i64 = 0
+
+set_errno :: (val: i64){
+    errno = val;
+}
+
+strerr :: (err: i64){
+    if err == ENOMEM return "No memory"
+    return "";   
+}

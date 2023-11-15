@@ -11,8 +11,6 @@ PPackage* PPackage::from(const char *filename){
     PStreamCursor* Streamcursor = PStreamCursor::from(filename);
     if(!Streamcursor) return nullptr;
     
-    int i = 0;
-    
     package->ast = Parser::parser_loop();
     
     Streamcursor->decl = nullptr;
