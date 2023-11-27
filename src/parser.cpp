@@ -513,7 +513,7 @@ Stmt* stmt_while(){
     Expr* cond          = expr();
     SVec<Stmt*> block   = stmt_opt_curly_block();
     
-    return Utils::stmt_while(cond, block);
+    return Utils::stmt_while(cond, block, false);
 }
 Stmt* stmt_if(){    
     assert(token.name == keyword_if);
@@ -535,6 +535,15 @@ Stmt* stmt_if(){
 
     return Utils::stmt_if(if_clause, elif_clauses, else_block);    
 }
+Stmt* stmt_do_while(){
+    assert(token.name == keyword_do);
+    next();
+    SVec<Stmt*> block = stmt_opt_curly_block();
+    assert(token.name == keyword_while);
+    next();
+    Expr* cond = expr();
+    return Utils::stmt_while(cond, block, true);
+}
 Stmt* stmt(){            
     if(is_kind(Lexer::TK_DCOMMA)){
         next();
@@ -551,6 +560,8 @@ Stmt* stmt(){
     } else if(token.name == keyword_return){        
         next();        
         return Utils::stmt_return(expr());
+    } else if(token.name == keyword_do){
+        return stmt_do_while();        
     }
     else {
         return Utils::stmt_expr(expr());        

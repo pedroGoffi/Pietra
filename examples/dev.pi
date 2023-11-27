@@ -1,5 +1,7 @@
-use std{Std} 
+use std{std}
 
-main :: proc (){
-        
+main :: proc (){    
+    std.puts("hello, world\n")
+
+    
 }

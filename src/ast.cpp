@@ -171,12 +171,12 @@ Stmt* stmt_expr(Expr* e){
     stmt->expr = e;
     return stmt;
 }
-Stmt* stmt_while(Expr* cond, SVec<Stmt*> block){
+Stmt* stmt_while(Expr* cond, SVec<Stmt*> block, bool is_doWhile){
     Stmt* st = init_stmt(STMT_WHILE);
     st->stmt_while = arena_alloc<StmtWhile>();
     st->stmt_while->cond = cond;
     st->stmt_while->block = block;
-    
+    st->stmt_while->is_doWhile = is_doWhile;
     return st;
 }
 

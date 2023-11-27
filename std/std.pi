@@ -1,0 +1,13 @@
+#package "pietra.stdlib"
+use std::core{linux}
+use std{string}
+
+
+std :: {}
+
+impl std {
+    puts :: (str: cstr){
+        len := strlen(str);
+        write(1, str, len)        
+    }
+}

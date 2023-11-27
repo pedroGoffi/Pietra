@@ -1,4 +1,5 @@
 #package "pietra.std.sys.syscalls"
+use std{Types}
 use std::Sys{Sys}
 
 exit :: (exit_code: i64) {

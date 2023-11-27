@@ -13,15 +13,20 @@
 #define DEBUG_MODE  false
 #if DEBUG_MODE
 #   define __OUT stdout
+#   define P_SET_CTXOUT(filename) 
 #else 
 #   define __OUT ctx.OUT
+
+#   define P_SET_CTXOUT(filename)   \
+    ctx.OUT = fopen(filename, "w"); \
+    assert(ctx.OUT);
 #endif
 
-#define printf(...) fprintf(__OUT, __VA_ARGS__)
-#define err(...) fprintf(stderr, __VA_ARGS__)
-#define printc(...) printf("\t"); printf(__VA_ARGS__)
+#define printf(...)  fprintf(ctx.OUT, __VA_ARGS__)
+#define printc(...)  printf("\t"); printf(__VA_ARGS__)
 #define println(...) printf("\t"); printf(__VA_ARGS__); printf("\n");
 #define printlb(...) printf(__VA_ARGS__); printf(":\n")
+#define err(...)     fprintf(stderr, __VA_ARGS__)
 
 namespace Pietra::Asm {
 
@@ -438,47 +443,73 @@ void makeLabel() {
         }
         return load(var->type);
     }
+    
+    void compile_aggregate_constructor(CVar* var, Sym* constructor){
+        const char* cons_name = constructor->name;        
+        Expr* base  = Utils::expr_name(var->name);                    
+        compile_expr(base, state_none);
+        println("mov rdi, rax");
+        println(";------------------------");        
+        Expr* e     = Utils::expr_field_access(base, Utils::expr_name(Core::cstr("New")));
+        compile_expr(e, state_none);                            
+        println("call rax");
+    }
+
     Type* compile_init_var(const char* name, Type* type, Expr *init, bool isGlobal, CState state){        
+        assert(!isGlobal && "global variables should be preprocessed in the resolver");
         if(state != state_none){
             err("[ERR]: init var with state != state_none.\n");
             exit(1);
         }
+        
 
-        if(isGlobal){
-            assert(0 && "global variables should be preprocessed in the resolver");
+        
+        
+        assert(cp);
+        CProc* proc = GetProc(cp->name);
+        assert(proc);
+        
+        CVar* var = proc->find_param(name);
+        if(!var){
+            var = proc->find_local(name);
         }
-        else {
-            assert(cp);
-            CProc* proc = GetProc(cp->name);
-            assert(proc);
-            CVar* var = proc->find_param(name);
-            if(!var){
-                var = proc->find_local(name);
+        
+
+        if(!var){
+            err("------------------------\n");
+            for(CVar* v: *proc->locals){
+                err("inside %s got locals = %s\n", proc->name, v->name);
+            }
+            for(CVar* v: *proc->params){
+                err("inside %s got params = %s\n", proc->name, v->name);
             }
             
+            err("[EROR]: could not find the variable: '%s'\n", name);
+            exit(1);            
+        }        
+        if(var->type->kind != TYPE_PTR ){            
+            Sym* sym = nullptr;
 
-            if(!var){
-                err("------------------------\n");
-                for(CVar* v: *proc->locals){
-                    err("inside %s got locals = %s\n", proc->name, v->name);
-                }
-                for(CVar* v: *proc->params){
-                    err("inside %s got params = %s\n", proc->name, v->name);
-                }
-                
-                err("[EROR]: could not find the variable: '%s'\n", name);
-                exit(1);
+            if(var->type->kind == TYPE_PTR){
+                sym = sym_get(var->type->base->name);
             }
-
-            if(init){            
-                lea(var);                
-                push("rax", var->type);
-                compile_expr(init, state_none);
-                store();                
-            }
-            return var->type;
-
-        }
+            else {
+                sym = sym_get(var->type->name);
+            }            
+            if(sym and sym->type->kind != TYPE_PTR and sym->kind == Resolver::SYM_AGGREGATE and sym->type->name){                
+                const char* target = Core::cstr(strf("%s_impl_%s", var->type->name, "New"));                    
+                if(Sym* constructor = sym->impls.find(target)){                                            
+                    compile_aggregate_constructor(var, constructor);
+                }                
+            }            
+        }        
+        if(init){            
+            lea(var);                
+            push("rax", var->type);
+            compile_expr(init, state_none);
+            store();                                
+        }        
+        return var->type;        
     }
 
     Type* compile_call(Expr* base, SVec<Expr*> args, CState& state){                    
@@ -624,6 +655,7 @@ void makeLabel() {
             
             for(Expr* arg: args) {
                 if(isVa and id + 1 >= vaPos){                                        
+                    println("push 0"); 
                     for(int i = args.len(); i >= vaPos; i--){
                         compile_expr(args.at(i - 1), state);
                         println("push rax");
@@ -655,7 +687,7 @@ void makeLabel() {
         }
         
     }
-    Type* compile_name(const char* name, CState& state){                
+    Type* compile_name(const char* name, CState& state){                        
         // Check for procedures
         if(CProc* cp = GetProc(name)){            
             println("mov rax, %s", cp->name);            
@@ -702,6 +734,10 @@ void makeLabel() {
                 return compile_expr(ce->expr, state);
             }
         }            
+        // Check for types 
+        if(Type* type = type_get(name)){            
+            return type;            
+        }
         err("[ERR]: name '%s' not found in this scope.\n", name);
         exit(1);
     }
@@ -756,7 +792,8 @@ void makeLabel() {
                 SymImpl& impls = sym->impls;
                 const char* target = Core::cstr(strf("%s_impl_%s", p->name, children->name));
                 if(Sym* impl = impls.find(target)){
-                    println("mov rax, rdi");
+                    println("mov rdi, rax");
+                    //println("mov rax, rdi");
                     assert(impl->kind == SYM_PROC);
                     println("mov rax, %s", impl->name);
                     return impl->type->proc.ret_type;
@@ -925,14 +962,22 @@ void makeLabel() {
             case Ast::STMT_WHILE:   {
                 int begin = count();
                 int end   = count();
-
                 makeLabel(begin);
-                Type* ty = compile_expr(stmt->stmt_while->cond, state_none);
-                cmp_zero(ty);
-                println("je .L%i", end);
-                compile_block(stmt->stmt_while->block);
-                println("jmp .L%i", begin);
-
+                if(stmt->stmt_while->is_doWhile){
+                    compile_block(stmt->stmt_while->block);
+                    Type* ty = compile_expr(stmt->stmt_while->cond, state_none);
+                    cmp_zero(ty);
+                    println("je .L%i", end);
+                    println("jmp .L%i", begin);                    
+                }
+                else {                    
+                    
+                    Type* ty = compile_expr(stmt->stmt_while->cond, state_none);
+                    cmp_zero(ty);
+                    println("je .L%i", end);
+                    compile_block(stmt->stmt_while->block);
+                    println("jmp .L%i", begin);                    
+                }
                 makeLabel(end);
             } break;
             case Ast::STMT_RETURN:  {
@@ -952,11 +997,27 @@ void makeLabel() {
     void compile_cproc_params(CProc *cp, SVec<ProcParam*> params){        
          //TODO: i guess
     }
+    void compile_variable_deleter(CVar* var, Sym* del){
+        if(var->type->kind == TYPE_PTR) return;
+
+        Expr* e = Utils::expr_field_access(
+            Utils::expr_name(var->name), 
+            Utils::expr_name(Core::cstr("Delete")));
+        
+        compile_expr(e, state_none);
+        println("call rax");
+    }
     void compile_decl_proc(Decl* d){        
         if(d->proc.is_internal) return;
         if(d->name == Core::cstr("dump")) return;
         for(Note* note: d->notes){
-            if(note->name == Core::cstr("extern")) {
+            if(note->name == Core::cstr("warn")){
+                for(Expr* arg: note->args){
+                    assert(arg->kind == Ast::EXPR_STRING);
+                    err("[WARN]: %s\n", arg->string_lit);
+                }
+            }
+            else if(note->name == Core::cstr("extern")) {
                 has_extern = true;
                 if(note->args.len() != 1){
                     printf("[ERROR]: extern expects the path to the .asm of the extern file.\n");
@@ -996,6 +1057,19 @@ void makeLabel() {
         compile_block(d->proc.block);        
         println("mov rax, 0");
         printlb(".PE.%s", proc->name);
+        CProc* p = GetProc(cp->name);
+        assert(p);
+        
+        for(CVar* local: *p->locals){
+            if(local->type->kind != TYPE_PTR){
+                Sym* local_type_sym = sym_get(local->type->name);
+                assert(local_type_sym);            
+                const char* deleter = Core::cstr(strf("%s_impl_%s", local_type_sym->name, "Delete"));
+                if(Sym* del = local_type_sym->impls.find(deleter)){
+                    compile_variable_deleter(local, del);                
+                }
+            }
+        }
         println("leave");
         println("ret");                
     }
@@ -1052,8 +1126,8 @@ void makeLabel() {
     }
 
     void compile_ast(SVec<Decl*> ast){
-        ctx.OUT = fopen("pietra.asm", "w");
-        assert(ctx.OUT);
+        P_SET_CTXOUT("pietra.asm")
+        
 
         printf("BITS 64\n");
         printf("segment .text\n");
@@ -1067,12 +1141,11 @@ void makeLabel() {
 
 
         printlb("_start");
-        //CProc* pmain = GetProc("main");
-//
-        //if(!pmain){
-        //    err("[ERROR]: where is main?\n");
-        //    exit(1);
-        //}        
+        CProc* pmain = GetProc(Core::cstr("main"));
+        if(!pmain){
+            err("[ERROR]: Expected the 'main' procedure to be declared\n");
+            exit(1);
+        }        
         // Initialize allocator __heap_end__
         println("mov rax, 12");
         println("mov rdi, 0");
@@ -1087,9 +1160,9 @@ void makeLabel() {
                 store();
             }
         }
-        //if(pmain->params.len() != 0)
+        if(pmain->params->len() != 0)
         {
-            //assert(pmain->params.len() == 2);
+            assert(pmain->params->len() == 2);
             println("mov %s, [rsp]", argreg64[0]);
             println("mov %s, rsp", argreg64[1]);
             println("add %s, 8\n", argreg64[1]);
@@ -1100,22 +1173,18 @@ void makeLabel() {
         println("mov rdi, 0");
         println("syscall");
         compile_segment_data();
-        compile_segment_bss();
-                
+        compile_segment_bss();                
         fclose(ctx.OUT);
-        err("extern = %s\n", extern_paths);
-        if(!DEBUG_MODE){
-            if(has_extern){                
-                system(strf("nasm -felf64 pietra.asm"));
-            }
-            else {
-
-            }
+        
+        if(DEBUG_MODE){            
+            err("[NOTE]: Compilation succesfuly.\n");            
+        }
+        else {
+            system(strf("nasm -felf64 pietra.asm"));                        
             system(strf("ld pietra.o -o pietra.bin"));
             system(strf("rm pietra.o"));
-        }
-    }
-    
+        }        
+    }    
 }
 
 #undef printf

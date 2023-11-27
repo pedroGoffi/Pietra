@@ -34,7 +34,7 @@ namespace Pietra::Resolver{
         return nullptr;
     }
 
-    Sym* SymImpl::find(const char* name){
+    Sym* SymImpl::find(const char* name){        
         for(Sym* node: this->body){                        
             if( node->name == name) return node;            
         }
@@ -144,12 +144,12 @@ namespace Pietra::Resolver{
                             for(const char* name: item->field.names){
                                 TypeField* field = init_typefield(name, item->field.type->resolvedTy);
                                 if(isUnion){
-                                    if (size < field->type->size){
-                                        size = field->type->size;
-                                    }
+                                    // If the type of the field is greater than the union size
+                                    // We set the union size to the field size
+                                    size = (size < field->type->size)? field->type->size: size;                                    
                                 }
-
                                 else {
+                                    // If it is a struct we just sum all the field size components
                                     size += field->type->size;
                                 }
                                 fields.push(field);                                
@@ -222,7 +222,7 @@ namespace Pietra::Resolver{
             {"i64", type_int(64)},            
             {"f32", type_float(32)},
             {"f64", type_float(64)},
-
+            {"any", type_any()}
             
         };
         for(auto& [name, type]: types){
@@ -386,15 +386,19 @@ namespace Pietra::Resolver{
         return operand_rvalue(type->resolvedTy);
     }
     Operand resolve_name(const char* name){
-        Sym* sym = sym_get(name);        
+        Sym* sym = sym_get(name);                
         if(!sym){
             printf("[ERROR]: the name '%s' is not declared in this scope.\n", name);
             exit(1);
         }
+        
+        if(Type* type = CBridge::type_get(name)){
+            return operand_lvalue(type, {0});            
+        }
                 
         if(CBridge::CConstexpr* ce = CBridge::find_constexpr(sym->name)){
             return resolve_expr(ce->expr);
-        }
+        }        
         else {
             resolve_sym(sym);                
         }
@@ -590,42 +594,43 @@ namespace Pietra::Resolver{
         return op;
     }
     Operand resolve_field(Expr* parent, Expr* children){        
-        int f = 0;        
-        Operand op = resolve_expr(parent);        
+        if(children->kind != Ast::EXPR_NAME){
+            printf("[ERROR]: idk.\n");
+            exit(1);
+        }
+
+        Operand op = resolve_expr(parent);                
         if(op.type->kind == TYPE_PTR){
             if(op.type->base->kind == Ast::TYPE_STRUCT or op.type->base->kind == Ast::TYPE_UNION){
                 op.type = op.type->base;
             }
         }        
         // Check for TypeImpl in op.type        
-        if(children->kind == Ast::EXPR_NAME){                        
-            if(Sym* sym = sym_get(op.type->name)){                            
-                if(sym->state == SYM_UNRESOLVED){
-                    resolve_sym(sym);
-                }            
-                SymImpl& impls = sym->impls;                
-                if(impls.self){
-                    const char* target = Core::cstr(strf("%s_impl_%s", impls.self->name, children->name));                
-                    if(Sym* impl = impls.find(target)){
-                        assert(impl->type->kind == TYPE_PROC);                    
-                        return operand_rvalue(impl->type);
-
-                    }
+    
+        if(Sym* sym = sym_get(op.type->name)){                            
+            if(sym->state == SYM_UNRESOLVED){
+                resolve_sym(sym);
+            }            
+            SymImpl& impls = sym->impls;                
+            if(impls.self){
+                const char* target = Core::cstr(strf("%s_impl_%s", impls.self->name, children->name));                
+                if(Sym* impl = impls.find(target)){
+                    assert(impl->type->kind == TYPE_PROC);                    
+                    return operand_rvalue(impl->type);
                 }
-            }                                            
-            if(op.type->kind == TYPE_STRUCT or op.type->kind == TYPE_UNION){                                
-                for(TypeField* field: op.type->aggregate.items){
-                    if(field->name != children->name){
-                        continue;
-                    }                                
-                    return operand_rvalue(field->type);
-                }            
-            }                   
-        }
+            }
+        }                                            
+        if(op.type->kind == TYPE_STRUCT or op.type->kind == TYPE_UNION){                                
+            for(TypeField* field: op.type->aggregate.items){
+                if(field->name != children->name){
+                    continue;
+                }                                
+                return operand_rvalue(field->type);
+            }            
+        }                   
         
-        printf("[ERROR]: field not found: ");
-        pPrint::expr(children);
-        printf("\n");
+        
+        printf("[ERROR]: field not found: '%s'in type %s\n", children->name, op.type->repr());
         exit(1);
         
     }
@@ -714,6 +719,17 @@ namespace Pietra::Resolver{
     void resolve_sym_proc_impl(Sym* self, Sym* sym){
         assert(sym->kind == SYM_PROC);        
         self->impls.self = self;                
+        for(ProcParam* pp: sym->decl->proc.params){
+            if(pp->name == Core::cstr("self")){
+                if(self->type->size == 0){
+                    printf("[ERROR]: can't use self in zero-sized in the struct %s. \n--> %s.\n",
+                        self->type->repr(),
+                        sym->type->repr()
+                    );
+                    exit(1);
+                }
+            }
+        }
         resolve_decl_proc(sym->decl, sym->type);
     }
     void resolve_impl(const char* target, SVec<Decl*> body){        
@@ -762,7 +778,7 @@ namespace Pietra::Resolver{
         localSyms.free();        
         CBridge::CProc* proc = CBridge::CreateProc(d->name, type);
                 
-        for(ProcParam* pp: d->proc.params){
+        for(ProcParam* pp: d->proc.params){            
             resolve_var_init(pp->name, pp->type, pp->init, false, true);
         }        
 
@@ -827,7 +843,7 @@ namespace Pietra::Resolver{
         sym->state = SYM_RESOLVED;
         if(sym->decl){ 
             if(sym->decl->kind == DECL_PROC and sym->decl->proc.params.len() > 0){                
-                if(sym->decl->proc.params.at(0)->name == Core::cstr("self")){
+                if(sym->decl->proc.params.at(0)->name == Core::cstr("self")){                    
                     printf("[ERROR]: The parameter named self is reserved to be inside implementation context.\n");
                     exit(1);
                 }

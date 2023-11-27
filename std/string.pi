@@ -1,0 +1,10 @@
+#package "std.string"
+use std::core{types}
+
+strlen :: (str: cstr): i64{
+    c: cstr = str;
+    while *c {
+        c = c + 1;
+    }
+    return c - str;
+}

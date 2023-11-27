@@ -65,7 +65,7 @@ const char* keyword_lor         = cstr("or");
 const char* keyword_case        = cstr("case");
 const char* keyword_impl        = cstr("impl");
 const char* keyword_default     = cstr("default");
-
+const char* keyword_do          = cstr("do");
 
 
 

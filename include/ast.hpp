@@ -119,6 +119,7 @@ namespace Pietra::Ast {
     struct StmtWhile{
         Expr*       cond;
         SVec<Stmt*> block;
+        bool        is_doWhile;
     };
     
     struct IfClause {

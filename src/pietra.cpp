@@ -31,8 +31,8 @@ int Pietra::Main(int argc, char** argv){
     
     Asm::compile_ast(ast);
     
-    printf("Pietra compiled successfuly.\n");
-    printf("Pietra Arena usage: %zu bytes\n", main_arena.size);
+    if (DEBUG_MODE) printf("Pietra compiled successfuly.\n");
+    if (DEBUG_MODE) printf("Pietra Arena usage: %zu bytes\n", main_arena.size);
     arena_free();            
     return EXIT_SUCCESS;
 }
