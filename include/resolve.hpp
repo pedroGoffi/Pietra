@@ -22,6 +22,7 @@ namespace Pietra::Resolver {
         SYM_PROC,
         SYM_AGGREGATE,
         SYM_TYPE,
+        SYM_ENUM,
         SYM_ENUM_CONST,
         SYM_CONSTEXPR,
         SYM_TYPE_ALIAS

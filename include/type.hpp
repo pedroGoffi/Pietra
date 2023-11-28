@@ -30,6 +30,7 @@ namespace Pietra::Ast {
         TYPE_PROC,
         TYPE_CONST,
         TYPE_SELF,
+        TYPE_ENUM
     };
 
     struct Type{
@@ -56,7 +57,7 @@ namespace Pietra::Ast {
                 bool                isUnion;                
                 size_t              size;
                 SVec<TypeField*>    items;
-            } aggregate;
+            } aggregate;            
         };
 
         bool typeCheck(Type* other);

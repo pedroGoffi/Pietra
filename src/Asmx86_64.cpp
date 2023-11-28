@@ -1,3 +1,4 @@
+// TODO: move all Core::cstr(...) to an static variable to avoid being called a lot of times
 #ifndef ASMPLANG
 #define ASMPLANG
 #include "../include/Asmx86_64.hpp"
@@ -10,6 +11,8 @@
 #include <cstdlib>
 #include <map>
 
+#define AGGREGATE_CONSTRUCTOR_WORD  "constructor"
+#define AGGREGATE_DELETER_WORD      "delete"
 #define DEBUG_MODE  false
 #if DEBUG_MODE
 #   define __OUT stdout
@@ -136,7 +139,10 @@ void makeLabel() {
                 println("neg rax");
                 return t;
             }
-            default: assert(0);
+            
+            default: 
+                err("Can't compile unary for %s\n", Lexer::tokenKind_repr(kind));
+                exit(1);                
         }
     }
     Type* compile_binary(Lexer::tokenKind kind, Ast::Expr* lhs, Ast::Expr* rhs, CState& state){        
@@ -445,14 +451,14 @@ void makeLabel() {
     }
     
     void compile_aggregate_constructor(CVar* var, Sym* constructor){
+        // TODO: make the variable childs call for its constructor
         const char* cons_name = constructor->name;        
         Expr* base  = Utils::expr_name(var->name);                    
         compile_expr(base, state_none);
-        println("mov rdi, rax");
-        println(";------------------------");        
-        Expr* e     = Utils::expr_field_access(base, Utils::expr_name(Core::cstr("New")));
+        println("mov rdi, rax");        
+        Expr* e     = Utils::expr_field_access(base, Utils::expr_name(Core::cstr(AGGREGATE_CONSTRUCTOR_WORD)));
         compile_expr(e, state_none);                            
-        println("call rax");
+        println("call rax");        
     }
 
     Type* compile_init_var(const char* name, Type* type, Expr *init, bool isGlobal, CState state){        
@@ -497,7 +503,7 @@ void makeLabel() {
                 sym = sym_get(var->type->name);
             }            
             if(sym and sym->type->kind != TYPE_PTR and sym->kind == Resolver::SYM_AGGREGATE and sym->type->name){                
-                const char* target = Core::cstr(strf("%s_impl_%s", var->type->name, "New"));                    
+                const char* target = Core::cstr(strf("%s_impl_%s", var->type->name, AGGREGATE_CONSTRUCTOR_WORD));                    
                 if(Sym* constructor = sym->impls.find(target)){                                            
                     compile_aggregate_constructor(var, constructor);
                 }                
@@ -738,6 +744,7 @@ void makeLabel() {
         if(Type* type = type_get(name)){            
             return type;            
         }
+    
         err("[ERR]: name '%s' not found in this scope.\n", name);
         exit(1);
     }
@@ -777,6 +784,20 @@ void makeLabel() {
         return compile_index_offset(tb, state);        
     }
     Type* compile_field(Expr* parent, Expr* children, CState& state){    
+        // Check if we are trying to get the field of an enumeration        
+        if(Sym* sym = sym_get(parent->name)){
+            if(sym->kind == Resolver::SYM_ENUM){
+                const char* target = Core::cstr(strf("%s_enum_%s", parent->name, children->name));
+                if(Sym* impl = sym->impls.find(target)){                    
+                    Expr* e = impl->decl->expr;
+                    assert(e->kind == EXPR_INT);
+                    println("mov rax, %li", e->int_lit);
+                    return type_int(64);
+                }
+            }
+        }
+
+
         Type* p = compile_expr(parent, state_getaddr);
         if(p->kind == Ast::TYPE_PTR){
             if(p->base->kind == Ast::TYPE_STRUCT){
@@ -825,14 +846,9 @@ void makeLabel() {
             err("[ERROR]: field %s is not existent in the object %s.", children->name, p->repr());
             exit(1);            
         }
-        else {
-            err("[ERR]: get field children must be <str>.\n");
-            exit(1);
-        }
-        println("SEAOKDOPASKDOPASKDop\n");
-        err("TODO: %s\n", __func__);
-        exit(1);
         
+        err("[ERR]: get field children must be <str>.\n");
+        exit(1);                        
     }
     Type* compile_cast(TypeSpec* ts, Expr* expr, CState& state){
         assert(ts->resolvedTy);
@@ -878,8 +894,60 @@ void makeLabel() {
                 exit(1);
         }
     }
-
-  void compile_stmt(Stmt* stmt){
+    Type* compile_is_between(Expr* cond, int begin, int end){        
+        println("; compile_is_between");
+        Expr* low      = Utils::expr_binary(Lexer::TK_LT, cond, Utils::expr_int(begin));
+        Expr* high   = Utils::expr_binary(Lexer::TK_GT, cond, Utils::expr_int(end));
+        Expr* logic     = Utils::expr_binary(Lexer::TK_LOR, low, high);
+        return compile_expr(logic, state_none);        
+    }
+    void compile_switch_case(Stmt* s){
+        {
+            static bool warned = false;
+            if(!warned){
+                err("[WARN]: switch case is in development process.\n");        
+                warned = true;
+            }
+        }
+        assert(s->kind == Ast::STMT_SWITCH);        
+        int end_addr    = count();
+        int case_end_addr;
+        if(s->stmt_switch.cases.len() != 1){
+            err("ERROR: for now switch pattern accept only one pattern.\n");
+            exit(1);
+        }
+        for(SwitchCase* c: s->stmt_switch.cases){
+            case_end_addr = count();
+            SVec<SwitchCasePattern*> patterns = c->patterns;
+            for(auto* p: patterns){
+                if(p->begin != p->end){                    
+                    if(p->begin < p->end){
+                        Type* ty = compile_is_between(s->stmt_switch.cond, p->begin, p->end);
+                        cmp_zero(ty);
+                        println("jne .L%i", case_end_addr);
+                    }
+                    else {
+                        compile_expr(s->stmt_switch.cond, state_none);
+                        println("cmp rax, %i\n", p->begin);
+                        println("jne .L%i", case_end_addr);
+                    }
+                }
+                else {
+                    err("Cant compile parrern name yet.\n");
+                    exit(1);
+                }
+                compile_block(c->block);
+                println("jmp .L%i", end_addr);
+            }
+            makeLabel(case_end_addr);
+        }
+        if(s->stmt_switch.has_default){     
+            // falltrough      
+            compile_block(s->stmt_switch.default_case);
+        }
+        makeLabel(end_addr);
+    }
+    void compile_stmt(Stmt* stmt){
 
         switch(stmt->kind){
             case Ast::STMT_EXPR:    {
@@ -986,6 +1054,9 @@ void makeLabel() {
                 println("jmp .PE.%s", proc->name);
               
             } break;
+            case Ast::STMT_SWITCH:
+                compile_switch_case(stmt);
+                break;
             default: assert(0);
         }
     }
@@ -1002,7 +1073,7 @@ void makeLabel() {
 
         Expr* e = Utils::expr_field_access(
             Utils::expr_name(var->name), 
-            Utils::expr_name(Core::cstr("Delete")));
+            Utils::expr_name(Core::cstr(AGGREGATE_DELETER_WORD)));
         
         compile_expr(e, state_none);
         println("call rax");
@@ -1064,7 +1135,7 @@ void makeLabel() {
             if(local->type->kind != TYPE_PTR){
                 Sym* local_type_sym = sym_get(local->type->name);
                 assert(local_type_sym);            
-                const char* deleter = Core::cstr(strf("%s_impl_%s", local_type_sym->name, "Delete"));
+                const char* deleter = Core::cstr(strf("%s_impl_%s", local_type_sym->name, AGGREGATE_DELETER_WORD));
                 if(Sym* del = local_type_sym->impls.find(deleter)){
                     compile_variable_deleter(local, del);                
                 }
@@ -1159,6 +1230,17 @@ void makeLabel() {
                 compile_expr(global->init, state_none);
                 store();
             }
+
+            
+            const char* name = global->type->kind == TYPE_PTR? global->type->base->name: global->type->name;
+            Sym* sym = sym_get(name);
+
+            if(sym and sym->type->kind != TYPE_PTR and sym->kind == Resolver::SYM_AGGREGATE and sym->type->name){                
+                const char* target = Core::cstr(strf("%s_impl_%s", global->type->name, AGGREGATE_CONSTRUCTOR_WORD));                    
+                if(Sym* constructor = sym->impls.find(target)){                                            
+                    compile_aggregate_constructor(global, constructor);
+                }                
+            }            
         }
         if(pmain->params->len() != 0)
         {

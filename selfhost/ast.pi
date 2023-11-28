@@ -1,0 +1,82 @@
+#package "pietra.ast"
+
+ExprKind :: enum {
+    EXPR_NONE
+    EXPR_INT
+    EXPR_FLOAT
+    EXPR_STRING
+    EXPR_NAME
+    EXPR_INIT_VAR
+    EXPR_COMPOUND
+    EXPR_FIELD
+    EXPR_COMPOUND_LIST_INDEXING
+    EXPR_COMPOUND_NAME
+    EXPR_NEW
+    EXPR_UNARY
+    EXPR_BINARY
+    EXPR_CMP
+    EXPR_LOGIC
+    EXPR_CAST
+    EXPR_TERNARY
+    EXPR_ARRAY_INDEX
+    EXPR_CALL
+}
+
+ExprVal :: union {}
+Expr :: {
+    kind:   ExprKind
+    as:     ExprVal
+}
+
+
+StmtKind :: enum {
+    STMT_NONE
+    STMT_EXPR
+    STMT_IF
+    STMT_SWITCH
+    STMT_FOR
+    STMT_WHILE
+    STMT_RETUR
+}
+StmtVal :: union {}
+Stmt :: {
+    kind:   StmtKind
+    as:     StmtVal
+}
+
+TypeSpecKind :: enum {
+    TYPESPEC_NONE
+    TYPESPEC_NAME
+    TYPESPEC_POINTER
+    TYPESPEC_ARRAY
+    TYPESPEC_PROC
+    TYPESPEC_CONST
+    TYPESPEC_TEMPLAT
+}
+
+TypeSpecVal :: union {}
+TypeSpec :: {
+    
+    kind:   TypeSpecKind
+    base:   *any
+    as:     TypeSpecVal    
+}
+
+DeclKind :: enum {
+    DECL_NONE
+    DECL_VAR
+    DECL_PROC
+    DECL_AGGREGATE
+    DECL_ENUM
+    DECL_USE
+    DECL_TYPE
+    DECL_CONSTEXPR
+    DECL_IMPL
+}
+
+DeclVal :: union {}
+Decl :: {
+    kind:   DeclKind
+    name:   cstr
+    as:     DeclVal
+}

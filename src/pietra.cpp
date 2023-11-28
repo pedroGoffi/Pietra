@@ -27,12 +27,18 @@ int Pietra::Main(int argc, char** argv){
     assert(argc == 2);
     
     PPackage* package = PPackage::from(argv[1]);        
+    if(!package){
+        printf("[ERROR]: Could not find the package %s\n", argv[1]);
+        exit(1);
+    }
+
     SVec<Decl*> ast = resolve_package(package);
     
     Asm::compile_ast(ast);
     
     if (DEBUG_MODE) printf("Pietra compiled successfuly.\n");
     if (DEBUG_MODE) printf("Pietra Arena usage: %zu bytes\n", main_arena.size);
+
     arena_free();            
     return EXIT_SUCCESS;
 }

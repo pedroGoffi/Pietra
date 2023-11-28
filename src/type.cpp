@@ -227,7 +227,8 @@ const char* Type::repr(){
         }
         case TYPE_UNRESOLVED: return strf("<unresolved>");        
 
-        case TYPE_STRUCT:   {        
+        case TYPE_STRUCT:   return strf("Struct %s", this->name);
+        {        
             const char* str = strf("{ ");
             for(TypeField* tf: this->aggregate.items){
 

@@ -1,0 +1,93 @@
+#package "pietra.token"
+
+TokenKind :: enum {        
+    TK_EOF
+    TK_HASH
+    TK_MOD
+    TK_DOT
+    TK_DCOMMA
+    TK_LT
+    TK_PIPE
+    TK_LTE
+    TK_LAND
+    TK_LOR
+    TK_GT
+    TK_ADD
+    TK_AMPERSAND
+    TK_SUB
+    TK_DEC
+    TK_NOT
+    TK_INC
+    TK_NEQ
+    TK_MULT
+    TK_NOTE
+    TK_TRIPLE_DOT
+    TK_OPEN_ROUND_BRACES
+    TK_CLOSE_ROUND_BRACES
+    TK_DIV
+    TK_OPEN_SQUARED_BRACES
+    TK_CLOSE_SQUARED_BRACES
+    TK_OPEN_CURLY_BRACES
+    TK_CLOSE_CURLY_BRACES
+    TK_COMMA
+    TK_DDOT
+    TK_PREP
+    TK_EQ
+    TK_CMPEQ
+    TK_NAME
+    TK_KEYWORD
+    TK_INT
+    TK_STAR
+    TK_FLOAT
+    TK_STRING
+}
+
+TokenVal :: union {
+    I64: i64    
+}
+
+Token :: {
+    kind:   TokenKind
+    name:   cstr
+    as:     TokenVal
+}
+
+impl Token {
+    kind_repr :: (self: *Self){            
+        if self.kind == TokenKind.TK_PIPE                   return "|";
+        if self.kind == TokenKind.TK_DIV                    return "/";
+        if self.kind == TokenKind.TK_EOF                    return "EOF";
+        if self.kind == TokenKind.TK_DOT                    return ".";
+        if self.kind == TokenKind.TK_DCOMMA                 return ";";
+        if self.kind == TokenKind.TK_LT                     return "<";
+        if self.kind == TokenKind.TK_LTE                    return "<=";
+        if self.kind == TokenKind.TK_SUB                    return "-";
+        if self.kind == TokenKind.TK_DEC                    return "--";
+        if self.kind == TokenKind.TK_GT                     return ">";
+        if self.kind == TokenKind.TK_ADD                    return "+";
+        if self.kind == TokenKind.TK_INC                    return "++";
+        if self.kind == TokenKind.TK_MULT                   return "*";
+        if self.kind == TokenKind.TK_TRIPLE_DOT             return "...";
+        if self.kind == TokenKind.TK_OPEN_ROUND_BRACES      return "OPEN_ROUND_BRACES";
+        if self.kind == TokenKind.TK_CLOSE_ROUND_BRACES     return "CLOSE_ROUND_BRACES";
+        if self.kind == TokenKind.TK_OPEN_SQUARED_BRACES    return "OPEN_SQUARED_BRACES";
+        if self.kind == TokenKind.TK_CLOSE_SQUARED_BRACES   return "CLOSE_SQUARED_BRACES";
+        if self.kind == TokenKind.TK_OPEN_CURLY_BRACES      return "OPEN_CURLY_BRACES";
+        if self.kind == TokenKind.TK_CLOSE_CURLY_BRACES     return "CLOSE_CURLY_BRACES";
+        if self.kind == TokenKind.TK_COMMA                  return ",";
+        if self.kind == TokenKind.TK_DDOT                   return ":";
+        if self.kind == TokenKind.TK_PREP                   return "::";
+        if self.kind == TokenKind.TK_EQ                     return "=";
+        if self.kind == TokenKind.TK_CMPEQ                  return "==";
+        if self.kind == TokenKind.TK_NAME                   return "NAME";
+        if self.kind == TokenKind.TK_KEYWORD                return "KEYWORD";
+        if self.kind == TokenKind.TK_INT                    return "INT";
+        if self.kind == TokenKind.TK_FLOAT                  return "FLOAT";
+        if self.kind == TokenKind.TK_STRING                 return "STRING";
+        if self.kind == TokenKind.TK_LAND                   return "and";
+        if self.kind == TokenKind.TK_LOR                    return "or";
+        if self.kind == TokenKind.TK_NOT                    return "not";
+        return "<unknown>";
+    }
+}
+token: Token

@@ -1,0 +1,6 @@
+#package "pietra.errno"
+use std{std}
+
+ENOMEM :: -1
+errno: i64
+

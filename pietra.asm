@@ -504,54 +504,109 @@ std_impl_puts:
 .PE.std_impl_puts:
 	leave
 	ret
-main:
-.PB.main:
+AL_page_impl_constructor:
+.PB.AL_page_impl_constructor:
 	push rbp
 	mov rbp, rsp
-	mov rdi, rax
-	mov rax, std_impl_puts
-	push rax
+	sub rsp, 8
+	mov [rbp - 8], rdi
 .L57:
-	mov rax, S0
+	lea rax, QWORD [rbp - 8]
+	mov rax, [rax]
+	add rax, 24
+	push rax
+.L58:
+	mov rax, 16777216
+	push rax
+.L59:
+	mov rax, 4096
+	pop rbx
+	mul rbx
+	push rax
+.L60:
+	mov rax, 16
+	pop rbx
+	mul rbx
+	pop rdi
+	mov [rdi], rax
+.L61:
+	lea rax, QWORD [rbp - 8]
+	mov rax, [rax]
+	add rax, 32
+	push rax
+	mov rax, sbrk
+	push rax
+.L62:
+	lea rax, QWORD [rbp - 8]
+	mov rax, [rax]
+	add rax, 24
+	mov rax, [rax]
 	mov rdi, rax
 	pop rax
 	call rax
+	pop rdi
+	mov [rdi], rax
+.L63:
+	lea rax, QWORD [rbp - 8]
+	mov rax, [rax]
+	add rax, 40
+	push rax
+.L64:
+	lea rax, QWORD [rbp - 8]
+	mov rax, [rax]
+	add rax, 32
+	mov rax, [rax]
+	pop rdi
+	mov [rdi], rax
 	mov rax, 0
-.PE.main:
+.PE.AL_page_impl_constructor:
 	leave
 	ret
-_start:
-	mov rax, 12
-	mov rdi, 0
-	syscall
-	mov [__heap_end__], rax
-	lea rax, Gtrue
+AL_page_impl_alloc:
+.PB.AL_page_impl_alloc:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 24
+	mov [rbp - 8], rdi
+	mov [rbp - 16], rsi
+.L66:
+	lea rax, QWORD [rbp - 8]
+	mov rax, [rax]
+	add rax, 16
+	mov rax, [rax]
 	push rax
-.L58:
+.L67:
+	lea rax, QWORD [rbp - 16]
+	mov rax, QWORD [rax]
+
+	push rax
+	pop rax
+	pop rbx
+	add rax, rbx
+	push rax
+.L68:
+	lea rax, QWORD [rbp - 8]
+	mov rax, [rax]
+	add rax, 24
+	mov rax, [rax]
+	pop rbx
+	mov rcx, 0
+	mov rdx, 1
+	cmp rax, rbx
+	cmovl rcx, rdx
+	mov rax, rcx
+	cmp rax, 0
+	je .L65
+.L69:
 	mov rax, 1
-	pop rdi
-	mov [rdi], rax
-	lea rax, Gfalse
+	neg rax
+	jmp .PE.AL_page_impl_alloc
+.L65:
+	lea rax, QWORD [rbp - 24]
 	push rax
-.L59:
-	mov rax, 0
-	pop rdi
-	mov [rdi], rax
-	lea rax, Gnull
-	push rax
-.L60:
-	mov rax, 0
-	pop rdi
-	mov [rdi], rax
-	call main
-	mov rax, 60
-	mov rdi, 0
-	syscall
-segment .data
-	S0: db 104, 101, 108, 108, 111, 44, 32, 119, 111, 114, 108, 100, 10, 0
-segment .bss
-	__heap_end__: resq 1
-	__va_offset__: resq 1
-	Gtrue: resb 8
-	Gfalse: resb 8
-	Gnull: resb 8
+.L70:
+	lea rax, QWORD [rbp - 8]
+	mov rax, [rax]
+	add rax, 40
+	mov rax, [rax]
+	pop 

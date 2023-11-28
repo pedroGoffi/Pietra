@@ -1,7 +1,23 @@
-use std{std}
+use std{std, memory}
 
 main :: proc (){    
-    std.puts("hello, world\n")
+    std.puts("criado por aksdokasopdkoapsd \n")    
+        
+    i: i64 = -1;
+    while i < 10 {
+        switch i {
+            case 5...10: {
+                std.puts("0...5\n")                
+                dump(i)
+                
+            }
 
-    
+            default: {
+                std.puts("<default> ")
+                dump(i);
+            }
+        }
+
+        i += 1 // -> i = i + 1
+    }
 }

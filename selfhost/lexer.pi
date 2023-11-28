@@ -1,0 +1,35 @@
+#package "pietra.lexer"
+use selfhost{token, ast}
+
+StreamInfo ::  {
+    stream: cstr
+    token: *null // TODO
+}
+
+stream: cstr
+
+init_stream :: (str: cstr){
+    stream = str;
+    next_token();    
+}
+
+skip_empty      :: ();
+skip_comment    :: ();
+
+next_token      :: (){
+    skip_empty();
+    skip_comment();
+    
+}
+
+is_numeric      :: ();
+is_keyword      :: ();
+is_kind         :: ();
+expects_kind    :: ();
+escape_to_char  :: ();
+scan_string     :: ();
+scan_char       :: ();
+scan_int        :: ();
+scan_int_base   :: ();
+scan_float      :: ();
+char_to_int     :: ();

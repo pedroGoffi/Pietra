@@ -101,6 +101,13 @@ namespace Pietra::Resolver{
         sym->type   = type_unresolved();
 
         switch(decl->kind){
+            case Ast::DECL_CONSTEXPR: {
+                sym->kind = SYM_CONSTEXPR;
+            }
+            case Ast::DECL_ENUM: {
+                sym->kind = SYM_ENUM;                
+                break;
+            }
             case Ast::DECL_VAR:
                 sym->kind = SYM_VAR;
                 sym->type = resolve_typespec(decl->var.type);
@@ -319,6 +326,13 @@ namespace Pietra::Resolver{
                     ts->resolvedTy = CBridge::tmp_self;                    
                     break;
                 }
+
+                if(Sym* e = sym_get(ts->name)){
+                    if(e->kind == SYM_ENUM){
+                        return type_int(64);
+                    }
+                }
+                
                 tok_err(ts->token, "Undefined type: %s\n", ts->name);                
                 exit(1);
 
@@ -341,8 +355,7 @@ namespace Pietra::Resolver{
         return ts->resolvedTy;
     }
     Operand resolve_var_init(const char* &name, TypeSpec* &type, Expr* &init, bool isLocal, bool isParam){        
-        Type* ty = resolve_typespec(type);
-
+        Type* ty = resolve_typespec(type);                    
         if(init){
             //*init = *PreprocessExpr::expr(init);
             Operand rhs = resolve_expr(init);
@@ -356,9 +369,7 @@ namespace Pietra::Resolver{
                 );
                 exit(1);
             }            
-        }        
-
-        
+        }                
         
         if(isLocal or isParam){            
             Sym* s = sym_var(name, type->resolvedTy, init);                        
@@ -708,6 +719,16 @@ namespace Pietra::Resolver{
                 
                 break;
             }
+            case Ast::STMT_SWITCH: {
+                resolve_expr(stmt->stmt_switch.cond);
+                for(SwitchCase* c: stmt->stmt_switch.cases){
+                    resolve_stmt_block(c->block);
+                }
+                if(stmt->stmt_switch.has_default){
+                    resolve_stmt_block(stmt->stmt_switch.default_case);
+                }
+                break;
+            }
             default: assert(0);
         }
     }
@@ -805,6 +826,27 @@ namespace Pietra::Resolver{
             }
         }
     }
+    void resolve_decl_enum(Decl* d){
+        assert(d->kind == Ast::DECL_ENUM);
+        Sym* e = sym_get(d->name);        
+        assert(e);        
+        SymImpl& impls = e->impls;
+        int count = 0;
+        for(EnumItem* item: d->enumeration.items){
+            if(item->init){
+                *item->init = *PreprocessExpr::expr(item->init);
+                if(item->init->kind != EXPR_INT){
+                    printf("[ERROR]: expected initializer in enumeration item to be an integer.\n");
+                    exit(1);
+                }
+                count = item->init->int_lit;
+            }            
+            item->name = Core::cstr(strf("%s_enum_%s", d->name, item->name));
+            Sym* item_sym = sym_new(item->name, Utils::decl_constexpr(item->name, Utils::expr_int(count)));            
+            impls.body.push(item_sym);
+            count++;
+        }                        
+    }
     void resolve_decl(Decl* &decl, Type* type){
         switch(decl->kind){
             case DECL_VAR:
@@ -824,8 +866,11 @@ namespace Pietra::Resolver{
             case DECL_IMPL: 
                 resolve_impl(decl->impl.target, decl->impl.body);
                 break;
+            case DECL_ENUM:
+                resolve_decl_enum(decl)            ;
+                break;
             case DECL_NONE:             
-            case DECL_ENUM:            
+            
             default:
                 printf("[ERR]: Resolving unimplemented for:\n");
                 pPrint::decl(decl);                        

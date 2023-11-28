@@ -1,60 +1,11 @@
-#package "entry"
-use std{Std}
+use std{std}
+use selfhost{lexer}
 
+main :: (argc: i64, argv: *cstr){
+    if argc != 2 {
+        std.puts("[ERROR]: expected <program> <input>\n");
+        exit(1);
+    }
 
-@warn("fprintf is in development mode, if call fprintf stdout corrupts.")
-fprintf :: (fd: *FILE, fmt: cstr, ...): null{    
-    va: *any = va_begin(&va);
-    
-    buffer: *i64 = std_arena.alloc(526);
-    begin: cstr = buffer;
-    i: i64 = 0;
-    while *fmt != 0 {
-        if *fmt == '%' {
-            fmt = fmt + 1;
-            if *fmt == 'd' {                
-                *buffer = '6';
-                buffer = buffer + 1
-                fmt = fmt + 1
-
-                va_next(&va);
-            }
-            if *fmt == 's' {                
-                str: cstr = va
-                len: i64 = strlen(va)                
-                si: i64 = 0;
-                while si < len {
-                    *buffer = *str;
-                    str = str + 1;
-                    buffer = buffer + 1;
-                    si = si + 1
-                }
-                fmt = fmt + 1
-                va_next(&va);
-            }
-            else {
-                *buffer = *fmt
-                buffer = buffer + 1
-                fmt = fmt + 1
-            }
-        }
-        else {            
-            *buffer = *fmt;
-            buffer = buffer + 1
-            fmt = fmt + 1;
-        }
-        
-    }        
-    
-    fputs(fd, begin)
-    va_end(&va);        
+    dump(ExprKind.EXPR_INT)
 }
-
-main :: (argc: i64, argv: **i8){                                
-    dump(stderr.fd)
-    dump(stdout.fd)
-        
-    dump(stderr.fd)
-    dump(stdout.fd)
-}
-

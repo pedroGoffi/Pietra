@@ -1,0 +1,59 @@
+#package "pietra.memory"
+use std{std, errno}
+
+smallBox :: {
+    ptr_begin: *null
+    size:       i64
+    cap:        i64
+    is_freed:   i64    
+}
+mediumBox :: {
+    // Creator of smallbox if it respects its size
+}
+Box :: {
+    // Creator of medium box with no bounds
+}
+
+AL_item :: {
+    is_freed:   i64
+    ptr:        *any
+}
+AL_page_CAP :: 4096 * 4096 * sizeof(AL_item)
+AL_page         :: {
+    prev, next: *any
+    size, cap:  i64
+    block:      *any
+    ptr:        *any
+}
+
+impl AL_page {
+    constructor :: (self: *Self){
+        self.cap    = AL_page_CAP
+        self.block  = sbrk(self.cap);
+        self.ptr    = self.block;        
+    }
+
+    alloc :: (self: *Self, size: i64): *any {        
+        if self.cap < size + self.size{            
+            return ENOMEM; 
+        }
+        
+        ptr: *any = self.ptr;
+        self.ptr = self.ptr + size;
+        self.size = self.size + size;        
+        return ptr;
+    }
+}
+
+
+__AL :: {
+    ap: AL_page
+}
+
+impl __AL {
+    constructor :: (self: *Self){
+        self.ap.constructor()
+    }
+}
+
+__allocator: __AL
