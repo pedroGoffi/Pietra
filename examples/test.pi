@@ -1,43 +1,22 @@
-strlen :: (x: *i8){
-    end: *i8 = x;
-    while *end {
-        end = end + 1;        
-    }
-    return end - x;
-}
+use std{std}
 
-
-puts :: (x: *i8){
-    len: *i64 = strlen(x);
-    syscall(len, x, 1, 1)
-}
-
-cstr :: {         
-    data: *i8
+Str :: {
+    data: cstr
     size: i64
 }
 
-impl cstr {    
-    constructor :: (self: *Self){
-        puts("Allocating memory...\n");
+impl Str {
+    __eq__ :: (self: *Self, data: cstr){
+        self.data = data
+        self.size = strlen(self.data)
     }
-    delete :: (self: *Self){
-        puts("Deallocating the memory...\n");
-    }
-    __eq__ :: (self: *Self, data: *i64){                    
-        self.size = strlen(data)
-        self.data = data;
-    }        
+        
 }
 
-
-
-find :: (s: *cstr, c: i64){
-    pos: i64    
-}
 main :: () {
-    x: cstr = "hello, world\n"
-    find(&x, ',')
-    puts(x.data)
-    
+    str: Str = "hello, world\n"
+
+
+
+    std.puts(str.data)
 }

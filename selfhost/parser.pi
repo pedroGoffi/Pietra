@@ -1,0 +1,15 @@
+#package "pietra.parser"
+use std{std}
+use selfhost{token, lexer}
+
+literal_expr :: (): *Expr {
+    if is_kind(TokenKind.TK_NAME){
+        name: cstr = token.name;
+        next_token();
+        return expr_name(name);
+    }
+    
+}
+parse :: (){
+    return literal_expr()
+}

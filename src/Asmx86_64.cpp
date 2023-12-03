@@ -477,7 +477,7 @@ void makeLabel() {
         println("call rax");        
     }
 
-    Type* compile_init_var(const char* name, Type* type, Expr *init, bool isGlobal, CState state){                
+    Type* compile_init_var(const char* name, Type* type, Expr *init, bool isGlobal, CState state){                        
         assert(!isGlobal && "global variables should be preprocessed in the resolver");
         if(state != state_none){
             err("[ERR]: init var with state != state_none.\n");
@@ -520,8 +520,8 @@ void makeLabel() {
         }        
         if(init){                     
             Expr* eq = Utils::expr_binary(Lexer::TK_EQ, Utils::expr_name(var->name), init);            
-            return compile_expr(eq, state_none);                        
-        }        
+            compile_expr(eq, state_none);                        
+        }           
         return var->type;        
     }
 
@@ -916,34 +916,40 @@ void makeLabel() {
         }
         assert(s->kind == Ast::STMT_SWITCH);        
         int end_addr    = count();
+        int case_begin_addr;
         int case_end_addr;
-        if(s->stmt_switch.cases.len() != 1){
-            err("ERROR: for now switch pattern accept only one pattern.\n");
-            exit(1);
-        }
+        
         for(SwitchCase* c: s->stmt_switch.cases){
-            case_end_addr = count();
+            case_begin_addr = count();
+            case_end_addr   = count();
             SVec<SwitchCasePattern*> patterns = c->patterns;
             for(auto* p: patterns){
                 if(p->begin != p->end){                    
                     if(p->begin < p->end){
                         Type* ty = compile_is_between(s->stmt_switch.cond, p->begin, p->end);
-                        cmp_zero(ty);
-                        println("jne .L%i", case_end_addr);
+                        cmp_zero(ty);                                                                        
                     }
                     else {
                         compile_expr(s->stmt_switch.cond, state_none);
                         println("cmp rax, %i\n", p->begin);
+                    }
+                    
+                    if(p == patterns.back()){
                         println("jne .L%i", case_end_addr);
                     }
+                    else {
+                        println("je .L%i", case_begin_addr);
+                    }
                 }
+                
                 else {
-                    err("Cant compile parrern name yet.\n");
+                    err("Cant compile parrern name yet %s.\n");
                     exit(1);
-                }
-                compile_block(c->block);
-                println("jmp .L%i", end_addr);
+                }                
             }
+            makeLabel(case_begin_addr);
+            compile_block(c->block);
+            println("jmp .L%i", end_addr);
             makeLabel(case_end_addr);
         }
         if(s->stmt_switch.has_default){     
@@ -1075,7 +1081,7 @@ void makeLabel() {
     }
     void compile_variable_deleter(CVar* var, Sym* del){
         if(var->type->kind == TYPE_PTR) return;
-
+        err("deleter of %s\n", var->name);
         Expr* e = Utils::expr_field_access(
             Utils::expr_name(var->name), 
             Utils::expr_name(Core::cstr(AGGREGATE_DELETER_WORD)));
@@ -1134,15 +1140,16 @@ void makeLabel() {
         println("mov rax, 0");
         printlb(".PE.%s", proc->name);
         CProc* p = GetProc(cp->name);
-        assert(p);
-        
-        for(CVar* local: *p->locals){
-            if(local->type->kind != TYPE_PTR){
+        assert(p);        
+        for(CVar* local: *p->locals){            
+            if(local->type->kind != TYPE_PTR){                
                 Sym* local_type_sym = sym_get(local->type->name);
-                assert(local_type_sym);                            
-                if(Sym* del = local_type_sym->impls.find(AGGREGATE_DELETER_WORD)){
+                assert(local_type_sym);                         
+                SymImpl& impls = local_type_sym->impls;            
+                if(Sym* del = impls.find(AGGREGATE_DELETER_WORD)){                                         
                     compile_variable_deleter(local, del);                
-                }
+                
+                }                
             }
         }
         println("leave");

@@ -35,6 +35,11 @@ namespace Pietra::Resolver{
     }
 
     Sym* SymImpl::find(const char* name){        
+        if(not this->self){
+            printf("SymImpl self == nullptr when trying to find %s.\n", name);
+            exit(1);
+        }
+
         name = Core::cstr(strf("%s_impl_%s", this->self->name, name));
         for(Sym* node: this->body){                        
             if( node->name == name) return node;            
@@ -75,6 +80,7 @@ namespace Pietra::Resolver{
         Sym* s  = arena_alloc<Sym>();        
         s->type = Utils::type_unresolved();
         s->kind = kind;        
+        s->impls.self = s;
         return s;
     }
     Sym* sym_var(const char* name, Type* type, Expr* expr){
@@ -179,6 +185,7 @@ namespace Pietra::Resolver{
             }
 
         }
+        sym->impls.self = sym;
         return sym;
     }
 
@@ -356,18 +363,12 @@ namespace Pietra::Resolver{
         assert(ts->resolvedTy);
         return ts->resolvedTy;
     }
-    Operand resolve_var_init(const char* &name, TypeSpec* &type, Expr* &init, bool isLocal, bool isParam){                
-        int at = 0;
-        
-        Type* ty = resolve_typespec(type);                    
-        printf("r iv %s = %i\n", name, at++);
-        if(init){
-            printf("r iv %s = %i\n", name, at++);
-            
+    Operand resolve_var_init(const char* &name, TypeSpec* &type, Expr* &init, bool isLocal, bool isParam){                        
+        Type* ty = resolve_typespec(type);                         
+        if(init){                        
             //*init = *PreprocessExpr::expr(init);
             Operand rhs = resolve_expr(init);            
-            if(!ty->typeCheck(rhs.type)){ 
-                printf("r iv %s = %i\n", name, at++);                               
+            if(!ty->typeCheck(rhs.type)){                 
                 if(ty->name){                    
                     if(Sym* sym = sym_get(ty->name)){                        
                         if(Sym* __eq = sym->impls.find("__eq__")){                            
@@ -410,8 +411,7 @@ namespace Pietra::Resolver{
                 true,
                 false
             );
-        }
-        printf("r iv %s = %i\n", name, at++);
+        }        
         return operand_rvalue(type->resolvedTy);
     }
     Operand resolve_name(const char* name){

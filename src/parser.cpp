@@ -81,6 +81,7 @@ Expr* literal_expr(){
     }
     else {
         printf("[ERROR]: expected expression, got: %s\n", token.name);
+        printf("stream:\n%s", stream);
         next();
         return nullptr;
     }

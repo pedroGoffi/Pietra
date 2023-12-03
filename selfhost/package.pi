@@ -1,0 +1,9 @@
+#package "pietra.package"
+use std{std}
+
+
+PPackage :: {
+    path: cstr
+}
+
+Package_from :: (path: cstr);

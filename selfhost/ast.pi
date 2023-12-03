@@ -80,3 +80,14 @@ Decl :: {
     name:   cstr
     as:     DeclVal
 }
+
+
+expr_init :: (kind: i64): *Expr {
+    e: *Expr = sbrk(sizeof(Expr));
+    (:i64)e.kind = kind;
+    return e;
+}
+
+expr_name :: (name: cstr): *Expr {
+    
+}

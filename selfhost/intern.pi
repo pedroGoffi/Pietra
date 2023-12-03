@@ -1,0 +1,15 @@
+#package "pietra.intern"
+use std{std}
+
+// The idea for intern_range is only for ptr comparasion
+intern_range :: (begin: cstr, end: cstr): cstr {
+    len: i64 = end - begin;
+    str: cstr = sbrk(len);
+
+    i: i64 = 0;
+    while i < len {
+        str[i] = begin[i];        
+        i = i + 1;
+    }
+    return str;
+}

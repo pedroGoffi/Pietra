@@ -1,5 +1,5 @@
 #package "pietra.lexer"
-use selfhost{token, ast}
+use selfhost{token, ast, intern}
 
 StreamInfo ::  {
     stream: cstr
@@ -13,18 +13,91 @@ init_stream :: (str: cstr){
     next_token();    
 }
 
-skip_empty      :: ();
-skip_comment    :: ();
+skip_empty      :: (){
+    if not *stream return 0
 
-next_token      :: (){
+    switch *stream {
+        case ' ', '\t', '\n': {
+            stream = stream + 1
+        }
+    }
+}
+skip_comment    :: (){
+    if *stream == '/' {
+        if *(stream + 1) == '/' {
+            while *stream {
+                if *stream == '\n' {
+                    stream = stream + 1;
+                    skip_empty();
+                }
+                stream = stream + 1;
+            }
+        }
+    }
+}
+
+next_token      :: (){    
     skip_empty();
-    skip_comment();
+    skip_comment();        
+
+    token.start = stream;
+
+    if *stream == 0 {
+        (:i64)token.kind = 0;
+        return 0;
+    }
+    switch *stream {
+        case 'a'...'z', 'A'...'Z', '_': {
+            while is_keyword(*stream) or is_numeric(*stream) {
+                stream = stream + 1;
+            }
+
+            token.end = stream;
+            token.name = intern_range(token.start, token.end);
+
+        }
+
+        case '0'...'9': {
+            while is_numeric(*stream){
+                stream = stream + 1
+            }
+            token.end = stream;
+            
+            token.name = intern_range(token.start, token.end);
+        }
+
+
+        case '+': {
+            stream = stream + 1;
+            token.end = stream;
+            token.name = intern_range(token.start, token.end);
+        }
+
+        
+        default: {
+            std.puts("Undefined token:\n\tascii == ");
+            dump(*stream);            
+            exit(1)
+        }
+    }
     
 }
 
-is_numeric      :: ();
-is_keyword      :: ();
-is_kind         :: ();
+is_numeric      :: (c: i64){
+    switch c {
+        case '0'...'9': return 1
+        default: return 0
+    }
+}
+is_keyword      :: (c: i64){
+    switch c {
+        case 'a'...'z', 'A'...'z', '_': return 1
+        default: return 0
+    }
+}
+is_kind         :: (kind: i64){
+    return token.kind == kind;
+}
 expects_kind    :: ();
 escape_to_char  :: ();
 scan_string     :: ();
