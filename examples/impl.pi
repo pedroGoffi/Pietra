@@ -1,181 +1,35 @@
-type cstr :: *i8
-exit :: (exit_code: i64) {
-    syscall(exit_code, SYS_exit)
-}
-strlen :: (str: cstr): i64{
-    len: i64 = 0;
-    while *str {        
-        len = len + 1;
-        str = str + 1;
-    }    
-    return len;
-}
-write :: (fd: i64, ptr: *null, size: i64){
-    syscall(size, ptr, fd, SYS_write)
-}
-fputs :: (fd: i64, str: cstr){     
-    len: i64 = strlen(str)
-    write(fd, str, len)
-    
+use std{std}
+
+Str :: {
+    data: cstr
+    size: i64
 }
 
-puts :: (str: cstr){
-    fputs(STDOUT, str)
-}
-
-STDOUT      :: 1
-SYS_write   :: 1
-SYS_brk     :: 12
-SYS_exit    :: 60
-brk :: (addr: *i64): i64{    
-    return syscall(addr, SYS_brk)
-}
-sbrk :: (size: i64){    
-    heap_end: *i64 = asm("mov rax, __heap_end__");
-    *heap_end = *heap_end + size;
-    brk(*heap_end)
-    return *heap_end - size;
-}
-
-Allocator :: {
-    first_brk: any
-    allocated: any
-}
-allocator: Allocator
-impl Allocator{
-    alloc :: (self: *Self, size: i64){
-        if not self.first_brk {         
-            self.first_brk = sbrk(0)
-        }        
-        self.allocated = self.allocated + size
-        return sbrk(size);
+impl Str {        
+    __update_from_data :: (self: *Self, data: cstr){
+        self.data = data;
+        self.size = std.strlen(self.data)
     }
 
-    free :: (self: *Self) {
-        brk(self.first_brk)
-    }   
-}
-
-Array :: {
-    items: *any
-    size:   i64
-}
-
-
-impl Array {    
-    begin :: (self: *Array): *any{
-        return self.items;
+    __eq__ :: (self: *Self, str: cstr){
+        std.puts("Operator overload `=`\n")
+        self.__update_from_data(str)        
     }
-    end :: (self: *Array): *any{
-        return self.items + self.size * 8;
-    }
-    
-    init :: (self: *Array){
-        self.items  = sbrk(256);        
-        self.size   = 0;        
-
-        i: i64 = 0
-        while i < 256 
-        {
-            *self.items = 0
-            i = i + 1
-        }
-    }
-    push :: (self: *Array, item: any){            
-        self.items[self.size] = item;
-        self.size = self.size +  1;
-    }    
-    len :: (self: *Self): i64 {
-        return self.size;
-    }
-}
-
-
-Arena :: {
-    blocks_end:     *null
-    blocks_begin:   *null
-    blocks:         Array    
-    ptr:            *null
-    allocator:      Allocator
-}
-
-impl Arena {
-    init :: (self: *Self){            
-        self.blocks.init()        
-        self.blocks_begin = self.blocks_end = self.blocks.begin()        
-    }
-
-    grow :: (self: *Self, size: i64) {                
-        self.ptr = self.allocator.alloc(size);        
-        self.blocks.push(self.ptr)        
-        self.blocks_begin   = self.ptr
-        self.blocks_end     = self.ptr + size;            
-    }
-    
-    alloc :: (self: *Self, size: i64): *any {
-        if self.blocks_end - self.blocks_begin < size
-        {            
-            self.grow(size);
-        }
-        else {
-            puts("Allocating.\n")
-        }
         
-        ptr: *any = self.ptr;        
-        self.ptr = self.ptr + size;
-        return ptr;
+    cout  :: (self: *Self){        
+        std.puts(self.data)
     }
 
-    free :: (self: *Self) {
-        i: *any = self.blocks_begin;
-        while i < self.blocks_end
-        {
-            *i = 0;
-            i = i + 8;
-        }
-
-        self.allocator.free()
+    cin :: (self: *Self){
+        data: cstr = input()
+        self.__update_from_data(data)        
     }
 }
 
 
-Test :: {
-    n2: i64
-}
-
-impl Test {
-    f0 :: (self: *Self, x: i64): *Self{
-        self.n2 = x * x
-    }
-    f1 :: (self: *Self, x: i64): *Self{
-        self.f0(x)
-        return self
-    }
-    f2 :: (self: *Self): *Self{        
-        self.f1(10)
-        return self
-    }
-}
-main :: (){    
-    arena: Arena
-    arena.init();
-    
-    arena.alloc(1)
-    arena.alloc(1)
-    arena.alloc(1)
-    arena.alloc(1)
-    arena.alloc(1)
-    arena.alloc(1)
-    arena.alloc(1)
-    arena.alloc(1)
-    arena.alloc(1)
-    arena.alloc(1)
-    arena.alloc(1)
-    arena.alloc(1)
-    arena.alloc(1)
-    arena.alloc(1)
-    arena.alloc(1)
-    arena.alloc(1)
-    
-    
+main :: () {    
+    str: Str = "hello, world\n";    
+    str.cout();    
+    str.cin()
+    str.cout();    
 }

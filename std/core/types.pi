@@ -1,3 +1,6 @@
 #package "pietra.types"
 
-type cstr :: *i8
+type cstr           :: *i8
+type int            :: i64
+type pid_t          :: i64
+type ptrdiff_t      :: i64

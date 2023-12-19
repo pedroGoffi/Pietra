@@ -1,25 +1,13 @@
-SYS_WRITE :: 1
-sys_write :: (len: i64, buf: *any, fd: i64): i64
-{    
-    return syscall(len, buf, fd, SYS_WRITE);
-}
-get_string_len :: (str: *i8): i64 {
-    str_len: i64 = 0;
-    while str[str_len] str_len = str_len + 1;
-    return str_len;
-}
-put_string :: (str: *i8){
-    len: i64 = get_string_len(str);
+use std{std}
 
-    sys_write(len, str, 1)
-}
 main :: (argc: i64, argv: **i8): i64 
 {    
-    while 0 < argc {
-        arg: *i8 = argv[argc - 1];
-        put_string("Got argv = ");
-        put_string(arg)
-        put_string("\n");
+    while 0 < argc {        
+        std.puts("Got argv = ")
+        std.puts(*argv)
+        std.puts("\n")
+        
+        argv = argv + 8;
         argc = argc - 1;
     }
 }

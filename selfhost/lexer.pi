@@ -40,8 +40,7 @@ next_token      :: (){
     skip_empty();
     skip_comment();        
 
-    token.start = stream;
-
+    token.start = stream;    
     if *stream == 0 {
         token.kind = TK_EOF;
         return 0;
@@ -73,6 +72,12 @@ next_token      :: (){
             token.name = intern_range(token.start, token.end);
         }
 
+        case ',', '.': {
+            stream = stream + 1;
+            token.end = stream;
+            token.name = intern_range(token.start, token.end);
+            token.kind 
+        }
         
         default: {
             std.puts("Undefined token:\n\tascii == ");

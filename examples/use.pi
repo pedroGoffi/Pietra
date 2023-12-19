@@ -1,18 +1,5 @@
-use std{Std}
-
-Token :: {
-    kind:   i64
-    range:  StringRange
-    digit:  i64
-} 
-token: Token
+use std{std}
 
 main :: (argc: i64, argv: **i8){    
-    if not(argc == 2){
-        puts("[ERROR]: expected program <input-filepath>\n");
-        exit(1)
-    }
-
-    f: *FILE = fopen("makefile", "r")
-    dump(f.fd);
+    std.puts("using stdlib\n")
 }

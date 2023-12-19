@@ -22,10 +22,11 @@ ExprKind :: enum {
     EXPR_CALL
 }
 
-ExprVal :: union {}
+
 Expr :: {
     kind:   ExprKind
-    as:     ExprVal
+    int_lit: i64
+    name_lit: cstr
 }
 
 
@@ -84,9 +85,18 @@ Decl :: {
 
 expr_init :: (kind: i64): *Expr {
     e: *Expr = sbrk(sizeof(Expr));
-    (:i64)e.kind = kind;
+    (:i64)e.kind = kind;    
     return e;
 }
 
-expr_name   :: (name: cstr): *Expr {}
-expr_int    :: (num: i64): *Expr {}
+expr_name   :: (name: cstr): *Expr {
+    e: *Expr = expr_init(ExprKind.EXPR_NAME);
+    e.name_lit = name;
+    return e;    
+}
+
+expr_int    :: (num: i64): *Expr {
+    e: *Expr = expr_init(ExprKind.EXPR_INT);
+    e.int_lit = num;
+    return e;    
+}

@@ -2,19 +2,21 @@ use std{std}
 use selfhost{lexer, parser}
 
 usage :: (fd: i64, program: cstr){
-    std.fdputs(1, "<Error>\n");    
+    std.__fd_puts(1, "<Error>\n");    
 }
+
+
 main :: (argc: i64, argv: *cstr){    
     if argc != 2 {
-        usage(1, 0)
+        usage(1, argv[0])
         std.puts("[ERROR]: expected <program> <input>\n");
         exit(1);
-    }        
-    init_stream("10 10cum69420 + 1 ")
-    parse()    
+    }                    
+    file: *FILE = std.fopen(argv[1], "r");
+    init_stream(file.ptr);
 
-    std.puts("token.name = '")
-    std.puts(token.name)
-    std.puts("'\ntoken.kind = ")
-    dump(token.kind)
+    std.puts(stream)
+
+    input()
+
 }

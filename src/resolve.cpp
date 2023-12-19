@@ -124,9 +124,18 @@ namespace Pietra::Resolver{
     }
     Sym* sym_new(const char* name, Decl* decl){
         assert(decl);
-        if(sym_get(decl->name)){
-            printf("[ERROR]: the name '%s' is already declared.\n", decl->name);
-            exit(1);
+        if(Sym* sym = sym_get(decl->name)){
+            if(sym->decl->kind == Ast::DECL_IMPL){                
+                for(Decl* node: decl->impl.body){
+                    sym->decl->impl.body.push(node);
+                }
+
+                return sym;
+            }
+            else {
+                printf("[ERROR]: the name '%s' is already declared.\n", decl->name);
+                exit(1);
+            }
         }
         Sym* sym    = arena_alloc<Sym>();
         sym->decl   = decl;
@@ -662,8 +671,16 @@ namespace Pietra::Resolver{
     }
     Operand resolve_field(Expr* parent, Expr* children){        
         if(children->kind != Ast::EXPR_NAME){
-            printf("[ERROR]: idk.\n");
+            printf("[ERROR]: idk kys.\n");
             exit(1);
+        }
+
+        if(Sym* s = sym_get(parent->name)){
+            if(s->kind == SYM_ENUM){                
+                if(Sym* field = s->impls.find(children->name)){                
+                    return operand_lvalue(type_int(64), {0});
+                }
+            }
         }
 
         Operand op = resolve_expr(parent);                
@@ -916,7 +933,7 @@ namespace Pietra::Resolver{
                 }
                 count = item->init->int_lit;
             }            
-            item->name = Core::cstr(strf("%s_enum_%s", d->name, item->name));
+            item->name = Core::cstr(strf("%s_impl_%s", d->name, item->name));
             Sym* item_sym = sym_new(item->name, Utils::decl_constexpr(item->name, Utils::expr_int(count)));            
             impls.body.push(item_sym);
             count++;

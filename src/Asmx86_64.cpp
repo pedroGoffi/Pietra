@@ -11,6 +11,14 @@
 #include <cstdlib>
 #include <map>
 
+#define WARN_ONCE(...)                      \
+    {                                       \
+        static bool __x = false;            \
+        if(!__x){                           \
+            printf(__VA_ARGS__);            \
+            __x = true;                     \
+        }                                   \
+    }               
 #define AGGREGATE_CONSTRUCTOR_WORD  "constructor"
 #define AGGREGATE_DELETER_WORD      "delete"
 #define DEBUG_MODE  false
@@ -246,15 +254,34 @@ void makeLabel() {
                 return type_int(8);
             }
             case Lexer::TK_ADD: {
+                // TODO OPTIONAL: optimize this section
                 Type* rhs_t = compile_expr(rhs, state);
                 push("rax", rhs_t);
                 Type* lhs_t = compile_expr(lhs, state);
                 push("rax", lhs_t);
 
-                Type* ret = pop("rax");
-                pop("rbx");
-                println("add rax, rbx");
-                return ret;
+                
+                if(lhs_t->name){
+                    if(Sym* sym = sym_get(lhs_t->name)){
+                        if(Sym* __add = sym->impls.find("__add__")){                            
+                            WARN_ONCE("[WARN]: TODO move structs without pass by addr.\n");
+                            // @stack = rhs lhs
+                            compile_expr(lhs, state_getaddr);                                                                                                                 
+                            push("rax", lhs_t);
+                            compile_expr(rhs, state_getaddr);                                                                                                                                             
+                            println("mov %s, rax", argreg64[1]);
+                            pop(argreg64[0]);
+                            println("call %s", __add->name);                            
+                            return __add->type->proc.ret_type;                            
+                        }
+                    }
+                }
+                {
+                    Type* ret = pop("rax");
+                    pop("rbx");
+                    println("add rax, rbx");
+                    return ret;
+                }
             }
             case Lexer::TK_SUB: {
                 Type* rhs_t = compile_expr(rhs, state);
@@ -1151,7 +1178,7 @@ void makeLabel() {
                 
                 }                
             }
-        }
+        }        
         println("leave");
         println("ret");                
     }

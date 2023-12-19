@@ -1,10 +1,56 @@
 #package "std.string"
 use std::core{types}
+use std{std}
 
-strlen :: (str: cstr): i64{
-    c: cstr = str;
-    while *c {
-        c = c + 1;
+impl std {    
+    strlen :: (str: cstr): i64{
+        c: cstr = str;
+        while *c {
+            c = c + 1;
+        }
+        return c - str;
     }
-    return c - str;
+    streq :: (s1: cstr, s2: cstr): i64 {
+        ls1: i64 = std.strlen(s1);
+
+        if ls1 != std.strlen(s2) return false
+        
+
+        i: i64 = 0;
+        while i < ls1 {
+            if s1[i] != s2[i] return false
+            i = i + 1;
+        }
+        return true;
+        
+    }
+
+    __fd_puts  :: (fd: i64, str: cstr){
+        len: i64 = std.strlen(str);                
+        write(fd, str, len)                
+    }
+    
+    puts    :: (str: cstr){    
+        std.__fd_puts(__fd_stdout, str)
+    }        
+
+    putc :: (c: i64){
+        w: *i8 = " ";
+        w[0] = c;
+        std.puts("putc")
+        std.puts(w)
+    }
 }
+
+input   :: (): cstr {
+    str: cstr = std.allocate(4096);
+    len: i64  = read(__fd_stdin, str, 4096);
+
+
+    if str[len - 1] == '\n' 
+        str[len - 1]  = 0;
+
+
+    return str;
+}
+

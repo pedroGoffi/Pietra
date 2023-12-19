@@ -111,6 +111,7 @@ namespace Pietra::Ast {
         char begin;
         char end;                    
         const char* name;
+        // TODO: operator overloading Expr*   expr;
     };
     struct SwitchCase{
         SVec<SwitchCasePattern*>    patterns;

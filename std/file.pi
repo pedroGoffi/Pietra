@@ -1,0 +1,55 @@
+#package "pietra.file"
+use std{std}
+
+
+S_ISUID     :: 0x4000   
+S_ISGID     :: 0x2000
+S_ISVTX     :: 0x1000
+S_IREAD     :: 0x400 // [Owner]: Read permission 
+S_IWRITE    :: 0x200 // [Owner]: Write permission 
+S_IEXEC     :: 0x100 // [Owner]: Exec permission 
+
+FILE :: {
+    start:  cstr
+    end:    cstr
+    ptr:    cstr
+    size:   i64
+    fd:     i64
+    flags:  i64
+    mode:   i64    
+}
+
+O_RDONLY  :: 00   
+O_WRONLY  :: 01   
+O_RDWR    :: 02   
+O_CREAT   :: 0100 
+O_EXCL    :: 0200 
+O_TRUNC   :: 01000
+O_APPEND  :: 02000
+
+impl std {    
+    fopen :: (filename: cstr, _flags: cstr): *FILE {
+        // NOTE: to avoid _flags param ptr destruction
+        flags: cstr = _flags;
+        // TODO: parse flags
+        mode: i64 = 0;
+        file_flags: i64 = 256;
+
+        if std.streq(flags, "r") {
+            mode = mode | O_RDONLY;
+        }
+
+        
+        f: *FILE = std.allocate(sizeof(FILE));
+
+        f.fd = open(filename, mode, file_flags)
+
+        f.ptr   = std.allocate(4096)
+        f.size  = read(f.fd, f.ptr, 4096)
+        f.start = f.ptr
+        f.end   = f.start + f.size
+        f.mode  = mode
+        f.flags = file_flags
+        return f;        
+    }
+}

@@ -1,7 +1,27 @@
-use std{std, memory}
+type char   :: i8
+type cstr   :: *char
+SYS_write   :: 1
+stdout      :: 1
+
+sys_write :: (str: cstr, len: i64, fd: i64): i64{
+    return syscall(len, str, fd, SYS_write)
+}
+
+strlen :: (str: cstr): i64 {
+    p: cstr = str;    
+    while *p {
+        p = p + 1
+    }
+
+    return p - str;
+}
+
+escreva :: (str: cstr){
+    str_len: i64 = strlen(str);    
+    sys_write(str, str_len, stdout)
+}
 
 main :: (){
-    p: *i64 = std.alloc(10);
-    p = __allocator.ap.alloc(10);
-    dump(-p)
+    str: cstr = "Criado por mim e eu\n"
+    escreva(str)
 }
