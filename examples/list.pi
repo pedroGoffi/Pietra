@@ -1,0 +1,28 @@
+use std{std}
+use std{list}
+
+main :: (){
+    cmd: List;
+    cmd.push("hello")
+    cmd.push(", world\n")
+    cmd.push("My name is '")
+    cmd.push("Pietra'\n")
+    
+    
+    
+    // old iteration C likely    
+    i: i64 = 0;    
+    while i < cmd.size {        
+        it: *any = cmd.at(i);        
+        std.puts(*it)
+        i = i + 1
+    }
+    std.puts("----------------\n")
+    // i rather this one
+
+    p: *any = cmd.begin();
+    while p < cmd.end() {        
+        std.puts(*p)
+        p = p + 8;
+    }    
+}

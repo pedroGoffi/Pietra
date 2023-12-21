@@ -6,4 +6,11 @@ Hello, from PIETRA!
 - [OK] Custom data types methods
 - [WIP] Self hosted
 
-# Why PLang
+# Notes
+- type `any` may cause some typecheck errors
+- := operator assumes any
+
+
+# stdlib
+## Some C/C++ inspired procedures
+-   streq, strlen, allocate

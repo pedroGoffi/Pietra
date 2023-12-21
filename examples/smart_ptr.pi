@@ -1,0 +1,10 @@
+use std{std}
+use std::test{smart_ptr}
+// Since Smart_ptr is 8 bytes sized you can use the struct as a simple data itself with some methods
+
+
+
+main :: (){
+    p: Smart_ptr = make_smart_ptr("hello, world\n");
+    std.puts(p)
+}

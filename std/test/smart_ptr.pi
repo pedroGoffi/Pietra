@@ -1,0 +1,33 @@
+#package "std.test.smart_ptr"
+
+use std{std}
+
+// Note: the way you use it. is up to you. here is some methods i think might be usefull
+@help("A smart pointer is used when u dont wanna to deal with pointer allocation, just to use it")
+Smart_ptr :: {    
+    data: *any    
+}
+
+impl Smart_ptr {    
+    get :: (self: *Self): *any {
+        return &self.data
+    }
+    set :: (self: *Self, data: any){
+        self.data = data;
+    }    
+    release :: (self: *Self){
+        self.data = null;
+    }    
+    __eq__ :: (self: *Self, data: any){
+        self.release();
+        self.set(data);
+    }        
+    delete :: (self: *Self){        
+        self.release();
+    }
+}
+
+// NOTE: since Smart_ptr is 8 bytes sized, we can just return the data as any (8 bytes) with casting it.
+make_smart_ptr :: (data: any): Smart_ptr {
+    return data as Smart_ptr;
+}
