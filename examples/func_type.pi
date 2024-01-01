@@ -1,0 +1,27 @@
+use std{std}
+type allocator_t :: proc(i64): *any
+
+Foo :: {
+    data: *any    
+    allocator: allocator_t    
+}
+
+Writable :: {
+    data: cstr
+    func: proc(cstr)
+}
+foo: Foo
+
+main :: (){
+    str: cstr = "Criado por mim e eu\n"
+    std.puts(str)
+    foo.allocator = std.allocate    
+    foo.data = foo.allocator(8);
+    *foo.data = 2024;
+
+    dump(*foo.data)
+    
+    writable: Writable
+    writable.func = (&std.puts) as proc(cstr)
+    writable.func("happy 2024\n")
+}

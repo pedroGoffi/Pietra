@@ -1,0 +1,13 @@
+#package "selfhost.cursor"
+use std{std, list}
+use selfhost{ast}
+
+PCursor :: {
+    stream: cstr
+    mDecls: List 
+    mDecl:  *Decl
+}
+
+impl PCursor {
+
+}

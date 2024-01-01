@@ -1171,12 +1171,12 @@ void makeLabel() {
         for(CVar* local: *p->locals){            
             if(local->type->kind != TYPE_PTR){                
                 Sym* local_type_sym = sym_get(local->type->name);
-                assert(local_type_sym);                         
-                SymImpl& impls = local_type_sym->impls;            
-                if(Sym* del = impls.find(AGGREGATE_DELETER_WORD)){                                         
-                    compile_variable_deleter(local, del);                
-                
-                }                
+                if(local_type_sym){
+                    SymImpl& impls = local_type_sym->impls;            
+                    if(Sym* del = impls.find(AGGREGATE_DELETER_WORD)){                                         
+                        compile_variable_deleter(local, del);                
+                    }                
+                }
             }
         }        
         println("leave");

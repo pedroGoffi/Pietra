@@ -18,6 +18,7 @@ The resolver will
 #include <cstring>
 #include <iostream>
 #include <memory>
+#include <string>
 
 void show_all_decorators(){
     /*
@@ -387,10 +388,31 @@ namespace Pietra::Resolver{
                 ts->resolvedTy = type_ptr(base);
                 break;
             }    
+            case TYPESPEC_PROC: {
+                SVec<TypeField*> tf;
+                Type* ret;
+                int paramId{0};
+                for(TypeSpec* param: ts->proc.params){
+                    param->resolvedTy = resolve_typespec(param);
+                    std::string cxx_string_template = "v" + std::to_string(paramId++);
+                    const char* paramName = Core::cstr(cxx_string_template.c_str());
+                    tf.push(init_typefield(paramName, param->resolvedTy));
+                }
+                if(ts->proc.ret){
+                    ts->proc.ret->resolvedTy = resolve_typespec(ts->proc.ret);
+                    ret = ts->proc.ret->resolvedTy;
+                }
+                else {
+                    ret = type_any();
+                }
+
+                
+                ts->resolvedTy = type_proc("unamed_proc", tf, ret, ts->proc.has_varags);
+                break;
+            }
             case TYPESPEC_NONE:        
 
-            case TYPESPEC_ARRAY:
-            case TYPESPEC_PROC:
+            case TYPESPEC_ARRAY:            
             case TYPESPEC_CONST:
             case TYPESPEC_TEMPLATE:
             default: assert(0);
@@ -860,8 +882,7 @@ namespace Pietra::Resolver{
                 resolve_sym_proc_impl(sym, snode);                                
             }                        
         }
-        CBridge::tmp_self = nullptr;        
-        printf("ending %s\n", sym->name);
+        CBridge::tmp_self = nullptr;                
     }
     void resolve_decl_var(Decl* &d){
         resolve_var_init(d->name, d->var.type, d->var.init, false, false);        

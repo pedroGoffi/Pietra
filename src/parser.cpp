@@ -306,6 +306,55 @@ static inline bool is_typespec(){
             token.kind == TK_LT // fot templates TYPESPEC<TYPESPEC>
     ;
 }
+TypeSpec* proc_type(){
+    assert(token.name == keyword_proc);
+    next();
+    if(!is_kind(Lexer::TK_OPEN_ROUND_BRACES)){
+        printf("[ERROR]: expected %s token while trying to parse proc type.\n", tokenKind_repr(Lexer::TK_OPEN_ROUND_BRACES));
+        exit(1);
+    }
+    next();
+        
+    SVec<TypeSpec *> params         = {};
+    TypeSpec         *ret           = nullptr;
+    bool             has_varags     = false;
+    Lexer::Token     tk             = token;    
+    while(!is_kind(Lexer::TK_CLOSE_ROUND_BRACES)){        
+        if(params.len() > 0){
+            if(!is_kind(Lexer::TK_COMMA)){
+                printf("[ERROR]: expected ',' while trying to parse the type proc.\n");
+                exit(1);
+            }
+            next();
+        }
+        if(expects_kind(Lexer::TK_TRIPLE_DOT)){
+            has_varags = true;
+            TypeSpec* va = Utils::proc_param_varargs()->type;
+            printf("Va test %s\n", va->name);
+
+            exit(1);
+        }
+        else {
+            if(has_varags){
+                printf("[ERROR]: variad args must be the last argument in procedures.\n");
+                exit(1);
+            }
+            TypeSpec* type = typespec();
+            params.push(type);     
+        }
+    }    
+    if(!is_kind(Lexer::TK_CLOSE_ROUND_BRACES)){
+        printf("[ERROR]: expected %s token while trying to parse proc type.\n", tokenKind_repr(Lexer::TK_CLOSE_ROUND_BRACES));
+        exit(1);
+    }    
+    next();
+
+    if(is_kind(Lexer::TK_DDOT)){
+        next();
+        ret = typespec();
+    }
+    return Utils::typespec_proc(params, ret, has_varags, tk);
+}
 TypeSpec* typespec(){    
     if(is_kind(Lexer::TK_OPEN_SQUARED_BRACES)){
         next();
@@ -323,6 +372,8 @@ TypeSpec* typespec(){
     } else if(token.kind == TK_MULT){
         next();
         return Utils::typespec_pointer(typespec(), token);
+    } else if(token.name == keyword_proc){        
+        proc_type();
     }
     else {
         TypeSpec* ts = typespec_base();

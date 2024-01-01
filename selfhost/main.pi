@@ -1,5 +1,5 @@
 use std{std}
-use selfhost{lexer, parser}
+use selfhost{lexer, parser, cursor}
 
 usage :: (fd: i64, program: cstr){
     std.__fd_puts(1, "<Error>\n");    
@@ -12,11 +12,7 @@ main :: (argc: i64, argv: *cstr){
         std.puts("[ERROR]: expected <program> <input>\n");
         exit(1);
     }                    
-    file: *FILE = std.fopen(argv[1], "r");
-    init_stream(file.ptr);
-
-    std.puts(stream)
-
-    input()
-
+    file: *FILE = std.fopen(argv[1], "r");    
+    init_stream(file.ptr);    
+    parse()
 }

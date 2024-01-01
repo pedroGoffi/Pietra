@@ -84,8 +84,7 @@ next_token      :: (){
             dump(*stream);            
             exit(1)
         }
-    }
-    
+    }    
 }
 
 is_numeric      :: (c: i64){

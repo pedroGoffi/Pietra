@@ -40,17 +40,81 @@ impl std {
         std.puts("putc")
         std.puts(w)
     }
+
+    memset64 :: (s: *null, c: i64, n: i64){
+        i: i64 = 0;
+        while i < n {
+            *s = c as null;
+            i = i + 1
+        }
+    }
+    strncpy :: (dest: cstr, src: cstr, n: i64) {
+        i: i64 = 0;
+        while i < n {
+            dest[i] = src[i];
+            i = i + 1;
+        }
+        dest[i] = 0;
+    }
+
+    input   :: (comment: cstr = ""): cstr {
+        std.puts(comment)
+
+        str: cstr = std.allocate(4096);
+        len: i64  = read(__fd_stdin, str, 4096);
+        if str[len - 1] == '\n' {
+            str[len - 1]  = 0;
+        }
+        return str;
+    }    
 }
 
-input   :: (): cstr {
-    str: cstr = std.allocate(4096);
-    len: i64  = read(__fd_stdin, str, 4096);
 
 
-    if str[len - 1] == '\n' 
-        str[len - 1]  = 0;
+String :: {
+    data: cstr
+    size: i64
+}
+impl std {
+    put_string :: (str: *String){
+        std.puts(str.data)
+    }
+    find_string :: (str: *String, delim: i64): i64 {    
+        i: i64 = 0;
+        while i < str.size {
+            data: *i8 = str.data[i];
 
+            if *data == delim {
+                return i;
+            }
 
-    return str;
+            i = i + 1;            
+        }
+        
+        // Not found
+        return -1;
+    }
+
+    chop_by :: (str: *String, delim: i64): *String {        
+        chop_pos: i64 = std.find_string(str, delim);
+        if chop_pos == -1 {
+            return null
+        }
+
+        nstr: *String = std.allocate(sizeof(String));        
+        nstr.size = str.size;
+        nstr.data = std.allocate(str.size);
+        std.strncpy(&nstr.data, str.data, chop_pos);        
+
+        str.data = str.data + chop_pos + 1;
+        str.size = str.size - chop_pos - 1;
+        return nstr;
+    }
 }
 
+impl String {
+    __eq__ :: (self: *Self, str: cstr){
+        self.data = str;
+        self.size = std.strlen(self.data)
+    }            
+}
