@@ -1,0 +1,6 @@
+#run {
+    msg = "hello, im being preprocessed before the codes compile to assembly x86_64!\n"
+    puts(msg)
+
+    quit(1)
+}

@@ -86,10 +86,10 @@ void Lexer::skip_empty(){
     }
 }
 void Lexer::skip_opt_comment(){
-    if(stream[0] == '/' and stream[1] == '/'){
+    if(stream[0] == '/' and stream[1] == '/'){        
         while(*stream != '\0' and *stream != '\n'){
             stream++;
-        }
+        }                
     }
 }
 
@@ -236,6 +236,18 @@ void Lexer::next(){
         #undef CASE1
         #undef CASE2
 
+        case '?': {
+            stream++;
+            token.name = Core::cstr("??");
+            token.kind = Lexer::TK_QUESTION;
+            
+            if(*stream == '?'){
+                token.name = Core::cstr("??");
+                token.kind = Lexer::TK_DQUESTION;
+                stream++;
+            }                                    
+            break;
+        }
         case '\'':
             Lexer::Scanners::scan_char();
             break;
@@ -255,6 +267,7 @@ void Lexer::next(){
             TODO: warn for undefined tokens
         */        
         default:
+        error:
             printf("[ERR]: token.text = %s\nistr = %c\n", token.name, *stream);
             stream++;
     }

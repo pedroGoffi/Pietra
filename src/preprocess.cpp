@@ -3,7 +3,11 @@
 
 #include "../include/preprocess.hpp"
 #include "../include/ast.hpp"
+#include "../include/resolve.hpp"
+#include "file.cpp"
 #include "ast.cpp"
+#include <cstdint>
+#include <random>
 
 using namespace Pietra;
 using namespace Pietra::Ast;
@@ -104,6 +108,155 @@ Expr* PreprocessExpr::expr(Expr* e){
         case ExprKind::EXPR_INIT_VAR:   return init_var(e);        
         default: return e;
 
+    }
+}
+
+namespace Pietra::Preprocess{
+    using namespace Resolver;
+    const char*     prep_proc_puts      = Core::cstr("puts");
+    const char*     prep_proc_readFile  = Core::cstr("readFile");
+    const char*     prep_proc_quit      = Core::cstr("quit");
+    
+    FILE* prep_file = stdout;
+    PreprocessContext context;
+
+    template<typename T> void expect_arity(SVec<T>& list, int expect, const char* err_msg){
+        if(list.len() != expect){
+            printf("[ERROR]: %s", err_msg);
+            exit(1);
+        }
+    }
+
+    Operand eval_call(Expr* base, SVec<Expr*> args, PreprocessContext& ctx){
+        assert(base->kind == EXPR_NAME);
+        if(base->name == prep_proc_puts){
+            expect_arity(args, 1, "prep-proc `puts` wrong usage, proc trace: puts(cstr): null\n");
+            Expr* arg = args.at(0);
+            Operand op = eval_expr(arg, ctx);
+
+            fprintf(prep_file, "%s", (char*) op.val.p);
+            return op;            
+        }
+        else if(base->name == prep_proc_readFile){            
+            expect_arity(args, 1, "prep-proc `readFile` wrong usage, proc trace readFile(filename: cstr): cstr.\n");            
+
+            Operand op = eval_expr(args.at(0), ctx);
+            if(op.type != type_string()){
+                printf("[ERROR]: the 0-nth argument on fopen must be cstr.\n");
+                exit(1);
+            }                        
+            
+            
+            const char* filename    = (const char*) op.val.p; 
+            printf("ok %s\n", filename);
+            const char* intern_str = Core::cstr(fileReader::read_file(filename));
+            
+            return operand_lvalue(type_any(), {.p = (uintptr_t) intern_str});
+        }
+        else if(base->name == prep_proc_quit){
+            expect_arity(args, 1, "prep-proc `quit` wrong usage, proc trace quit(exit_code: i64): null.\n");
+            Operand op = eval_expr(args.at(0), ctx);            
+            exit(op.val.i);
+        }
+        else {
+            printf("[ERROR]: the prep-proc %s was not declared in this scope.\n", base->name);
+            exit(1);
+        }
+    }
+    Operand eval_eq(Expr* var, Expr* right, PreprocessContext& ctx){
+        if(CBridge::CVar* cvar = ctx.find_gvar(var)){
+            cvar->init = right;
+            return eval_expr(cvar->init, ctx);
+        }
+        else {
+            // Create the var
+            assert(var->kind == Ast::EXPR_NAME);
+            const char* name    = var->name;
+            Operand r_op        = resolve_expr(right);
+            Type* type          = r_op.type;
+
+            CBridge::CVar* var = CBridge::CreateVar(name, type, right, true, false);
+            ctx.install_gvar(var);
+
+            Sym* sym = sym_var(var->name, var->type, right);            
+            return r_op;
+        }
+    }
+    Operand eval_bin(Lexer::tokenKind kind, Expr* l, Expr* r, PreprocessContext& ctx){
+        if(kind == Lexer::TK_EQ){
+            return eval_eq(l, r, ctx);
+        }
+
+        printf("[ERROR]: preprocess wasn't meant to preprocess this kind.\n");
+        exit(1);
+    }
+    Operand eval_name(const char* name, PreprocessContext& ctx){
+        if(CBridge::CVar* gvar = ctx.find_gvar(name)){
+            return eval_expr(gvar->init, ctx);
+        }
+
+        else {
+            printf("[ERROR]: idk what is %s\n", name);
+            exit(1);
+        }
+    }
+    Operand eval_expr(Expr* e, PreprocessContext& ctx){        
+        switch(e->kind){
+            case Ast::EXPR_INT:     return operand_lvalue(type_int(64), {.ul = e->int_lit});
+            case Ast::EXPR_STRING:  return operand_lvalue(type_string(), {.p = (uintptr_t)e->string_lit});
+            case Ast::EXPR_CALL:    return eval_call(e->call.base, e->call.args, ctx);
+            case Ast::EXPR_BINARY:  return eval_bin(e->binary.binary_kind, e->binary.left, e->binary.right, ctx);
+            case Ast::EXPR_NAME:    
+                if(e->name == Core::cstr("true")){
+                    return operand_lvalue(type_int(64), {true});
+                }
+                if(e->name == Core::cstr("false")){
+                    return operand_lvalue(type_int(64), {false});
+                }
+                
+                return eval_name(e->name, ctx);
+            default:
+                printf("[ERROR]: Cant preprocess this kind.\n");
+                exit(1);
+        }
+    }
+    void eval_node(Stmt* node, PreprocessContext& ctx){
+        switch(node->kind){
+            case Ast::STMT_EXPR:
+                eval_expr(node->expr, ctx);
+                break;
+
+            case Ast::STMT_IF: {
+                Operand op = eval_expr(node->stmt_if.if_clause->cond, ctx);
+                bool run_node = false;
+
+                if(op.is_lvalue) run_node = op.val.i;
+                else {
+                    printf("idk, if error i guess\n");
+                    exit(1);
+                }
+
+
+                if(run_node){
+                    eval_block(node->stmt_if.if_clause->block);
+                    return;
+                }
+                
+                break;                
+            }
+            default:
+                printf("[ERROR]: Cant preprocess this statement.\n");
+                exit(1);
+        }
+    }
+
+    void eval_block(SVec<Stmt*> block){        
+        for(Stmt* node: block){
+            eval_node(node, context);
+        }
+        for(CBridge::CVar* var: context.gvars){
+            var->init = 0;
+        }
     }
 }
 #endif /*PIETRA_PREP_CPP*/

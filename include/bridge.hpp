@@ -33,8 +33,7 @@ namespace Pietra::CBridge {
       Type *type;
       Expr *init;
       bool isGlobal = false;
-      int stackOffset;
-              
+      int stackOffset;              
     };
 
 

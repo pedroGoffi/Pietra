@@ -5,7 +5,7 @@
 #include "file.cpp"
 #include "interns.cpp"
 #include "package.cpp"
-
+#include "../include/preprocess.hpp"
 #include "../include/parser.hpp"
 #include <cassert>
 #include <iterator>
@@ -263,20 +263,10 @@ Expr* assign_expr(){
     }
     return cast;
 }
-static inline bool is_ternary(){
-    return token.name == keyword_if;
-}
-Expr* ternary_expr(){        
-    Expr* cast = assign_expr();    
-    if (is_ternary()){
-        printf("[WARN]: Ternary expressions are not implemented yet.\n");
-        exit(1);
-    }
-    return cast;
-}
+
+
 Expr* expr(){
-    Expr* e = ternary_expr();    
-    return e;
+    return assign_expr();        
 }
 SVec<Expr*> expr_list(){
     SVec<Expr*> list;
@@ -978,6 +968,12 @@ Decl* parse_comptime(){
         }        
         // TODO: make the package be in an PPackage list
         include_me(package_name); // Push the package in the packages        
+        return nullptr;
+    }
+    else if(token.name == Core::cstr("run")){
+        next();
+        SVec<Stmt*> block = stmt_opt_curly_block();        
+        Preprocess::eval_block(block);
         return nullptr;
     }
     else {

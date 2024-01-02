@@ -74,6 +74,25 @@ namespace Pietra::pPrint{
             CASE(EXPR_INT, 
                 pprint("%li", e->int_lit);
             )
+            CASE(EXPR_TERNARY, 
+                Expr* cond = e->ternary.cond;
+                Expr* if_case = e->ternary.if_case;
+                Expr* else_case = e->ternary.else_case;
+                if(cond == if_case){
+                    expr(cond);
+                    pprint(" ?? ");
+                    expr(else_case);
+                }
+                else {
+                    pprint("(ternary (if( ");
+                    expr(cond); 
+                    pprint(") then (");
+                    expr(if_case);
+                    pprint(") else (");
+                    expr(else_case);
+                    pprint("))");
+                }
+            )
             CASE(EXPR_FLOAT,                
                 pprint("%lf", e->float_lit);                
             )

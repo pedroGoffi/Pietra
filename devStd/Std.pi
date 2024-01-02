@@ -1,6 +1,0 @@
-#package "std"
-
-use std::Sys{Syscalls}
-use std{Types}
-use std{String}
-use std::Iostream{Iostream}

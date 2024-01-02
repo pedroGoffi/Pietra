@@ -20,6 +20,14 @@ The resolver will
 #include <memory>
 #include <string>
 
+Note* find_note(SVec<Note*> notes, const char* name){    
+    name = Core::cstr(name);    
+    for(Note* note: notes){
+        if(note->name == name) return note;
+    }
+
+    return nullptr;
+}
 void show_all_decorators(){
     /*
         NOTE: those macros serve to use in the printf loop
@@ -254,7 +262,6 @@ namespace Pietra::Resolver{
         }
 
     void declare_built_in(){
-
         DEFINE_BUILTIN("true",
             Utils::decl_var("true", 
                 Utils::typespec_name("i64", {}),
@@ -298,6 +305,9 @@ namespace Pietra::Resolver{
                 "dump",
                 "syscall",
                 "asm",
+                "quit",
+                "readFile", 
+                "typeof",
                 "sizeof",
                 "va_next",
                 "va_begin",
@@ -740,6 +750,7 @@ namespace Pietra::Resolver{
         exit(1);
         
     }
+    
     Operand resolve_expr(Expr* &expr){        
         if(!expr){
             return operand_lvalue(type_void(), {0});
@@ -749,7 +760,21 @@ namespace Pietra::Resolver{
             case EXPR_INT:          return operand_lvalue(type_int(64), {.ul = expr->int_lit});
             case EXPR_STRING:       return operand_lvalue(type_string(), {});
             case EXPR_NAME:         return resolve_name(expr->name);
-            case EXPR_CALL:         return resolve_call(expr->call.base, expr->call.args);            
+            case EXPR_CALL: {
+                if(expr->call.base->kind == EXPR_NAME){
+                    if(expr->call.base->name == Core::cstr("typeof")){
+                        if(expr->call.args.len() != 1){
+                            printf("[ERROR]: typeof expects one argument.\n");
+                            exit(1);
+                        }
+                        Operand arg = resolve_expr(expr->call.args.at(0));
+                        const char* repr = arg.type->repr();                        
+                        expr = Utils::expr_string(repr);
+                        return operand_lvalue(type_string(), {0});
+                    }
+                }
+                return resolve_call(expr->call.base, expr->call.args);            
+            }
             case EXPR_INIT_VAR:     return resolve_var_init(expr->init_var.name, expr->init_var.type, expr->init_var.rhs, true, false);
             case EXPR_UNARY:        return resolve_unary(expr->unary.unary_kind, expr->unary.expr);
             case EXPR_BINARY:   {
@@ -772,7 +797,7 @@ namespace Pietra::Resolver{
                 else {
                     return resolve_binary(expr->binary.binary_kind, expr->binary.left, expr->binary.right);
                 }
-            }
+            }            
             case EXPR_ARRAY_INDEX:  return resolve_index(expr);
             case EXPR_CAST:         return resolve_cast(expr->cast.typespec, expr->cast.expr);
             case EXPR_FIELD:        return resolve_field(expr->field_acc.parent, expr->field_acc.children);
@@ -837,12 +862,14 @@ namespace Pietra::Resolver{
         self->impls.self = self;                
         for(ProcParam* pp: sym->decl->proc.params){
             if(pp->name == Core::cstr("self")){
-                if(self->type->size == 0){
-                    printf("[ERROR]: can't use self in zero-sized in the struct %s. \n--> %s.\n",
-                        self->type->repr(),
-                        sym->type->repr()
-                    );
-                    exit(1);
+                if(self->type->size == 0){                    
+                    if(!find_note(sym->decl->notes, "unsafe")){
+                        printf("[ERROR]: can't use self in zero-sized in the struct %s. \n--> %s.\n",
+                            self->type->repr(),
+                            sym->type->repr()
+                        );
+                        exit(1);
+                    }
                 }
             }
         }
@@ -901,6 +928,7 @@ namespace Pietra::Resolver{
                         printf("\t%s\n", arg->string_lit);
                     }
                 }
+                else if(note->name == Core::cstr("unsafe")){} // Just ignore
                 else {
                     show_all_decorators();
                     printf("[ERROR]: compiler doesn't understand the decl note %s\n", note->name);
@@ -1021,8 +1049,7 @@ namespace Pietra::Resolver{
         return sym;
     }
     
-    SVec<Decl*> resolve_package(PPackage* &package){                                
-        declare_built_in();                
+    SVec<Decl*> resolve_package(PPackage* &package){                                                  
         declare_package(package);
 
         for(Sym* sym: Syms){

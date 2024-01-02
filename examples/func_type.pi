@@ -1,4 +1,4 @@
-use std{std}
+use std{std, functional}
 type allocator_t :: proc(i64): *any
 
 Foo :: {
@@ -9,6 +9,8 @@ Foo :: {
 Writable :: {
     data: cstr
     func: proc(cstr)
+
+    ext: std
 }
 foo: Foo
 
@@ -24,4 +26,6 @@ main :: (){
     writable: Writable
     writable.func = (&std.puts) as proc(cstr)
     writable.func("happy 2024\n")
+
+    std.value_or(10, 20)
 }

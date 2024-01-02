@@ -2,12 +2,8 @@
 use std{std}
 // TODO: impl more procedures in functional module
 
-impl std {
-    value_or :: (val: any, or_v: any){
-        if val {
-            return val;
-        }
-        
-        return or_v;        
+impl std {    
+    value_or :: (v1: any, v2: any){
+        return v1 ?? v2;
     }    
 }

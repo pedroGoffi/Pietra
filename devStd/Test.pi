@@ -1,3 +1,0 @@
-foo :: () {
-    syscall(15, "hello, foo\n", 1, 1)
-}

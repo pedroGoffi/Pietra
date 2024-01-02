@@ -566,7 +566,7 @@ void makeLabel() {
                     }
                 }               
                 return type_any();
-            }
+            }            
             // TODO: move sizeof to resolve.cpp
             if(base->name == Core::cstr("sizeof")){
                 assert(args.len() == 1);
@@ -888,6 +888,7 @@ void makeLabel() {
         compile_expr(expr, state);
         return ty;
     }
+
     Type* compile_expr(Expr* e, CState& state){                
         static int i = 0;
         
@@ -913,10 +914,9 @@ void makeLabel() {
                     e->init_var.rhs,
                     false,
                     state
-                );
-
-            case EXPR_CALL:  return compile_call(e->call.base, e->call.args, state);
-            case EXPR_CAST:  return compile_cast(e->cast.typespec, e->cast.expr, state);                
+                );            
+            case EXPR_CALL:         return compile_call(e->call.base, e->call.args, state);
+            case EXPR_CAST:         return compile_cast(e->cast.typespec, e->cast.expr, state);                
             case EXPR_ARRAY_INDEX:  return compile_index(e->array.base, e->array.index, state);
             case EXPR_FIELD:        return compile_field(e->field_acc.parent, e->field_acc.children, state);
             default:                 

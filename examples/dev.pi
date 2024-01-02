@@ -1,0 +1,18 @@
+use std{std}
+
+// Preprocess stuff
+
+#run {
+    // my comment
+    x = "hello, world\n"    
+    cond = true
+
+    if cond {
+        x = "Pietra Preprocess!\n"
+    }    
+    filename = "BUGS.txt"
+    bugs = readFile(filename)
+    puts(bugs)        
+}
+
+main :: (){}

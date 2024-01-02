@@ -90,6 +90,8 @@ namespace Pietra::Resolver {
     void resolve_decl_use(Decl* &d);
     void resolve_decl_proc(Decl* &d, Type* type);
     SVec<Decl*> resolve_package(PPackage* &package);
+    Sym* sym_new(const char* name, Decl* decl);
+    Sym* sym_var(const char* name, Type* type, Expr* expr);
     void resolve_impl(const char* target, SVec<Decl*> body);
 }
 #endif /*RESOLVE_HPP*/

@@ -8,8 +8,10 @@
 #define __ALL_CASE_NUMS case '0': case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8': case '9'
 
 namespace Pietra::Lexer{    
-    enum tokenKind {        
+    enum tokenKind {            
         TK_EOF,
+        TK_QUESTION,        
+        TK_DQUESTION,
         TK_HASH,
         TK_MOD,
         TK_DOT, 
