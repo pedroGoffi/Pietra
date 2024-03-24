@@ -29,12 +29,14 @@ impl MEM_POLL {
     }
         
     grow :: (self: *Self){        
-        if self.cap <= self.size return -1
-        self.size = self.size + 1;
-        self.ptr = self.blocks[self.size]
+        if self.cap <= self.size 
+            return -1
+
+        self.size           = self.size + 1;
+        self.ptr            = self.blocks[self.size]
         self.blocks_begin   = self.ptr
         self.blocks_end     = self.blocks_begin + MEM_POLL_PAGE_SIZE        
-        self.cap  = MEM_POLL_NUM_BLOCKS                 
+        self.cap            = MEM_POLL_NUM_BLOCKS                 
     }
 
     allocate :: (self: *Self, nbytes: i64): *any {
@@ -46,23 +48,13 @@ impl MEM_POLL {
         ptr: *any = self.ptr;        
         self.ptr = self.ptr + nbytes;
         return ptr;
-    }
+    }    
 }
 
 std_MEM_POLL: MEM_POLL
 
-impl std{
-    allocate :: (nbytes: i64): *any {
+impl std{    
+    allocate   :: (nbytes: i64): *any {
         return std_MEM_POLL.allocate(nbytes)
-    }
-}
-
-
-__dev_MEM_POLL_test :: (){
-    i: i64 = 0;
-    while i < 3 {
-        p: *i64 = std.allocate(8);        
-        dump(p)
-        i = i + 1;
     }
 }

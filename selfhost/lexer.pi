@@ -62,7 +62,7 @@ next_token      :: (){
             }
             token.end = stream;
             token.kind = TK_INT
-            token.name = intern_range(token.start, token.end);
+            token.name = intern_range(token.start, token.end);            
         }
 
 
@@ -70,15 +70,30 @@ next_token      :: (){
             stream = stream + 1;
             token.end = stream;
             token.name = intern_range(token.start, token.end);
+            token.kind = TK_ADD
+            
         }
 
         case ',', '.': {
             stream = stream + 1;
             token.end = stream;
             token.name = intern_range(token.start, token.end);
-            token.kind 
+            if *stream == ','{
+                token.kind = TK_COMMA
+            }
+            else {
+                token.kind = TK_DOT
+            }
         }
         
+        case '"': {
+            token.kind  = TK_STRING            
+            token.start = stream
+            token.name  = scan_string() 
+            token.end   = stream
+            
+        }
+
         default: {
             std.puts("Undefined token:\n\tascii == ");
             dump(*stream);            
@@ -104,7 +119,38 @@ is_kind         :: (kind: i64){
 }
 expects_kind    :: ();
 escape_to_char  :: ();
-scan_string     :: ();
+scan_string     :: (): cstr
+{
+    if *stream != '"' {
+        std.puts("[ERROR]: expected string\n")
+        exit(1)
+    }    
+    stream = stream + 1
+
+    begin: cstr = stream    
+    while *stream != '"' {
+        if not *stream {
+            std.puts("[ERROR - 1]: expected end of the string but got EOF\n")
+            exit(1)    
+        }
+
+        stream = stream + 1    
+    }    
+    if *stream != '"' {
+        std.puts("[ERROR]: expected end of the string but got EOF\n")
+        exit(1)
+    }
+
+    
+    end: cstr = stream
+    stream = stream + 1
+      
+
+    str_len: i64 = end - begin
+    buffer: cstr = std.allocate(str_len)
+    std.cstrncopy(buffer, begin, str_len)          
+    return buffer
+}
 scan_char       :: ();
 scan_int        :: ();
 scan_int_base   :: ();

@@ -5,7 +5,34 @@ use std{memory, string, file}
 std :: {}   
 
 impl std {
+    ctoi :: (c: i64): i64 {
+        if c + 1 > '0' and c - 1 < '9' {
+            return c - '0'            
+        }
+
+        return c - 'A' + 1
+    }
+    
     stoi_base :: (str: cstr, base: i64): i64 { 
-        std.puts(str)
-    }    
+        iter: cstr = str
+        sign: i64 = 1
+
+        if *iter == '-' {
+            sign = -sign
+            iter = iter + 1
+        }
+
+        digits: i64 = 0
+        while *iter {
+            digits = (digits * base) + std.ctoi(*iter);   
+            iter = iter + 1
+        }
+
+        digits = digits * sign
+        dump(digits)
+    }        
+
+    stoi :: (str: cstr): i64 {
+        return std.stoi_base(str, 10)
+    }
 }

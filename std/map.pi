@@ -1,0 +1,61 @@
+#package "std.map"
+
+use std{std}
+Hash_bucket :: {
+    key         : any
+    value       : any
+    has_value   : i64
+}
+
+
+Hash_map    :: {
+    buckets     : *Hash_bucket
+    capacity    : i64
+    size        : i64
+}
+
+HASH_MAP_INITIAL_CAPACITY :: 256
+impl Hash_map {
+    constructor :: (self: *Self){}
+    
+    extend_capacity :: (self: *Self){
+        new_map: Hash_map
+        bucket_target: Hash_bucket
+        i: i64 = 0
+
+        if self.buckets == null {
+            self.capacity = HASH_MAP_INITIAL_CAPACITY
+            self.buckets = std.allocate(sizeof(Hash_bucket) * self.capacity)
+            self.size = 0            
+        } else {
+            
+            new_map.buckets = std.allocate(self.capacity * 2 * sizeof(Hash_bucket))            
+            new_map.capacity = self.capacity * 2
+            new_map.size = 0
+            
+            while i < self.capacity {
+                bucket_target = self.buckets[i]                                    
+                if bucket_target.has_value {
+                    new_map.insert(bucket_target.key, bucket_target.value)
+                }
+            }
+            // TODO free(self.buckets)
+
+            self.buckets  = new_map.buckets
+            self.capacity = new_map.capacity
+            self.size     = new_map.size
+        }
+    }
+
+    hash :: (self: *Self){}
+    insert      :: (self: *Self, key: any, value: any){        
+        hash_of_key: i64 = 
+        if self.size + 1 > self.capacity {
+            self.extend_capacity()            
+        }
+
+        
+    }
+    
+    get         :: (self: *Self, key: any): any {}
+}

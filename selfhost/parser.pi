@@ -3,25 +3,56 @@ use std{std}
 use selfhost{token, lexer, ast}
 
 
+literal_expr_assign :: (name: cstr): *Expr {
+    if not is_kind(TK_DDOT){
+        std.puts("ERROR 1\n")
+        exit(1)
+    }
+    next_token()
+
+    ts: *TypeSpec = null;
+    rhs: *Expr   = null;
+    
+    
+    std.puts("unimplemented Assign.\n")
+    exit(1)
+}
+
 literal_expr :: (): *Expr {    
     val: any;
     
     if is_kind(TK_NAME){
         val = token.name;
-        next_token();
+        next_token();        
+        if is_kind(TK_DDOT) {            
+            return literal_expr_assign(val)
+        }
+        
         return expr_name(val);
     }
 
     if is_kind(TK_INT){
-        val = std.stoi_base(token.name, 10);
+        val = std.stoi(token.name);
         next_token();                
         return expr_int(val)
     }
     
+    if is_kind(TK_STRING){
+        val = token.name
+        next_token()
+        return expr_string(val)
+    }
+
     std.puts("no expr boss...\n")
     std.puts(stream)
     exit(1)
 }
+parse_typespec :: (): *TypeSpec {}
+expr :: (): *Expr{
+    return literal_expr()
+}
+
 parse :: (): *Expr{
     return literal_expr()
+    
 }

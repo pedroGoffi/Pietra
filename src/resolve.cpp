@@ -59,7 +59,8 @@ namespace Pietra::Resolver{
     SVec<Sym*>          localSyms;
     SVec<Decl*>         final_ast;
     SVec<PPackage*>     packages;
-    PPackage* get_package(const char* name){
+    
+    PPackage* get_package(const char* name){        
         for(PPackage* pa: packages){
             if(pa->name == name){
                 return pa;
@@ -305,6 +306,7 @@ namespace Pietra::Resolver{
                 "dump",
                 "syscall",
                 "asm",
+                "Buffer",
                 "quit",
                 "readFile", 
                 "typeof",
@@ -713,6 +715,11 @@ namespace Pietra::Resolver{
                     return operand_lvalue(type_int(64), {0});
                 }
             }
+            else if(s->name == Core::cstr("Buffer")){
+                assert(children->kind == EXPR_NAME);
+                TypeField* tf = buffer.find(children->name);
+                return operand_lvalue(tf->type, {});                
+            }
         }
 
         Operand op = resolve_expr(parent);                
@@ -750,7 +757,11 @@ namespace Pietra::Resolver{
         exit(1);
         
     }
-    
+    Operand resolve_ternary(Expr* cond, Expr*  if_case, Expr* else_case){
+        printf("[TODO]: Resolve ternary stuff.\n");
+        return operand_lvalue(type_int(64), {0});
+    }
+
     Operand resolve_expr(Expr* &expr){        
         if(!expr){
             return operand_lvalue(type_void(), {0});
@@ -801,7 +812,8 @@ namespace Pietra::Resolver{
             case EXPR_ARRAY_INDEX:  return resolve_index(expr);
             case EXPR_CAST:         return resolve_cast(expr->cast.typespec, expr->cast.expr);
             case EXPR_FIELD:        return resolve_field(expr->field_acc.parent, expr->field_acc.children);
-        }
+            case EXPR_TERNARY:      return resolve_ternary(expr->ternary.cond, expr->ternary.if_case, expr->ternary.else_case);
+        }        
         pPrint::expr(expr);
         exit(1);
     }

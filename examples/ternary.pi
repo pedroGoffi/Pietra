@@ -1,0 +1,2 @@
+use std{std}
+main :: () std.puts("hello, world\n");

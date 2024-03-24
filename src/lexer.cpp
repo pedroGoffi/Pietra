@@ -550,12 +550,12 @@ const char* Lexer::tokenKind_repr(tokenKind k){
         case TK_INC:                    return "++";
         case TK_MULT:                   return "*";
         case TK_TRIPLE_DOT:             return "...";
-        case TK_OPEN_ROUND_BRACES:      return "OPEN_ROUND_BRACES";
-        case TK_CLOSE_ROUND_BRACES:     return "CLOSE_ROUND_BRACES";
-        case TK_OPEN_SQUARED_BRACES:    return "OPEN_SQUARED_BRACES";
-        case TK_CLOSE_SQUARED_BRACES:   return "CLOSE_SQUARED_BRACES";
-        case TK_OPEN_CURLY_BRACES:      return "OPEN_CURLY_BRACES";
-        case TK_CLOSE_CURLY_BRACES:     return "CLOSE_CURLY_BRACES";
+        case TK_OPEN_ROUND_BRACES:      return "(";
+        case TK_CLOSE_ROUND_BRACES:     return ")";
+        case TK_OPEN_SQUARED_BRACES:    return "[";
+        case TK_CLOSE_SQUARED_BRACES:   return "]";
+        case TK_OPEN_CURLY_BRACES:      return "{";
+        case TK_CLOSE_CURLY_BRACES:     return "}";
         case TK_COMMA:                  return ",";
         case TK_DDOT:                   return ":";
         case TK_PREP:                   return "::";

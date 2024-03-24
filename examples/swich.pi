@@ -1,0 +1,12 @@
+use std{std}
+x :: 1
+
+main :: (){
+    y: i64 = 1
+    switch(y){
+        case x: {
+            dump(x)
+            dump(y)
+        }
+    }
+}

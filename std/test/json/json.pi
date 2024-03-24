@@ -1,0 +1,4 @@
+#run {
+    puts("WARN json in Pietra Lang is not implemented yet, aborting compilation\n")
+    quit(1)
+}

@@ -1,49 +1,97 @@
 #package "pietra.token"
 type TokenKind :: i64
 
-TK_EOF  :: 0
-TK_NAME :: 1
-TK_INT  :: 2
-TK_HASH :: 0
-TK_MOD  :: 0
-TK_DOT  :: 0
-TK_DCOMMA   :: 0
-TK_LT   :: 0
-TK_PIPE :: 0
-TK_LTE  :: 0
-TK_LAND :: 0
-TK_LOR  :: 0
-TK_GT   :: 0
-TK_ADD  :: 0
-TK_AMPERSAND    :: 0
-TK_SUB  :: 0
-TK_DEC  :: 0
-TK_NOT  :: 0
-TK_INC  :: 0
-TK_NEQ  :: 0
-TK_MULT :: 0
-TK_NOTE :: 0
-TK_TRIPLE_DOT   :: 0
-TK_OPEN_ROUND_BRACES    :: 0
-TK_CLOSE_ROUND_BRACES   :: 0
-TK_DIV  :: 0
-TK_OPEN_SQUARED_BRACES  :: 0
-TK_CLOSE_SQUARED_BRACES :: 0
-TK_OPEN_CURLY_BRACES    :: 0
-TK_CLOSE_CURLY_BRACES   :: 0
-TK_COMMA    :: 0
-TK_DDOT :: 0
-TK_PREP :: 0
-TK_EQ   :: 0
-TK_CMPEQ    :: 0
+__iota_val: i64 = 0
+iota_reset  :: (): i64 {
+    __iota_val = 0
+    return __iota_val
+}
+iota        :: (): i64 {    
+    __iota_val = __iota_val + 1
+    return __iota_val
+}
+TK_EOF: i64                     = iota_reset()
+TK_NAME: i64                    = iota()
+TK_INT: i64                     = iota()
+TK_HASH: i64                    = iota()
+TK_MOD: i64                     = iota()
+TK_DOT: i64                     = iota()
+TK_DCOMMA: i64                  = iota()
+TK_LT: i64                      = iota()
+TK_PIPE: i64                    = iota()
+TK_LTE: i64                     = iota()
+TK_LAND: i64                    = iota()
+TK_LOR: i64                     = iota()
+TK_GT: i64                      = iota()
+TK_ADD: i64                     = iota()
+TK_AMPERSAND: i64               = iota()
+TK_SUB: i64                     = iota()
+TK_DEC: i64                     = iota()
+TK_NOT: i64                     = iota()
+TK_INC: i64                     = iota()
+TK_NEQ: i64                     = iota()
+TK_MULT: i64                    = iota()
+TK_NOTE: i64                    = iota()
+TK_TRIPLE_DOT: i64              = iota()
+TK_OPEN_ROUND_BRACES: i64       = iota()
+TK_CLOSE_ROUND_BRACES: i64      = iota()
+TK_DIV: i64                     = iota()
+TK_OPEN_SQUARED_BRACES: i64     = iota()
+TK_CLOSE_SQUARED_BRACES: i64    = iota()
+TK_OPEN_CURLY_BRACES: i64       = iota()
+TK_CLOSE_CURLY_BRACES: i64      = iota()
+TK_COMMA: i64                   = iota()
+TK_DDOT: i64                    = iota()
+TK_PREP: i64                    = iota()
+TK_EQ: i64                      = iota()
+TK_CMPEQ: i64                   = iota()
+TK_KEYWORD: i64                 = iota()
+TK_STAR: i64                    = iota()
+TK_FLOAT: i64                   = iota()
+TK_STRING: i64                  = iota()
 
-TK_KEYWORD  :: 0
 
-TK_STAR :: 0
-TK_FLOAT    :: 0
-TK_STRING   :: 0
-
-
+initialize_token :: (){
+    TK_EOF = iota()
+    TK_NAME = iota()
+    TK_INT = iota()
+    TK_HASH = iota()
+    TK_MOD = iota()
+    TK_DOT = iota()
+    TK_DCOMMA = iota()
+    TK_LT = iota()
+    TK_PIPE = iota()
+    TK_LTE = iota()
+    TK_LAND = iota()
+    TK_LOR = iota()
+    TK_GT = iota()
+    TK_ADD = iota()
+    TK_AMPERSAND = iota()
+    TK_SUB = iota()
+    TK_DEC = iota()
+    TK_NOT = iota()
+    TK_INC = iota()
+    TK_NEQ = iota()
+    TK_MULT = iota()
+    TK_NOTE = iota()
+    TK_TRIPLE_DOT = iota()
+    TK_OPEN_ROUND_BRACES = iota()
+    TK_CLOSE_ROUND_BRACES = iota()
+    TK_DIV = iota()
+    TK_OPEN_SQUARED_BRACES = iota()
+    TK_CLOSE_SQUARED_BRACES = iota()
+    TK_OPEN_CURLY_BRACES = iota()
+    TK_CLOSE_CURLY_BRACES = iota()
+    TK_COMMA = iota()
+    TK_DDOT = iota()
+    TK_PREP = iota()
+    TK_EQ = iota()
+    TK_CMPEQ = iota()
+    TK_KEYWORD = iota()
+    TK_STAR = iota()
+    TK_FLOAT = iota()
+    TK_STRING = iota()
+}
 TokenVal :: union {
     I64: i64    
 }

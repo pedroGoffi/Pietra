@@ -25,7 +25,7 @@ int Pietra::Main(int argc, char** argv){
         exit(1);
     }    
     SVec<Decl*> ast = resolve_package(package);
-   
+       
     Asm::compile_ast(ast);
     
     if (DEBUG_MODE) printf("Pietra compiled successfuly.\n");

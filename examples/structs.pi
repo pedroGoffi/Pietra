@@ -1,17 +1,23 @@
-use std{std}
-
-String :: {
-    data: cstr
-    size: i64
+S1 :: {
+    s0: i64
+    s1: i64
+    s2: i64
+    s3: i64
+    s4: i64
+    s5: i64
+    s6: i64
+    s7: i64
+    s8: i64
 }
 
 main :: (){
-    str: String;
-    str.data = "hello, world\n"
-    str.size = std.strlen(str.data);
+    s1: S1
+    s1.s1 = 10
+    s1.s2 = 69    
 
-    std.puts("str.data = ")
-        std.puts(str.data)
-    std.puts("str.size = ")
-        dump(str.size)
+    s2: S1 = s1   
+
+    dump(s2.s1)
+    dump(s2.s2)
+    
 }

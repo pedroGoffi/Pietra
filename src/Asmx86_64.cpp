@@ -44,6 +44,7 @@ namespace Pietra::Asm {
 using namespace Pietra;
 using namespace Ast;
 
+std::vector<Type*> stack;
 bool has_extern = false;
 const char* extern_paths = "";
 const char* argreg8[]  = {"dil", "sil", "dl", "cl", "r8b", "r9b"};
@@ -166,13 +167,17 @@ void makeLabel() {
                         // Get the addr and call the method (lhs).__eq__                    
                         println("call %s", __eq->name);                    
                         return lhs_t;
-                    }
+                    }                    
                 }
             }
+
+        }        
+        push("rax", lhs_t);        
+        Type* rhs_t = compile_expr(rhs, state);        
+        if(rhs_t->kind == TYPE_STRUCT or rhs_t->kind == TYPE_UNION){
+            rhs_t = compile_expr(rhs, state_getaddr);
         }
-        push("rax", lhs_t);                
-        compile_expr(rhs, state);
-        store();        
+        store(lhs_t, rhs_t);        
         return lhs_t;
             
     }
@@ -401,13 +406,14 @@ void makeLabel() {
         println("mov rax, %s [rbp - %i]", get_word_size(var->type->size), offset);
         return var->type;
     }
-    std::vector<Type*> stack;
+    
     void push(const char* what, Type* type){
         println("push %s", what);
         stack.push_back(type);
     }
     Type* pop(){
         println("pop rax");
+        stack.pop_back();
         return type_void();
     }
     Type* pop(const char* target){
@@ -434,6 +440,40 @@ void makeLabel() {
             default:
                 println("mov [rdi], rax");
         }
+    }
+
+    void store(Type* lhs, Type* rhs){
+        store();
+        return;
+        if(lhs->kind == rhs->kind and (lhs->kind == Ast::TYPE_STRUCT or lhs->kind == Ast::TYPE_UNION)){
+
+            Type* lhs_t = pop("rdi");
+            assert(lhs == lhs_t);
+            size_t offset = 0;
+            println(";; NOTE: Assign struct to struct");
+            for(TypeField*& field: lhs->aggregate.items){
+                println(";; NOTE: Assign struct %s, in field [size=%i] %s", lhs->name, field->type->size, field->name);
+                // var rdi
+                // val rax
+                if(offset > 0){
+                    println("mov rcx, [rax + %zu]", offset);
+                }
+                else {
+                    println("mov rcx, [rax]");                    
+                }
+                {
+                    println("mov %s [rdi], rcx", 
+                        get_word_size(field->type->size));
+                    println("add rdi, %i\n", field->type->size);
+                }
+
+                offset += field->type->size;                
+            }
+            return;          
+        }
+        
+        store();
+        
     }
     
     Type* load(Type* type){        
@@ -566,9 +606,13 @@ void makeLabel() {
                     }
                 }               
                 return type_any();
-            }            
+            }    
+            else if(base->name == Core::cstr("buffer")){
+                err("ok\n");
+                exit(1);
+            }
             // TODO: move sizeof to resolve.cpp
-            if(base->name == Core::cstr("sizeof")){
+            else if(base->name == Core::cstr("sizeof")){
                 assert(args.len() == 1);
                 Expr* arg = args.at(0);
                 if(arg->kind != EXPR_NAME){
@@ -703,7 +747,16 @@ void makeLabel() {
                     
                     break;
                 }
-                else {
+                else {          
+                    if(arg->kind == EXPR_NAME){                        
+                        if(Sym* sym = sym_get(arg->name)){
+                            if(sym->type->kind == Ast::TYPE_STRUCT or sym->type->kind == Ast::TYPE_UNION){
+                                compile_expr(arg, state_getaddr);
+                                println("mov %s, rax", argreg64[id++]);        
+                                continue;
+                            }
+                        }
+                    }
                     compile_expr(arg, state_none);
                     println("mov %s, rax", argreg64[id++]);        
                 }
@@ -719,7 +772,7 @@ void makeLabel() {
             println("call rax");
             return base_t;
         }
-        else {
+        else {                                    
             Type* base_t = compile_expr(base, state_none);        
             assert(base_t->kind == TYPE_PROC);
             println("call rax");
@@ -761,10 +814,11 @@ void makeLabel() {
                 }
                 return param->type;
             }
-            if(CVar* local = proc->find_local(name)){
+            if(CVar* local = proc->find_local(name)){                
                 makeLabel();
-                lea(local);                                     
-                if(state != state_getaddr){                
+                lea(local);          
+                // TODO: Load if the state is not get_addr and if the local variable is not a non-pointer to a struct object                
+                if(state != state_getaddr){                                    
                     load(local->type);                    
                 }
                 
@@ -824,14 +878,29 @@ void makeLabel() {
                 if(Sym* impl = sym->impls.find(children->name)){                    
                     Expr* e = impl->decl->expr;
                     assert(e->kind == EXPR_INT);
-                    println("mov rax, %li", e->int_lit);
+                    println("mov rax, %li", e->int_lit);                    
                     return type_int(64);
                 }
             }
+            else if(sym->name == Core::cstr("Buffer")){
+                assert(children->kind == EXPR_NAME);
+                TypeField* tf = buffer.find(children->name);
+                int index = buffer.find_index_of(tf);
+
+                if(index == -1){
+                    err("fuck.\n");
+                    exit(1);
+                }
+                AggregateItem* item = buffer.get_agg_item_at(index);
+                assert(item);
+                assert(item->field.init);
+                return compile_expr(item->field.init, state_none);
+            }
         }
+        
 
 
-        Type* p = compile_expr(parent, state_getaddr);
+        Type* p = compile_expr(parent, state_getaddr);        
         if(p->kind == Ast::TYPE_PTR){
             if(p->base->kind == Ast::TYPE_STRUCT){
                 load(p);
@@ -888,6 +957,20 @@ void makeLabel() {
         compile_expr(expr, state);
         return ty;
     }
+    Type* compile_ternary(Expr* cond, Expr* then, Expr* otherwise){        
+        // rax -> 1, 0
+        println(";; ----------------------------------\n");
+        cmp_zero(compile_expr(cond, state_none));
+        int end_addr = count();
+        int else_addr = count();        
+        println("je .L%i", else_addr);
+        Type* lhs = compile_expr(then, state_none);
+        println("jmp .L%i\n", end_addr);
+        makeLabel(else_addr);
+        Type* rhs = compile_expr(otherwise, state_none);
+        makeLabel(end_addr);
+        
+    }
 
     Type* compile_expr(Expr* e, CState& state){                
         static int i = 0;
@@ -919,6 +1002,7 @@ void makeLabel() {
             case EXPR_CAST:         return compile_cast(e->cast.typespec, e->cast.expr, state);                
             case EXPR_ARRAY_INDEX:  return compile_index(e->array.base, e->array.index, state);
             case EXPR_FIELD:        return compile_field(e->field_acc.parent, e->field_acc.children, state);
+            case EXPR_TERNARY:      return compile_ternary(e->ternary.cond, e->ternary.if_case, e->ternary.else_case);
             default:                 
                 fprintf(stderr, "========================\n");
                 pPrint::expr(e);
@@ -970,8 +1054,31 @@ void makeLabel() {
                 }
                 
                 else {
-                    err("Cant compile parrern name yet %s.\n");
+                    Sym* sym = sym_get(p->name);
+                    if(!sym){
+                        err("%s is not found.\n", p->name);
+                        exit(1);
+                    }
+                    
+                    if(sym->kind == SYM_ENUM){
+                        Decl* d_enum = sym->decl;
+                        if(d_enum->kind == Ast::DECL_CONSTEXPR){
+                            Expr* e = d_enum->expr;
+                            int int_val = e->int_lit;
+                            
+                            compile_expr(s->stmt_switch.cond, state_none);
+                            println("cmp rax, %i\n", int_val);
+                            println("jne .L%i", case_end_addr);
+                            continue;
+                        }
+
+                        // Else falltrough                        
+                    }
+                    
+                    
+                    err("Cant compile parrern name yet %s.\n", p->name);
                     exit(1);
+                    
                 }                
             }
             makeLabel(case_begin_addr);
@@ -1104,7 +1211,7 @@ void makeLabel() {
     }
     
     void compile_cproc_params(CProc *cp, SVec<ProcParam*> params){        
-         //TODO: i guess
+         //TODO: i guess         
     }
     void compile_variable_deleter(CVar* var, Sym* del){
         if(var->type->kind == TYPE_PTR) return;
@@ -1160,6 +1267,10 @@ void makeLabel() {
         {
             int id = 0;
             for(CVar* param: *proc->params){
+                // Force struct objects to be pointer
+                if(param->type->kind != TYPE_PTR and (param->type->kind == TYPE_STRUCT or param->type->kind == Ast::TYPE_UNION)){
+                    param->type = type_ptr(param->type);
+                }
                 println("mov [rbp - %i], %s", param->stackOffset, argreg64[id++]);
             }
         }

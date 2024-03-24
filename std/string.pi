@@ -4,10 +4,8 @@ use std{std}
 
 impl std {    
     strlen :: (str: cstr): i64{
-        c: cstr = str;
-        while *c {
-            c = c + 1;
-        }
+        c: cstr = str;        
+        while *c { c = c + 1 }
         return c - str;
     }
     streq :: (s1: cstr, s2: cstr): i64 {
@@ -109,6 +107,15 @@ impl std {
         str.data = str.data + chop_pos + 1;
         str.size = str.size - chop_pos - 1;
         return nstr;
+    }
+
+    cstrncopy :: (dst: cstr, src: cstr, n: i64){
+        i: i64 = 0
+        while i < n {
+            dst[i] = src[i]
+            i = i +1
+        }
+        dst[i] = 0
     }
 }
 

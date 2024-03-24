@@ -5,7 +5,8 @@
 #include <cstddef>
 
 namespace Pietra::Core {
-    template<typename T> class Arena {
+    template<typename T> 
+    class Arena {
         static constexpr int ARENA_ALIGNMENT  = 8;
         static constexpr int ARENA_BLOCK_SIZE = 1024 * 1024 * 1024;
         
@@ -21,7 +22,7 @@ namespace Pietra::Core {
     void push_block(void* block);
     public:
         size_t  size;
-        Arena<T>();
+        Arena();
         T* alloc(int size);
         void free();
         T*   begin();

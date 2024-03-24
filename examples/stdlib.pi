@@ -2,9 +2,5 @@ use std{std, string, functional}
 
 
 main :: (){
-    cond: *i8 = 0;
-    else_v: *i8 = "hello, world\n";
-    d: *i8 = std.value_or(cond, else_v);
-
-    std.puts(d)
+    std.puts("Hello, world\n")
 }

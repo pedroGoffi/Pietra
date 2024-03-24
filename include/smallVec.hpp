@@ -47,8 +47,7 @@ namespace Pietra::Core {
         void make_fit(int size);
         bool check_if_fits(int size);
 
-    public:     
-        SVec<T>() = default;    
+    public:             
         void push(T item);
         T    pop();
         T*   begin();

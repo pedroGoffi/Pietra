@@ -239,8 +239,24 @@ Expr* logic_expr(){
     }
     return cmp;
 }
-Expr* cast_expr(){    
+
+Expr* ternary_expr(){
     Expr* logic = logic_expr();
+
+    if(is_kind(TK_QUESTION)){
+        printf("[ERROR]: ternary (<expr>?expr : expr) is not implemented yet.\n");
+        exit(1);
+    }
+    else if(is_kind(TK_DQUESTION)){
+        next();        
+        Expr* rhs = ternary_expr();
+        logic = Utils::expr_ternary(logic, logic, rhs);
+    }
+
+    return logic;
+}
+Expr* cast_expr(){    
+    Expr* logic = ternary_expr();
     if(token.name == keyword_as){
         next();
         TypeSpec* ts = typespec();
@@ -248,6 +264,7 @@ Expr* cast_expr(){
     }
     return logic;
 }
+
 static inline bool is_assign(){
     return
             token.kind == TK_EQ 
@@ -263,7 +280,6 @@ Expr* assign_expr(){
     }
     return cast;
 }
-
 
 Expr* expr(){
     return assign_expr();        
@@ -423,8 +439,7 @@ static inline bool is_switch_case_pattern(){
 }
 SwitchCasePattern* switch_case_pattern(){
     // 1 (..end | , pattern )
-    SwitchCasePattern* pattern = Utils::init_pattern();
-    printf("got = %s\n", token.name);
+    SwitchCasePattern* pattern = Utils::init_pattern();    
     pattern->name = 0;
     if(is_kind(TK_INT)){
         pattern->begin = token.i64;

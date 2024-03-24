@@ -1,32 +1,31 @@
 #package "pietra.ast"
+type ExprKind :: i64
 
-ExprKind :: enum {
-    EXPR_NONE
-    EXPR_INT
-    EXPR_FLOAT
-    EXPR_STRING
-    EXPR_NAME
-    EXPR_INIT_VAR
-    EXPR_COMPOUND
-    EXPR_FIELD
-    EXPR_COMPOUND_LIST_INDEXING
-    EXPR_COMPOUND_NAME
-    EXPR_NEW
-    EXPR_UNARY
-    EXPR_BINARY
-    EXPR_CMP
-    EXPR_LOGIC
-    EXPR_CAST
-    EXPR_TERNARY
-    EXPR_ARRAY_INDEX
-    EXPR_CALL
-}
+EXPR_NONE                       : i64 = iota()
+EXPR_INT                        : i64 = iota()
+EXPR_FLOAT                      : i64 = iota()
+EXPR_STRING                     : i64 = iota()
+EXPR_NAME                       : i64 = iota()
+EXPR_INIT_VAR                   : i64 = iota()
+EXPR_COMPOUND                   : i64 = iota()
+EXPR_FIELD                      : i64 = iota()
+EXPR_COMPOUND_LIST_INDEXING     : i64 = iota()
+EXPR_COMPOUND_NAME              : i64 = iota()
+EXPR_NEW                        : i64 = iota()
+EXPR_UNARY                      : i64 = iota()
+EXPR_BINARY                     : i64 = iota()
+EXPR_CMP                        : i64 = iota()
+EXPR_LOGIC                      : i64 = iota()
+EXPR_CAST                       : i64 = iota()
+EXPR_TERNARY                    : i64 = iota()
+EXPR_ARRAY_INDEX                : i64 = iota()
+EXPR_CALL                       : i64 = iota()
 
 
 Expr :: {
-    kind:   ExprKind
-    int_lit: i64
-    name_lit: cstr
+    kind:       ExprKind
+    int_lit:    i64
+    name_lit:   cstr    
 }
 
 
@@ -56,8 +55,7 @@ TypeSpecKind :: enum {
 }
 
 TypeSpecVal :: union {}
-TypeSpec :: {
-    
+TypeSpec :: {    
     kind:   TypeSpecKind
     base:   *any
     as:     TypeSpecVal    
@@ -84,19 +82,39 @@ Decl :: {
 
 
 expr_init :: (kind: i64): *Expr {
-    e: *Expr = sbrk(sizeof(Expr));
-    (:i64)e.kind = kind;    
+    e: *Expr = std.allocate(sizeof(Expr));
+    e.kind = kind;    
     return e;
 }
 
 expr_name   :: (name: cstr): *Expr {
-    e: *Expr = expr_init(ExprKind.EXPR_NAME);
+    e: *Expr = expr_init(EXPR_NAME);
     e.name_lit = name;
     return e;    
 }
 
 expr_int    :: (num: i64): *Expr {
-    e: *Expr = expr_init(ExprKind.EXPR_INT);
+    e: *Expr = expr_init(EXPR_INT);
     e.int_lit = num;
     return e;    
+}
+
+expr_string :: (str: cstr): *Expr {
+    e: *Expr    = expr_init(EXPR_STRING)
+    e.name_lit  = str
+    return e
+}
+
+expr_print :: (e: *Expr){    
+    switch(e.kind){
+        case 41: {
+            dump(EXPR_INT)
+            dump(e.kind)
+            std.puts("ok")
+        }
+        default: {
+            std.puts("Idk how to print this...\n")
+            exit(1)
+        }
+    }
 }

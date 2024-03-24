@@ -1,5 +1,5 @@
 #package "pietra.file"
-use std{std}
+use std{std, errno}
 
 
 S_ISUID     :: 0x4000   
@@ -19,13 +19,13 @@ FILE :: {
     mode:   i64    
 }
 
-O_RDONLY  :: 00   
-O_WRONLY  :: 01   
-O_RDWR    :: 02   
+O_RDONLY  :: 000   
+O_WRONLY  :: 001   
+O_RDWR    :: 0x2   
 O_CREAT   :: 0100 
 O_EXCL    :: 0200 
-O_TRUNC   :: 01000
-O_APPEND  :: 02000
+O_TRUNC   :: 1000
+O_APPEND  :: 2000
 
 impl std {    
     fopen :: (filename: cstr, _flags: cstr): *FILE {
@@ -52,5 +52,8 @@ impl std {
         f.flags = file_flags
         return f;        
     }
-    
+
+    fclose :: (file: *FILE){
+        close(file.fd);
+    }
 }

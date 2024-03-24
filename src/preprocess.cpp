@@ -4,6 +4,8 @@
 #include "../include/preprocess.hpp"
 #include "../include/ast.hpp"
 #include "../include/resolve.hpp"
+
+#include "bridge.cpp"
 #include "file.cpp"
 #include "ast.cpp"
 #include <cstdint>
@@ -13,6 +15,48 @@ using namespace Pietra;
 using namespace Pietra::Ast;
 using namespace Pietra::Preprocess;
 
+// Buffer is a bridge to the preprocessed world to the compiled world
+struct Buffer {    
+    Sym* sym = sym_var("Buffer", type_aggregate({}), nullptr);
+    Buffer(){
+        this->sym->decl = Utils::decl_aggregate("Buffer", Pietra::Ast::AGG_STRUCT, {});
+    }
+    int find_index_of(TypeField* tf){        
+        for(int i = 0; i < this->sym->decl->aggregate.items.len();){
+            for(const char* name: this->sym->decl->aggregate.items.at(i)->field.names){
+                if(tf->name == name) return i;
+                i++;
+            }
+        }
+
+        return -1;
+    }
+
+    AggregateItem* get_agg_item_at(int index){
+        return this->sym->decl->aggregate.items.at(index);
+    }
+    TypeField* find(const char* name){
+        for(TypeField* tf: this->sym->type->aggregate.items){
+            if(tf->name == name) return tf;
+        }
+        return nullptr;
+    }
+    void push(TypeField* tf, Expr* value){        
+        assert(!this->find(tf->name));
+
+        // Create the type item
+        this->sym->type->aggregate.size += tf->type->calcSize();                
+        this->sym->type->aggregate.items.push(tf);        
+        
+
+        // Create the decl item
+        SVec<const char*> name; name.push(tf->name);                
+        AggregateItem* item = Utils::aggregate_item_field(name, Utils::typespec_name("null", {}), value);        
+        this->sym->decl->aggregate.items.push(item);        
+    }
+};
+
+Buffer buffer;
 
 Expr* PreprocessExpr::binary_add(Expr* lhs, Expr* rhs){
     lhs = expr(lhs);
@@ -113,9 +157,10 @@ Expr* PreprocessExpr::expr(Expr* e){
 
 namespace Pietra::Preprocess{
     using namespace Resolver;
-    const char*     prep_proc_puts      = Core::cstr("puts");
-    const char*     prep_proc_readFile  = Core::cstr("readFile");
-    const char*     prep_proc_quit      = Core::cstr("quit");
+    const char*     prep_proc_puts          = Core::cstr("puts");
+    const char*     prep_proc_readFile      = Core::cstr("readFile");
+    const char*     prep_proc_quit          = Core::cstr("quit");
+    const char*     prep_proc_BufferPush    = Core::cstr("BufferPush");
     
     FILE* prep_file = stdout;
     PreprocessContext context;
@@ -137,6 +182,7 @@ namespace Pietra::Preprocess{
             fprintf(prep_file, "%s", (char*) op.val.p);
             return op;            
         }
+
         else if(base->name == prep_proc_readFile){            
             expect_arity(args, 1, "prep-proc `readFile` wrong usage, proc trace readFile(filename: cstr): cstr.\n");            
 
@@ -147,8 +193,7 @@ namespace Pietra::Preprocess{
             }                        
             
             
-            const char* filename    = (const char*) op.val.p; 
-            printf("ok %s\n", filename);
+            const char* filename    = (const char*) op.val.p;             
             const char* intern_str = Core::cstr(fileReader::read_file(filename));
             
             return operand_lvalue(type_any(), {.p = (uintptr_t) intern_str});
@@ -158,6 +203,39 @@ namespace Pietra::Preprocess{
             Operand op = eval_expr(args.at(0), ctx);            
             exit(op.val.i);
         }
+        else if(base->name == prep_proc_BufferPush){
+            expect_arity(args, 2, "prep-proc `BufferPush` wrong usage, proc trace BufferPush(field, value: Expression): null.\n");            
+            Expr* field = args.at(0);
+            Expr* value = args.at(1);
+            assert(field->kind == EXPR_NAME);
+
+            Operand value_op = eval_expr(value, ctx);
+
+            if(not value_op.is_lvalue){
+                printf("[ERROR]: `BufferPush` wrong usage, expected lvalue.\n");
+                exit(1);
+            }
+
+            TypeField* tf = Utils::init_typefield(field->name, type_void());            
+            Expr* e;
+            // TODO: Move this section to anoter function
+            
+            ////////////////////////////////////////////////////
+            if(value->kind == Ast::EXPR_INT){
+                e = Utils::expr_int(value_op.val.i);
+            }
+            else if(value->kind == Ast::EXPR_STRING){
+                e = Utils::expr_string((const char*) value_op.val.p);
+            }            
+            else {
+                printf("[ERROR]: `BufferPush` wrong usage. idk what happened.\n");
+                exit(1);
+            }               
+            ////////////////////////////////////////////////////
+            buffer.push(tf, e);         
+            return operand_lvalue(type_void(), {0});
+        }
+
         else {
             printf("[ERROR]: the prep-proc %s was not declared in this scope.\n", base->name);
             exit(1);
@@ -259,4 +337,5 @@ namespace Pietra::Preprocess{
         }
     }
 }
+
 #endif /*PIETRA_PREP_CPP*/

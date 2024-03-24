@@ -18,6 +18,8 @@ namespace Pietra::Asm {
     Type* cmp_zero(Type* ty);
                 
     void store();
+    void store(Type* lhs, Type* rhs);
+    
     void compile_init_var(const char* name, TypeSpec* type, Expr* init, bool is_global, CState state);
     void opt_load();
     const char* get_word_size(int size);

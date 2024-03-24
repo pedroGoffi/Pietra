@@ -1,0 +1,26 @@
+use std{std}
+File :: {
+    handler: *FILE
+}
+
+impl File {
+    open :: (self: *Self, filename: cstr, flags: cstr){
+        self.handler = std.fopen(filename, flags)
+    }
+    delete :: (self: *Self){        
+        std.fclose(self.handler);
+    }
+    __eq__ :: (self: *Self, handler: *FILE){
+        self.handler = handler
+    }
+
+    read :: (self: *Self){
+        h: *FILE = self.handler;
+        return h.ptr;
+    }    
+}
+main :: (){
+    f: File = std.fopen("BUGS.txt", "r") 
+    data: cstr = f.read();
+    std.puts(data);
+}

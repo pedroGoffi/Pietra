@@ -1,6 +1,13 @@
-#run {
-    msg = "hello, im being preprocessed before the codes compile to assembly x86_64!\n"
-    puts(msg)
+use std{std}
+
+#run {        
+
+
+    myText = "hello, world\n"
+    puts(myText)
 
     quit(1)
 }
+
+
+

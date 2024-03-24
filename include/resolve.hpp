@@ -22,7 +22,7 @@ namespace Pietra::Resolver {
         SYM_PROC,
         SYM_AGGREGATE,
         SYM_TYPE,
-        SYM_ENUM,
+        SYM_ENUM = 69,
         SYM_ENUM_CONST,
         SYM_CONSTEXPR,
         SYM_TYPE_ALIAS
@@ -93,5 +93,9 @@ namespace Pietra::Resolver {
     Sym* sym_new(const char* name, Decl* decl);
     Sym* sym_var(const char* name, Type* type, Expr* expr);
     void resolve_impl(const char* target, SVec<Decl*> body);
+
+
+    
 }
+
 #endif /*RESOLVE_HPP*/
