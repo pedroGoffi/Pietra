@@ -434,13 +434,15 @@ static inline bool is_switch_case_pattern(){
             token.kind == Pietra::Lexer::TK_NAME
         |   token.kind == Pietra::Lexer::TK_INT
         |   token.kind == Pietra::Lexer::TK_FLOAT    
+        |   token.kind == Pietra::Lexer::TK_STRING
     ;
 
 }
 SwitchCasePattern* switch_case_pattern(){
     // 1 (..end | , pattern )
     SwitchCasePattern* pattern = Utils::init_pattern();    
-    pattern->name = 0;
+    
+
     if(is_kind(TK_INT)){
         pattern->begin = token.i64;
         next();
@@ -449,8 +451,12 @@ SwitchCasePattern* switch_case_pattern(){
         pattern->begin = pattern->end;
         pattern->name = token.name;
         next();
-    } else {
-        assert(0);
+    } else if(is_kind(Lexer::TK_STRING)){        
+        pattern->string = token.name;
+        next();        
+    }
+    else {
+        assert(0 && "unknown switch case pattern token kind");
     }
 
     if(is_kind(Pietra::Lexer::TK_TRIPLE_DOT)){

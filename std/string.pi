@@ -6,8 +6,9 @@ impl std {
     strlen :: (str: cstr): i64{
         c: cstr = str;        
         while *c { c = c + 1 }
-        return c - str;
+        return c - str;    
     }
+    
     streq :: (s1: cstr, s2: cstr): i64 {
         ls1: i64 = std.strlen(s1);
 
@@ -125,3 +126,5 @@ impl String {
         self.size = std.strlen(self.data)
     }            
 }
+
+@string_comparator  string_comparator  :: (s1: cstr, s2: cstr): i64 return std.streq(s1, s2)

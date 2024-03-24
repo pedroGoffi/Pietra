@@ -224,6 +224,7 @@ SwitchCasePattern* init_pattern(){
     SwitchCasePattern* pattern = arena_alloc<SwitchCasePattern>();
     pattern->begin  = 0;
     pattern->end    = pattern->begin;
+    pattern->name   = 0;
     return pattern;
 }
 Decl* init_decl(DeclKind kind){

@@ -20,6 +20,8 @@ The resolver will
 #include <memory>
 #include <string>
 
+bool impl_ctx = false;
+Decl* string_comparator = 0;
 Note* find_note(SVec<Note*> notes, const char* name){    
     name = Core::cstr(name);    
     for(Note* note: notes){
@@ -39,7 +41,7 @@ void show_all_decorators(){
     #define LIST_LAST_ELEM(__list)  (__list)[LIST_SIZEOF(__list) - 1]
     #define SAD_printf_cond(item, __list) ((item) == LIST_LAST_ELEM(__list))? "": ", " 
     static const char* decorators_name[] = {
-        "todo", "inline", "error", "warn"
+        "todo", "inline", "error", "warn", "string_comparator"
     };
     const char* last_decorator = LIST_LAST_ELEM(decorators_name);
         
@@ -898,10 +900,10 @@ namespace Pietra::Resolver{
             exit(1);
         }
         SymImpl& impls = sym->impls;
-        impls.self = sym;
-        
+        impls.self = sym;        
         CBridge::tmp_self = sym->type;
         sym->type->isSelf = true;
+        impl_ctx = true;
         for(Decl* node: body){
             node->name = Core::cstr(strf("%s_impl_%s", sym->name, node->name));
             if(impls.find(node->name)){
@@ -922,11 +924,12 @@ namespace Pietra::Resolver{
             }                        
         }
         CBridge::tmp_self = nullptr;                
+        impl_ctx = false;
     }
     void resolve_decl_var(Decl* &d){
         resolve_var_init(d->name, d->var.type, d->var.init, false, false);        
     }
-    void resolve_decl_proc(Decl* &d, Type* type){
+    void resolve_decl_proc(Decl* &d, Type* type){                
         if(d->notes.len() > 0){
             SVec<Note*>& notes = d->notes;
             for(Note* note: notes){
@@ -941,6 +944,13 @@ namespace Pietra::Resolver{
                     }
                 }
                 else if(note->name == Core::cstr("unsafe")){} // Just ignore
+                else if(note->name == Core::cstr("string_comparator")){
+                    if(impl_ctx){
+                        printf("[ERROR]: @string_comparator can't be used inside a impl method.\n");
+                        exit(1);
+                    }
+                    string_comparator = d;    
+                }
                 else {
                     show_all_decorators();
                     printf("[ERROR]: compiler doesn't understand the decl note %s\n", note->name);
@@ -957,6 +967,8 @@ namespace Pietra::Resolver{
         }        
 
         resolve_stmt_block(d->proc.block);
+
+        
     }
     void resolve_decl_use(Decl* &decl){        
         assert(decl->kind == DECL_USE);

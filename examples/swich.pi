@@ -1,12 +1,23 @@
-use std{std}
-x :: 1
+
+x :: "foo"
+
+
 
 main :: (){
-    y: i64 = 1
+    y: cstr = "bar"
     switch(y){
-        case x: {
+        case "bar": {
             dump(x)
             dump(y)
+            std.puts("ok it's x\n")
+            std.puts(x)
+            std.puts("|")
+            std.puts(y)
+            std.puts("\n")
+        }
+
+        default:{
+            std.puts("not x\n")
         }
     }
 }

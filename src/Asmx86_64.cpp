@@ -1054,31 +1054,83 @@ void makeLabel() {
                 }
                 
                 else {
-                    Sym* sym = sym_get(p->name);
-                    if(!sym){
-                        err("%s is not found.\n", p->name);
-                        exit(1);
-                    }
-                    
-                    if(sym->kind == SYM_ENUM){
-                        Decl* d_enum = sym->decl;
-                        if(d_enum->kind == Ast::DECL_CONSTEXPR){
-                            Expr* e = d_enum->expr;
-                            int int_val = e->int_lit;
-                            
-                            compile_expr(s->stmt_switch.cond, state_none);
-                            println("cmp rax, %i\n", int_val);
-                            println("jne .L%i", case_end_addr);
-                            continue;
+                    if(p->name){                    
+                        Sym* sym = sym_get(p->name);
+                        if(!sym){
+                            err("%s is not found.\n", p->name);
+                            exit(1);
                         }
 
-                        // Else falltrough                        
+                        if(sym->kind == SYM_ENUM){
+                            Decl* d_enum = sym->decl;
+                            if(d_enum->kind == Ast::DECL_CONSTEXPR){
+                                Expr* e = d_enum->expr;
+                                if(e->kind == EXPR_INT){
+                                    int int_val = e->int_lit;                                
+                                    compile_expr(s->stmt_switch.cond, state_none);
+                                    println("cmp rax, %i\n", int_val);
+                                    println("jne .L%i", case_end_addr);
+                                    continue;
+                                }
+                                else if(e->kind == EXPR_STRING){
+                                    if(!string_comparator){
+                                        err("[WARN]: Didn't found any string comparator procedure defined with @string_comparator.\n");
+                                        exit(1);
+                                    }
+
+                                    Sym* scmp = sym_get(string_comparator->name);
+                                    assert(scmp);
+                                    assert(scmp->kind == Resolver::SYM_PROC);
+                                    assert(scmp->decl->proc.params.len() == 2);
+                                    assert(scmp->decl->proc.is_complete);
+
+                                    SVec<Expr*> args;
+                                    args.push(s->stmt_switch.cond);
+                                    args.push(Utils::expr_string(e->string_lit));
+                                    Expr* str_cmp_expr = Utils::expr_call(
+                                        Utils::expr_name(scmp->decl->name),
+                                        args
+                                    );
+
+                                    compile_expr(str_cmp_expr, state_none);
+                                    err("end\n");
+                                    // Expected @stack [... bool]
+                                    println("cmp rax, 0");
+                                    println("jne .L%i", case_end_addr);
+                                    continue;
+                                }
+                            }
+
+                            // Else falltrough                        
+                        }
                     }
                     
+                    else {
+                        assert(p->string);
+                        Sym* scmp = sym_get(string_comparator->name);
+                        assert(scmp);
+                        assert(scmp->kind == Resolver::SYM_PROC);
+                        assert(scmp->decl->proc.params.len() == 2);
+                        assert(scmp->decl->proc.is_complete);
+
+                        SVec<Expr*> args;
+                        args.push(s->stmt_switch.cond);
+                        args.push(Utils::expr_string(p->string));
+                        Expr* str_cmp_expr = Utils::expr_call(
+                            Utils::expr_name(scmp->decl->name),
+                            args
+                        );
+
+                        compile_expr(str_cmp_expr, state_none);
+                        err("end\n");
+                        // Expected @stack [... bool]
+                        println("cmp rax, 0");
+                        println("je .L%i", case_end_addr);
+                        continue;
+                    }                    
                     
                     err("Cant compile parrern name yet %s.\n", p->name);
-                    exit(1);
-                    
+                    exit(1);                    
                 }                
             }
             makeLabel(case_begin_addr);
