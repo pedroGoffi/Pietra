@@ -31,13 +31,13 @@ literal_expr :: (): *Expr {
         return expr_name(val);
     }
 
-    if is_kind(TK_INT){
-        val = std.stoi(token.name);
+    elif is_kind(TK_INT){
+        val = std.cstrtoi(token.name)
         next_token();                
         return expr_int(val)
     }
     
-    if is_kind(TK_STRING){
+    elif is_kind(TK_STRING){
         val = token.name
         next_token()
         return expr_string(val)

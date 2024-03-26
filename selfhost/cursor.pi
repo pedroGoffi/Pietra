@@ -1,10 +1,10 @@
 #package "selfhost.cursor"
-use std{std, list}
+use std{std}
 use selfhost{ast}
 
 PCursor :: {
     stream: cstr
-    mDecls: List 
+    mDecls: **Decl
     mDecl:  *Decl
 }
 

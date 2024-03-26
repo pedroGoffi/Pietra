@@ -2,6 +2,7 @@
 #define TYPE_CPP
 #include "../include/type.hpp"
 #include <cstdint>
+#include <cstring>
 #include "arena.cpp"
 
 using namespace Pietra;
@@ -11,17 +12,18 @@ using namespace Pietra::Core;
 // TODO: cached types for faster compilation
 
 namespace Pietra::Ast{
-Type int8_ty        = {.kind = TYPE_I8,     .name = Core::cstr("i8"),   .size = sizeof(int8_t)};
-Type int16_ty       = {.kind = TYPE_I16,    .name = Core::cstr("i16"),  .size = sizeof(int16_t)};
-Type int32_ty       = {.kind = TYPE_I32,    .name = Core::cstr("i32"),  .size = sizeof(int32_t)};
-Type int64_ty       = {.kind = TYPE_I64,    .name = Core::cstr("i64"),  .size = sizeof(int64_t)};
+    
+Type int8_ty        = {.kind = TYPE_I8,     .name = Core::cstr("i8"),   .size = sizeof(int8_t), .ismut = true};
+Type int16_ty       = {.kind = TYPE_I16,    .name = Core::cstr("i16"),  .size = sizeof(int16_t), .ismut = true};
+Type int32_ty       = {.kind = TYPE_I32,    .name = Core::cstr("i32"),  .size = sizeof(int32_t), .ismut = true};
+Type int64_ty       = {.kind = TYPE_I64,    .name = Core::cstr("i64"),  .size = sizeof(int64_t), .ismut = true};
 Type f32_ty         = {.kind = TYPE_F32,    .name = Core::cstr("f32"),  .size = sizeof(float)};
 Type f64_ty         = {.kind = TYPE_F64,    .name = Core::cstr("f64"),  .size = sizeof(double)};
 Type str_ty         = {.kind = TYPE_PTR,    .name = Core::cstr("cstr"), .size = sizeof(void*), .base = &int8_ty};
-Type void_ty        = {.kind = TYPE_VOID,   .name = Core::cstr("null"), .size = 0};
+Type void_ty        = {.kind = TYPE_VOID,   .name = Core::cstr("null"), .size = 0, .ismut = false};
 Type unresolved_ty  = {.kind = TYPE_UNRESOLVED, .name = Core::cstr("auto")};
-Type any_ty         = {.kind = TYPE_ANY,    .name = Core::cstr("any"), .size = sizeof(void*)};
-Type self_ty        = {.kind = TYPE_SELF,   .name = Core::cstr("Self")};
+Type any_ty         = {.kind = TYPE_ANY,    .name = Core::cstr("any"), .size = sizeof(void*), .ismut = true};
+Type self_ty        = {.kind = TYPE_SELF,   .name = Core::cstr("Self"), .ismut = false};
 
 
 
@@ -31,9 +33,10 @@ TypeField* init_typefield(const char* name, Type* type){
     tf->type = type;
     return tf;
 }
-Type* type_init(TypeKind kind){
+Type* type_init(TypeKind kind, bool ismut = false){
     Type* t = Core::arena_alloc<Type>();    
-    t->kind = kind;
+    t->kind     = kind;
+    t->ismut    = ismut;
     return t;
 }
 Type* type_void(){
@@ -42,16 +45,26 @@ Type* type_void(){
 Type* type_self(){
     return &self_ty;
 }
-Type* type_int(int size = 64){
-    assert(size == 8 or size == 16 or size == 32 or size == 64);
+Type* type_int(int size = 64, bool ismut = false){
+    assert(size == 8 or size == 16 or size == 32 or size == 64);    
+
     switch(size){
-        case 8:     return &int8_ty;
-        case 16:    return &int16_ty;
-        case 32:    return &int32_ty;
-        case 64:    return &int64_ty;    }
-    assert(0);        
+        case 8:{
+            return &int8_ty;
+        }
+        case 16:{
+            return &int16_ty;
+        }
+        case 32:{
+            return &int32_ty;
+        }
+        case 64:{
+            return &int64_ty;
+        }
+    }
+    assert(0);
 }
-Type* type_float(int size = 64){
+Type* type_float(int size = 64, bool ismut = false){
     assert(size == 32 or size == 64);
     
     if(size == 64) {
@@ -61,8 +74,8 @@ Type* type_float(int size = 64){
         return &f32_ty;
     }
 }
-Type* type_ptr(Type* base){
-    Type* t = type_init(TYPE_PTR);
+Type* type_ptr(Type* base, bool ismut){
+    Type* t = type_init(TYPE_PTR, ismut);
     assert(sizeof(void*) == 8);
     t->size = sizeof(void*);
     t->base = base;
@@ -71,25 +84,25 @@ Type* type_ptr(Type* base){
 Type* type_string(){
     return &str_ty;
 }
-Type* type_array(Type* base, int size){
-    Type* t         = type_init(TYPE_ARRAY);
+Type* type_array(Type* base, int size, bool ismut){
+    Type* t         = type_init(TYPE_ARRAY, ismut);
     t->size         = base->size * size;
     t->array.base   = base;
     t->array.size   = size;
     return t;
 }
-Type* type_struct(SVec<TypeField*> fields){
-    Type* st = type_init(TYPE_STRUCT);
+Type* type_struct(SVec<TypeField*> fields, bool ismut){
+    Type* st = type_init(TYPE_STRUCT, ismut);
     st->aggregate.items = fields;
     return st;
 }
-Type* type_union(SVec<TypeField*> fields){
-    Type* st = type_init(TYPE_UNION);
+Type* type_union(SVec<TypeField*> fields, bool ismut){
+    Type* st = type_init(TYPE_UNION, ismut);
     st->aggregate.items = fields;
     return st;
 }
-Type* type_proc(const char* name, SVec<TypeField*> params, Type* ret_type, bool is_vararg){
-    Type* t = type_init(TYPE_PROC);
+Type* type_proc(const char* name, SVec<TypeField*> params, Type* ret_type, bool is_vararg, bool ismut){    
+    Type* t = type_init(TYPE_PROC, ismut);
     t->name = Core::cstr(name);
     t->proc.params   = params;
     t->proc.ret_type = ret_type;
@@ -99,8 +112,8 @@ Type* type_proc(const char* name, SVec<TypeField*> params, Type* ret_type, bool 
 Type* type_any(){
     return &any_ty;
 }
-Type* type_aggregate(SVec<TypeField*> items, bool isStruct){
-    Type* t = type_init(isStruct? TYPE_STRUCT: TYPE_UNION);
+Type* type_aggregate(SVec<TypeField*> items, bool isStruct, bool ismut){
+    Type* t = type_init(isStruct? TYPE_STRUCT: TYPE_UNION, ismut);
     int size = 0;    
     t->aggregate.items = items;
 

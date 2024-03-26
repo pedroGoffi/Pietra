@@ -10,13 +10,13 @@ S_IWRITE    :: 0x200 // [Owner]: Write permission
 S_IEXEC     :: 0x100 // [Owner]: Exec permission 
 
 FILE :: {
-    start:  cstr
-    end:    cstr
-    ptr:    cstr
-    size:   i64
-    fd:     i64
-    flags:  i64
-    mode:   i64    
+    start:  mut *i8
+    end:    mut *i8
+    ptr:    mut *i8
+    size:   mut i64
+    fd:     mut i64
+    flags:  mut i64
+    mode:   mut i64    
 }
 
 O_RDONLY  :: 000   
@@ -28,7 +28,7 @@ O_TRUNC   :: 1000
 O_APPEND  :: 2000
 
 impl std {    
-    fopen :: (filename: cstr, _flags: cstr): *FILE {
+    fopen :: (filename: imut *i8, _flags: imut *i8): *FILE {
         // NOTE: to avoid _flags param ptr destruction
         flags: cstr = _flags;
         // TODO: parse flags

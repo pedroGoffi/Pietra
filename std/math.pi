@@ -1,0 +1,9 @@
+#package "pietra.math"
+use std{std}
+
+impl std{
+   __mod :: (x: i64, y: i64): i64 {    
+            x / y
+        return asm("mov rax, rdx")
+    }
+}

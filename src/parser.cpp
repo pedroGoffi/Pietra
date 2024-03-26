@@ -296,14 +296,13 @@ SVec<Expr*> expr_list(){
     return list;
 }
 TypeSpec* typespec_base(){
-    if(is_kind(TK_NAME)){
+    if(is_kind(TK_NAME)){        
         const char* name = token.name;
         next();
-        return Utils::typespec_name(name, token);
+        return Utils::typespec_name(name, token);        
     }
     else {
         printf("[ERR]: expected typespec, got: %s\n", token.name);
-
         exit(1);
     }
 }
@@ -379,10 +378,22 @@ TypeSpec* typespec(){
         next();
         return Utils::typespec_pointer(typespec(), token);
     } else if(token.name == keyword_proc){        
-        proc_type();
+        return proc_type();
+    } else if(token.name == Core::cstr("mut")){
+        next();
+        TypeSpec* ts = typespec();
+        ts->mutablity = true;
+        return ts;        
+    } 
+    // NOTE: imut is equivalent to const 
+    else if(token.name == Core::cstr("imut") or token.name == Core::cstr("const")){
+        next();
+        TypeSpec* ts = typespec();
+        ts->mutablity = false;
+        return ts;
     }
     else {
-        TypeSpec* ts = typespec_base();
+        TypeSpec* ts = typespec_base();                
         while(is_typespec()){
             if(token.kind == TK_LT){
                 next();

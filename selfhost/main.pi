@@ -5,13 +5,8 @@ usage :: (fd: i64, program: cstr){
     std.__fd_puts(1, "<Error>\n");    
 }
 
-x :: 1
-main :: (argc: i64, argv: *cstr){                
-    switch(1){
-        case x:{
-            dump(10)
-        }
-    }
+
+main :: (argc: i64, argv: *cstr){                                    
     if argc != 2 {        
         usage(1, argv[0])
         std.puts("[ERROR]: expected <program> <input>\n");
@@ -22,7 +17,8 @@ main :: (argc: i64, argv: *cstr){
     init_stream(file.ptr);        
 
     e: *Expr = parse()
-    
 
     expr_print(e)
+    
+    
 }

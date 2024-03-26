@@ -38,6 +38,7 @@ namespace Pietra::Ast {
         const char* name;
         int         size;        
         bool        isSelf;
+        bool        ismut;
         union {
             Type* base;
             
@@ -73,19 +74,19 @@ namespace Pietra::Ast {
         Type*       type;
     };
     TypeField* init_typefield(const char* name, Type* type);
-    Type* type_init(TypeKind kind);
-    Type* type_int(int size);    
+    Type* type_init(TypeKind kind, bool ismut);
+    Type* type_int(int size, bool ismut);
     Type* type_void();
     Type* type_any();
-    Type* type_float(int size);
-    Type* type_ptr(Type* base);
-    Type* type_array(Type* base, int size);
-    Type* type_struct(SVec<TypeField*> fields);
+    Type* type_float(int size, bool ismut);
+    Type* type_ptr(Type* base, bool ismut);
+    Type* type_array(Type* base, int size, bool ismut);
+    Type* type_struct(SVec<TypeField*> fields, bool ismut);
     Type* type_self();
-    Type* type_union(SVec<TypeField*> fields);
-    Type* type_proc(const char* name, SVec<TypeField*> params, Type* ret_type, bool is_vararg);
+    Type* type_union(SVec<TypeField*> fields, bool ismut);
+    Type* type_proc(const char* name, SVec<TypeField*> params, Type* ret_type, bool is_vararg, bool ismut);
     Type* type_string();
-    Type* type_aggregate(SVec<TypeField*> items, bool isStruct = true);
+    Type* type_aggregate(SVec<TypeField*> items, bool isStruct = true, bool ismut = false);
     Type* type_unresolved();
     Type* unqualify_type(Type* type);
     bool isNumericType(Type* type);

@@ -140,7 +140,7 @@ void makeLabel() {
 
             case Lexer::TK_AMPERSAND:   {                
                 Type* type = compile_expr(e, state_getaddr);
-                return type_ptr(type);
+                return type_ptr(type, type->ismut);
             }  
 
             case Lexer::TK_SUB: {
@@ -256,7 +256,7 @@ void makeLabel() {
                 println("xor rax, rax");     // rax = 0
                 println("cmp rbx, rcx");     // rbx == rcx?                
                 println("cmove rax, rdx")    // if true then rax = rdx, wich is 1.
-                return type_int(8);
+                return type_int(8, lhs_t->ismut);
             }
             case Lexer::TK_ADD: {
                 // TODO OPTIONAL: optimize this section
@@ -356,26 +356,26 @@ void makeLabel() {
     Type* lea(CVar* var){
         if(var->isGlobal){
             println("lea rax, G%s", var->name);
-            return type_ptr(var->type);
+            return type_ptr(var->type, var->type->ismut);
         }
         else {
             println("lea rax, %s [rbp - %i]", 
                 get_word_size(var->type->size),
                 var->stackOffset);            
-            return type_ptr(var->type);
+            return type_ptr(var->type, var->type->ismut);
         }
     }
 
     Type* mov(CVar* var){
         if(var->isGlobal){
             println("mov rax, G%s", var->name);
-            return type_ptr(var->type);
+            return type_ptr(var->type, var->type->ismut);
         }
         else {
             println("mov rax, %s [rbp - %i]", 
                 get_word_size(var->type->size),
                 var->stackOffset);            
-            return type_ptr(var->type);
+            return type_ptr(var->type, var->type->ismut);
         }
     }
     const char* get_word_size(int size){
@@ -429,7 +429,7 @@ void makeLabel() {
         case TYPE_PTR:
         default:
             println("cmp rax, 0");
-            return type_int(8);                            
+            return type_int(8, false);
         }
     }      
                             
@@ -606,12 +606,7 @@ void makeLabel() {
                     }
                 }               
                 return type_any();
-            }    
-            else if(base->name == Core::cstr("buffer")){
-                err("ok\n");
-                exit(1);
-            }
-            // TODO: move sizeof to resolve.cpp
+            }                
             else if(base->name == Core::cstr("sizeof")){
                 assert(args.len() == 1);
                 Expr* arg = args.at(0);
@@ -660,7 +655,7 @@ void makeLabel() {
                 
                 compile_expr(args.back(), state);
                 println("syscall");
-                return type_int(64);
+                return type_int(64, true);
             }
             
             else if(base->name == Core::cstr("va_begin")){                
@@ -879,23 +874,9 @@ void makeLabel() {
                     Expr* e = impl->decl->expr;
                     assert(e->kind == EXPR_INT);
                     println("mov rax, %li", e->int_lit);                    
-                    return type_int(64);
+                    return type_int(64, impl->type->ismut);
                 }
-            }
-            else if(sym->name == Core::cstr("Buffer")){
-                assert(children->kind == EXPR_NAME);
-                TypeField* tf = buffer.find(children->name);
-                int index = buffer.find_index_of(tf);
-
-                if(index == -1){
-                    err("fuck.\n");
-                    exit(1);
-                }
-                AggregateItem* item = buffer.get_agg_item_at(index);
-                assert(item);
-                assert(item->field.init);
-                return compile_expr(item->field.init, state_none);
-            }
+            }            
         }
         
 
@@ -969,7 +950,7 @@ void makeLabel() {
         makeLabel(else_addr);
         Type* rhs = compile_expr(otherwise, state_none);
         makeLabel(end_addr);
-        
+        return lhs;   
     }
 
     Type* compile_expr(Expr* e, CState& state){                
@@ -979,7 +960,7 @@ void makeLabel() {
             case EXPR_INT:                
                 makeLabel();
                 println("mov rax, %zu", e->int_lit);
-                return type_int(64);
+                return type_int(64, true);
             case EXPR_STRING:   {
                 makeLabel();
                 int str_id = CreateGlobalString(e->string_lit);
@@ -1017,8 +998,8 @@ void makeLabel() {
         Expr* logic     = Utils::expr_binary(Lexer::TK_LOR, low, high);
         return compile_expr(logic, state_none);        
     }
-    void compile_switch_case(Stmt* s){
-        {
+    void compile_switch_case(Stmt* s){        
+        if(DEBUG_MODE){
             static bool warned = false;
             if(!warned){
                 err("[WARN]: switch case is in development process.\n");        
@@ -1092,8 +1073,7 @@ void makeLabel() {
                                         args
                                     );
 
-                                    compile_expr(str_cmp_expr, state_none);
-                                    err("end\n");
+                                    compile_expr(str_cmp_expr, state_none);                                    
                                     // Expected @stack [... bool]
                                     println("cmp rax, 0");
                                     println("jne .L%i", case_end_addr);
@@ -1107,6 +1087,11 @@ void makeLabel() {
                     
                     else {
                         assert(p->string);
+                        if(!string_comparator){
+                            err("[WARN]: Didn't found any string comparator procedure defined with @string_comparator.\n");
+                            err("[NOTE]: Maybe you should use stdlib, try: `use std{std}`.\n");
+                            exit(1);
+                        }
                         Sym* scmp = sym_get(string_comparator->name);
                         assert(scmp);
                         assert(scmp->kind == Resolver::SYM_PROC);
@@ -1121,8 +1106,7 @@ void makeLabel() {
                             args
                         );
 
-                        compile_expr(str_cmp_expr, state_none);
-                        err("end\n");
+                        compile_expr(str_cmp_expr, state_none);                        
                         // Expected @stack [... bool]
                         println("cmp rax, 0");
                         println("je .L%i", case_end_addr);
@@ -1321,7 +1305,7 @@ void makeLabel() {
             for(CVar* param: *proc->params){
                 // Force struct objects to be pointer
                 if(param->type->kind != TYPE_PTR and (param->type->kind == TYPE_STRUCT or param->type->kind == Ast::TYPE_UNION)){
-                    param->type = type_ptr(param->type);
+                    param->type = type_ptr(param->type, param->type->ismut);
                 }
                 println("mov [rbp - %i], %s", param->stackOffset, argreg64[id++]);
             }

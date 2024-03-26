@@ -1,0 +1,9 @@
+use std{std}
+
+END :: 5
+main :: (){
+    hex: cstr = "0xffff"
+
+    dump(std.cstrtoi(hex))
+    dump(0xffff)
+}

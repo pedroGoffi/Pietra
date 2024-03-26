@@ -1,23 +1,16 @@
-
-x :: "foo"
-
+use std{std}
 
 
-main :: (){
+main :: (){    
     y: cstr = "bar"
+
     switch(y){
-        case "bar": {
-            dump(x)
-            dump(y)
-            std.puts("ok it's x\n")
-            std.puts(x)
-            std.puts("|")
-            std.puts(y)
-            std.puts("\n")
+        case 'bar': {            
+            std.puts("[TEST_OK]: y == 'bar'\n")
         }
 
         default:{
-            std.puts("not x\n")
+            std.puts("[TEST_FAILED] y != 'bar'\n")
         }
     }
 }

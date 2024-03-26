@@ -1,0 +1,36 @@
+#package "pietra.stat"
+use std{time}
+type mode_t     :: i64
+type ino_t      :: i64
+type dev_t      :: i64
+type dev_t      :: i64
+type nlink_t    :: i64
+type uid_t      :: i64
+type gid_t      :: i64
+type off_t      :: i64
+type timespec   :: i64
+type timespec   :: i64
+type timespec   :: i64
+type blksize_t  :: i64
+type blkcnt_t   :: i64
+
+Stat :: {
+	st_mode:    mode_t
+	st_ino:     ino_t
+	st_dev:     dev_t
+	st_rdev:    dev_t
+	st_nlink:   nlink_t
+	st_uid:     uid_t
+	st_gid:     gid_t
+	st_size:    off_t
+	st_atim:    timespec
+	st_mtim:    timespec
+	st_ctim:    timespec
+	st_blksize: blksize_t
+	st_blocks:  blkcnt_t
+}
+
+
+stat :: (filename: cstr, stat: *Stat): null {
+
+}

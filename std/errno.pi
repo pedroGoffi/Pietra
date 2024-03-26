@@ -3,10 +3,7 @@ use std{std}
 
 ENOMEM :: -1
 ENOACC :: -2
-errno: i64
 
-
-set_errno :: (n: i64){
-    errno = n;    
-}
+errno:  mut i64
+err:    mut *i8
 

@@ -1,0 +1,9 @@
+use std{std}
+
+hex_str:        cstr    = "ffff" // 0xffff
+hex_expected:   i64     = 0xffff
+
+
+main :: (){
+    std.stoi_base(hex_str, HEX_BASE)
+}

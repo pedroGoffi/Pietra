@@ -178,7 +178,6 @@ namespace Pietra::Preprocess{
             expect_arity(args, 1, "prep-proc `puts` wrong usage, proc trace: puts(cstr): null\n");
             Expr* arg = args.at(0);
             Operand op = eval_expr(arg, ctx);
-
             fprintf(prep_file, "%s", (char*) op.val.p);
             return op;            
         }
@@ -280,16 +279,16 @@ namespace Pietra::Preprocess{
     }
     Operand eval_expr(Expr* e, PreprocessContext& ctx){        
         switch(e->kind){
-            case Ast::EXPR_INT:     return operand_lvalue(type_int(64), {.ul = e->int_lit});
+            case Ast::EXPR_INT:     return operand_lvalue(type_int(64, false), {.ul = e->int_lit});
             case Ast::EXPR_STRING:  return operand_lvalue(type_string(), {.p = (uintptr_t)e->string_lit});
             case Ast::EXPR_CALL:    return eval_call(e->call.base, e->call.args, ctx);
             case Ast::EXPR_BINARY:  return eval_bin(e->binary.binary_kind, e->binary.left, e->binary.right, ctx);
             case Ast::EXPR_NAME:    
                 if(e->name == Core::cstr("true")){
-                    return operand_lvalue(type_int(64), {true});
+                    return operand_lvalue(type_int(64, false), {true});
                 }
                 if(e->name == Core::cstr("false")){
-                    return operand_lvalue(type_int(64), {false});
+                    return operand_lvalue(type_int(64, false), {false});
                 }
                 
                 return eval_name(e->name, ctx);

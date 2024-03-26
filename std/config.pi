@@ -1,0 +1,4 @@
+#package "pietra.config"
+use std{std}
+
+@string_comparator  string_comparator  :: (s1: cstr, s2: cstr): i64 return std.streq(s1, s2)

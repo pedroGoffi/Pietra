@@ -1,12 +1,23 @@
 #package "std.string"
+use std{std, math}
 use std::core{types}
-use std{std}
 
+
+HEX_BASE :: 16
 impl std {    
     strlen :: (str: cstr): i64{
-        c: cstr = str;        
+        c: mut *i8 = str;        
         while *c { c = c + 1 }
         return c - str;    
+    }
+    intlen :: (i: i64): i64 {
+        len: i64 = 0
+        while i{
+            len = len + 1
+            i = i / 10 
+        }
+                
+        return len
     }
     
     streq :: (s1: cstr, s2: cstr): i64 {
@@ -40,13 +51,7 @@ impl std {
         std.puts(w)
     }
 
-    memset64 :: (s: *null, c: i64, n: i64){
-        i: i64 = 0;
-        while i < n {
-            *s = c as null;
-            i = i + 1
-        }
-    }
+    
     strncpy :: (dest: cstr, src: cstr, n: i64) {
         i: i64 = 0;
         while i < n {
@@ -71,8 +76,8 @@ impl std {
 
 
 String :: {
-    data: cstr
-    size: i64
+    data: mut *i8
+    size: mut i64
 }
 impl std {
     put_string :: (str: *String){
@@ -93,6 +98,8 @@ impl std {
         // Not found
         return -1;
     }
+
+    isDigit :: (c: i64): i64 return '0' <= c and c <= '9'
 
     chop_by :: (str: *String, delim: i64): *String {        
         chop_pos: i64 = std.find_string(str, delim);
@@ -118,6 +125,104 @@ impl std {
         }
         dst[i] = 0
     }
+    __chartoi :: (c: i64): i64 {        
+        switch(c){
+            case '0':       {return 0}
+            case '1':       {return 1}
+            case '2':       {return 2}
+            case '3':       {return 3}
+            case '4':       {return 4}
+            case '5':       {return 5}
+            case '6':       {return 6}
+            case '7':       {return 7}
+            case '8':       {return 8}
+            case '9':       {return 9}
+            case 'a', 'A':  {return 10}
+            case 'b', 'B':  {return 11}
+            case 'c', 'C':  {return 12}
+            case 'd', 'D':  {return 13}
+            case 'e', 'E':  {return 14}
+            case 'f', 'F':  {return 15}
+        }
+    }
+    __cstrtoi_base :: (str: mut *i8, base: i64): i64 {
+        val: i64 = 0
+        
+        while *str
+        {            
+            digit: i64 = std.__chartoi(*str)                        
+            if digit == 0 and !(*str == '0') {                        
+                return -1
+            }
+
+            if base <= digit {                
+                return -1
+            }
+            // TODO: check UINT64_MAX
+            val = val * base + digit
+            str = str + 1            
+        }
+        return val        
+    }
+}
+impl std {
+    cstrtoi :: (str: mut *i8): i64 {
+        base: i64 = 10
+        if(*str == '0'){
+            str = str + 1
+            if *str == 'x' or *str == 'X' {
+                base = 16
+                str = str + 1
+            }
+
+            elif *str == 'b' or *str == 'B' {
+                base = 2
+                str = str + 1                
+            }
+            
+            elif std.isDigit(*str){
+                base = 8
+                str = str + 1
+            }
+        }        
+        return std.__cstrtoi_base(str, base)
+    }    
+
+    int_reverse :: (n: i64): i64{
+        ret: i64 = 0
+        rem: i64 = 0
+        while n {
+            rem = std.__mod(n, 10);
+            ret = ret * 10 + rem;
+            n = n / 10
+        }        
+        return ret
+    }
+    itocstr_base :: (d: i64, base: i64): mut *i8 {
+        d_rev: i64 = std.int_reverse(d)   
+        d_len: i64 = std.intlen(d)    
+        str: mut *i8 = std.allocate(d_len + 1)        
+        i: i64 = 0
+        while d_rev {
+            char: i64 
+            rem: i64 = std.__mod(d_rev, base)
+
+            if rem > 9  char = rem - 10 + 'a'
+            else        char = rem + '0'            
+
+            str[i] = char
+            d_rev = d_rev / base
+            i = i + 1            
+        }
+        if d_len != std.intlen(d_rev){
+            str[i] = '0'
+            i = i + 1
+        }
+        str[d_len] = '\0'
+        return str
+    }        
+
+    itocstr :: (d: i64): mut *i8 return std.itocstr_base(d, 10)
 }
 
 impl String {
@@ -127,4 +232,3 @@ impl String {
     }            
 }
 
-@string_comparator  string_comparator  :: (s1: cstr, s2: cstr): i64 return std.streq(s1, s2)

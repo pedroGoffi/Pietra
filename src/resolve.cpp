@@ -183,8 +183,9 @@ namespace Pietra::Resolver{
                     params.push(Utils::init_typefield(param->name, ty));
                 }
                 Type*               ret = resolve_typespec(decl->proc.ret);
-                
-                sym->type = type_proc(sym->name, params, ret, decl->proc.is_vararg);
+
+                // Global scoped procedure
+                sym->type = type_proc(sym->name, params, ret, decl->proc.is_vararg, true);
 
                 break;
             }
@@ -278,12 +279,12 @@ namespace Pietra::Resolver{
         };
         
         Builin_Sym_type types[]{
-            {"i8", type_int(8)},
-            {"i16", type_int(16)},
-            {"i32", type_int(32)},
-            {"i64", type_int(64)},            
-            {"f32", type_float(32)},
-            {"f64", type_float(64)},
+            {"i8", type_int(8, true)},
+            {"i16", type_int(16, true)},
+            {"i32", type_int(32, true)},
+            {"i64", type_int(64, true)},            
+            {"f32", type_float(32, true)},
+            {"f64", type_float(64, true)},
             {"any", type_any()}
             
         };
@@ -307,8 +308,7 @@ namespace Pietra::Resolver{
             const char* builtin_procs[] = {
                 "dump",
                 "syscall",
-                "asm",
-                "Buffer",
+                "asm",                
                 "quit",
                 "readFile", 
                 "typeof",
@@ -350,19 +350,26 @@ namespace Pietra::Resolver{
 
         switch(ts->kind){
             case TYPESPEC_NAME:
-            #define TS_CHECK_TYPE(__ty)                     \
-                if(ts->name == (__ty())->name){             \
-                    ts->resolvedTy = __ty();                \
-                    break;                                  \
-                }               
-
-            #define TS_CHECK_INT(__size)                        \
-                if(ts->name == type_int(__size)->name) {        \
-                    ts->resolvedTy = type_int(__size);          \
-                    break;                                      \
+            #define TS_CHECK_TYPE(__ty, ...)                        \
+                {                                                   \
+                    Type* t = __ty(__VA_ARGS__);                    \
+                    if(ts->name == t->name){                        \
+                        ts->resolvedTy = t;                         \
+                        break;                                      \
+                    }                                               \
                 }
 
-            
+            #define TS_CHECK_INT(__size)                                            \
+                {                                                                   \
+                    Type* t = type_int(__size, true);                               \
+                    if(ts->name == t->name) {                                       \
+                        ts->resolvedTy = t;                                         \
+                        break;                                                      \
+                    }                                                               \
+                }
+
+        
+                
                 TS_CHECK_INT(8);
                 TS_CHECK_INT(16);
                 TS_CHECK_INT(32);
@@ -388,7 +395,7 @@ namespace Pietra::Resolver{
 
                 if(Sym* e = sym_get(ts->name)){
                     if(e->kind == SYM_ENUM){
-                        return type_int(64);
+                        return type_int(64, false);
                     }
                 }
                 
@@ -399,7 +406,7 @@ namespace Pietra::Resolver{
             #undef CHECK_INT
             case TYPESPEC_POINTER:  {
                 Type* base = resolve_typespec(ts->base);
-                ts->resolvedTy = type_ptr(base);
+                ts->resolvedTy = type_ptr(base, ts->mutablity);
                 break;
             }    
             case TYPESPEC_PROC: {
@@ -421,7 +428,7 @@ namespace Pietra::Resolver{
                 }
 
                 
-                ts->resolvedTy = type_proc("unamed_proc", tf, ret, ts->proc.has_varags);
+                ts->resolvedTy = type_proc("unamed_proc", tf, ret, ts->proc.has_varags, false);
                 break;
             }
             case TYPESPEC_NONE:        
@@ -563,7 +570,7 @@ namespace Pietra::Resolver{
                     exit(1);
                 }
 
-                op.type = type_ptr(op.type);
+                op.type = type_ptr(op.type, op.type->ismut);
                 return op;
             }
 
@@ -593,8 +600,18 @@ namespace Pietra::Resolver{
         return kind == Lexer::TK_EQ;
     }
     Operand resolve_assign(Expr* base, Expr* rhs){
-        Operand b = resolve_expr(base);
+        Operand b = resolve_expr(base);        
         Operand r = resolve_expr(rhs);
+        
+
+        
+        // FIXME: ismut is not being passed to the resolver stage.
+        if(not b.type->ismut){            
+            printf("[ERROR]: trying to modify an imutable type: %s (", b.type->repr());                        
+            pPrint::expr(base);
+            printf(")\n");
+            exit(1);
+        }
 
         if(!b.type->typeCheck(r.type)){
             if(Sym* sym = sym_get(b.type->name)){
@@ -633,14 +650,14 @@ namespace Pietra::Resolver{
                 Operand l = resolve_expr(lhs);
                 Operand r = resolve_expr(rhs);
 
-                return operand_lvalue(type_int(8), {});                
+                return operand_lvalue(type_int(8, l.type->ismut), {});                
             }
             case Lexer::TK_SUB: {
                 Operand l = resolve_expr(lhs);
                 Operand r = resolve_expr(rhs);
 
                 if(l.type->kind == r.type->kind and l.type->kind == TYPE_PTR){
-                    return operand_lvalue(type_int(64), {});
+                    return operand_lvalue(type_int(64, l.type->ismut), {});
                 }
 
                 return l;
@@ -714,14 +731,9 @@ namespace Pietra::Resolver{
         if(Sym* s = sym_get(parent->name)){
             if(s->kind == SYM_ENUM){                
                 if(Sym* field = s->impls.find(children->name)){                
-                    return operand_lvalue(type_int(64), {0});
+                    return operand_lvalue(type_int(64, s->type->ismut), {0});
                 }
-            }
-            else if(s->name == Core::cstr("Buffer")){
-                assert(children->kind == EXPR_NAME);
-                TypeField* tf = buffer.find(children->name);
-                return operand_lvalue(tf->type, {});                
-            }
+            }            
         }
 
         Operand op = resolve_expr(parent);                
@@ -760,8 +772,8 @@ namespace Pietra::Resolver{
         
     }
     Operand resolve_ternary(Expr* cond, Expr*  if_case, Expr* else_case){
-        printf("[TODO]: Resolve ternary stuff.\n");
-        return operand_lvalue(type_int(64), {0});
+        // NOTE: ternary will never be mutable
+        return operand_lvalue(type_int(64, false), {0});
     }
 
     Operand resolve_expr(Expr* &expr){        
@@ -770,7 +782,7 @@ namespace Pietra::Resolver{
         }
 
         switch(expr->kind){
-            case EXPR_INT:          return operand_lvalue(type_int(64), {.ul = expr->int_lit});
+            case EXPR_INT:          return operand_lvalue(type_int(64, true), {.ul = expr->int_lit});
             case EXPR_STRING:       return operand_lvalue(type_string(), {});
             case EXPR_NAME:         return resolve_name(expr->name);
             case EXPR_CALL: {

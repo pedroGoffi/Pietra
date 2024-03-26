@@ -162,16 +162,11 @@ namespace Pietra::Ast {
         TYPESPEC_CONST,
         TYPESPEC_TEMPLATE
     };
-    enum TypeSpecMutablity{
-        TYPESPECMUT_NONE,
-        TYPESPECMUT_ADDR,
-        TYPESPECMUT_MUT,
-        TYPESPECMUT_MUT_ADDR
-    };
+    
     struct TypeSpec{
         Lexer::Token        token;
         TypeSpecKind        kind;
-        TypeSpecMutablity   mutablity;
+        bool                mutablity;
         TypeSpec*           base;    
         Type*               resolvedTy; 
         union{            

@@ -1,0 +1,24 @@
+#run puts("mut == not const\n")
+
+main :: (){
+    mvar: mut *i64 = 10
+    dump(mvar)
+    mvar = 20;
+    dump(mvar)
+}
+
+
+ 
+# run {
+    puts("The following declaration will cause an compiler error because the `mvar` is imutable\n")
+    puts("imutable == const\n")    
+    puts("-----------------------\n")
+}
+
+compiler_error :: (){
+    mvar: imut *i64 = 10
+    dump(mvar)
+    mvar = 20;
+    dump(mvar)    
+}
+
