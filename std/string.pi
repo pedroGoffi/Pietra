@@ -4,231 +4,254 @@ use std::core{types}
 
 
 HEX_BASE :: 16
-impl std {    
-    strlen :: (str: cstr): i64{
-        c: mut *i8 = str;        
-        while *c { c = c + 1 }
-        return c - str;    
+impl std strlen :: (str: cstr): i64{
+    c: mut *i8 = str;        
+    while *c { c = c + 1 }
+    return c - str;    
+}
+impl std intlen :: (i: i64): i64 {
+    len: i64 = 0
+    while i{
+        len = len + 1
+        i = i / 10 
     }
-    intlen :: (i: i64): i64 {
-        len: i64 = 0
-        while i{
-            len = len + 1
-            i = i / 10 
-        }
-                
-        return len
-    }
-    
-    streq :: (s1: cstr, s2: cstr): i64 {
-        ls1: i64 = std.strlen(s1);
-
-        if ls1 != std.strlen(s2) return false
-        
-
-        i: i64 = 0;
-        while i < ls1 {
-            if s1[i] != s2[i] return false
-            i = i + 1;
-        }
-        return true;
-        
-    }
-
-    __fd_puts  :: (fd: i64, str: cstr){
-        len: i64 = std.strlen(str);                
-        write(fd, str, len)                
-    }
-    
-    puts    :: (str: cstr){    
-        std.__fd_puts(__fd_stdout, str)
+            
+    return len
+}
+impl std int_reverse :: (n: i64): i64{
+    ret: i64 = 0
+    rem: i64 = 0
+    while n {
+        rem = std.__mod(n, 10);
+        ret = ret * 10 + rem;
+        n = n / 10
     }        
-
-    putc :: (c: i64){
-        w: *i8 = " ";
-        w[0] = c;
-        std.puts("putc")
-        std.puts(w)
-    }
-
-    
-    strncpy :: (dest: cstr, src: cstr, n: i64) {
-        i: i64 = 0;
-        while i < n {
-            dest[i] = src[i];
-            i = i + 1;
-        }
-        dest[i] = 0;
-    }
-
-    input   :: (comment: cstr = ""): cstr {
-        std.puts(comment)
-
-        str: cstr = std.allocate(4096);
-        len: i64  = read(__fd_stdin, str, 4096);
-        if str[len - 1] == '\n' {
-            str[len - 1]  = 0;
-        }
-        return str;
-    }    
+    return ret
 }
 
+impl std itocstr_base :: (d: i64, base: i64): mut *i8 {
+    d_rev: i64 = std.int_reverse(d)   
+    d_len: i64 = std.intlen(d)    
+    str: mut *i8 = std.allocate(d_len + 1)        
+    i: i64 = 0
+    while d_rev {
+        char: i64 
+        rem: i64 = std.__mod(d_rev, base)
+        if rem > 9  char = rem - 10 + 'a'
+        else        char = rem + '0'            
+        str[i] = char
+        d_rev = d_rev / base
+        i = i + 1            
+    }
+    if d_len != std.intlen(d_rev){
+        str[i] = '0'
+        i = i + 1
+    }
+    str[d_len] = '\0'
+    return str
+}        
+
+impl std itocstr :: (d: i64): mut *i8 return std.itocstr_base(d, 10)
+
+
+impl std fdputs  :: (fd: i64, str: cstr){
+    len: i64 = std.strlen(str);                
+    write(fd, str, len)                    
+}
+impl std puts    :: (str: cstr){    
+    std.fdputs(__fd_stdout, str)
+}    
+
+impl std putc :: (c: i64){
+    w: *i8 = " ";
+    w[0] = c;        
+    std.puts(w)
+}
+
+impl std fdputi :: (fd: i64, x: i64){
+    str: *i8 = std.itocstr(x)
+    std.fdputs(fd, str)
+}
+
+impl std puti :: (i: i64){        
+    std.fdputi(__fd_stdout, i)
+}
+    
+
+impl std memcpy :: (dst: *i8, src: *i8, n: i64){
+    i: i64 = 0
+    while i < n {
+        dst[i] = src[i]
+        i = i + 1
+    }
+    return dst
+}
+
+impl std chartoi :: (c: i64): i64 {        
+    switch(c){
+        case '0':       {return 0}
+        case '1':       {return 1}
+        case '2':       {return 2}
+        case '3':       {return 3}
+        case '4':       {return 4}
+        case '5':       {return 5}
+        case '6':       {return 6}
+        case '7':       {return 7}
+        case '8':       {return 8}
+        case '9':       {return 9}
+        case 'a', 'A':  {return 10}
+        case 'b', 'B':  {return 11}
+        case 'c', 'C':  {return 12}
+        case 'd', 'D':  {return 13}
+        case 'e', 'E':  {return 14}
+        case 'f', 'F':  {return 15}
+        default:        {return 0}
+    }
+}
+impl std __cstrtoi_base :: (str: mut *i8, base: i64): i64 {
+    val: i64 = 0
+    
+    while *str
+    {            
+    digit: i64 = std.chartoi(*str)                        
+    if digit == 0 and !(*str == '0') {                        
+    return -1
+    }
+        
+    if base <= digit {                
+    return -1
+    }
+    // TODO: check UINT64_MAX
+    val = val * base + digit
+    str = str + 1            
+    }
+    return val        
+}
+impl std cstrtoi :: (str: mut *i8): i64 {
+    base: i64 = 10
+    if(*str == '0'){
+        str = str + 1
+        if *str == 'x' or *str == 'X' {
+            base = 16
+            str = str + 1
+        }
+        elif *str == 'b' or *str == 'B' {
+            base = 2
+            str = str + 1                
+        }
+        
+        elif std.isDigit(*str){
+            base = 8
+            str = str + 1
+        }
+    }        
+    return std.__cstrtoi_base(str, base)
+}    
+
+
+
+
+impl std streq :: (s1: cstr, s2: cstr): i64 {
+    ls1: i64 = std.strlen(s1);
+    if ls1 != std.strlen(s2) return false
+    
+    i: i64 = 0;
+    while i < ls1 {
+        if s1[i] != s2[i] return false
+        i = i + 1;
+    }
+    return true;
+
+}
+impl std cstrncmp :: (s1: imut *i8, s2: imut *i8, size: i64): ptrdiff_t {
+    // The  strcmp() function compares the two strings s1 and s2.  The locale is not taken into account (for a locale-
+    // aware comparison, see strcoll(3)).  The comparison is done using *i8        
+    i: i64 = 0        
+    while (i < size) {
+        if (s1[i] == s2[i])
+            i = i + 1         
+        else
+            return size - i  
+            
+    }
+    
+    return size - i
+}
+impl std cstrtok :: (str: mut *i8, delim: *i8){
+  str_sz: i64 = std.strlen(str)
+  delim_sz: i64 = std.strlen(delim)
+  i: i64 = 0
+  while i < str_sz {
+    if std.cstrncmp(str + i, delim, delim_sz) == 0 {
+      return str + i + delim_sz
+    }    
+    i = i + 1
+  }
+  return null
+}
+impl std cstrndup :: (s: imut *i8, n: i64): *i8 {
+    // The  strdup()  function returns a pointer to a new string which is a duplicate of the string s.                  
+    // Memory for the new string is obtained with std.allocate
+    i: i64 = 0    
+    ret: mut *i8 = std.allocate(n)
+    // loop the s string and assign to ret adrres + offset of i
+    while i < n {
+        ret[i] = s[i]
+        i = i + 1
+    }
+    ret[i] = '\0'     
+    return ret    
+}
+impl std cstrdup :: (s: imut *i8): mut *i8 return std.cstrndup(s, std.strlen(s))
+impl std cstrpcpy :: (dst: *i8, src: *i8): *i8 {
+    // Copy the cstr ptr to by src, into a string at the buffer ptr to by dst
+    p: *i8 = std.memcpy(dst, src, std.strlen(src));
+    *p = '\0';
+    return p;
+    
+}
+impl std cstrcpy :: (dst: *i8, src: *i8): *i8 {
+    std.cstrpcpy(dst, src)
+    return dst   
+}
+
+impl std strncpy :: (dest: cstr, src: cstr, n: i64) {
+    i: i64 = 0;
+    while i < n {
+        dest[i] = src[i];
+        i = i + 1;
+    }
+    dest[i] = 0;
+}
+
+impl std input :: (comment: cstr = 0): cstr {
+    if comment std.puts(comment)
+    str: cstr = std.allocate(4096);
+    len: i64  = read(__fd_stdin, str, 4096);
+    if str[len - 1] == '\n' {
+        str[len - 1]  = 0;
+    }
+    return str;    
+}
+impl std isDigit :: (c: i64): i64 return '0' <= c and c <= '9'
+impl std cstrncopy :: (dst: cstr, src: cstr, n: i64){
+    i: i64 = 0
+    while i < n {
+        dst[i] = src[i]
+        i = i +1
+    }
+    dst[i] = 0    
+}
 
 
 String :: {
     data: mut *i8
     size: mut i64
 }
-impl std {
-    put_string :: (str: *String){
-        std.puts(str.data)
-    }
-    find_string :: (str: *String, delim: i64): i64 {    
-        i: i64 = 0;
-        while i < str.size {
-            data: *i8 = str.data[i];
 
-            if *data == delim {
-                return i;
-            }
-
-            i = i + 1;            
-        }
-        
-        // Not found
-        return -1;
-    }
-
-    isDigit :: (c: i64): i64 return '0' <= c and c <= '9'
-
-    chop_by :: (str: *String, delim: i64): *String {        
-        chop_pos: i64 = std.find_string(str, delim);
-        if chop_pos == -1 {
-            return null
-        }
-
-        nstr: *String = std.allocate(sizeof(String));        
-        nstr.size = str.size;
-        nstr.data = std.allocate(str.size);
-        std.strncpy(&nstr.data, str.data, chop_pos);        
-
-        str.data = str.data + chop_pos + 1;
-        str.size = str.size - chop_pos - 1;
-        return nstr;
-    }
-
-    cstrncopy :: (dst: cstr, src: cstr, n: i64){
-        i: i64 = 0
-        while i < n {
-            dst[i] = src[i]
-            i = i +1
-        }
-        dst[i] = 0
-    }
-    __chartoi :: (c: i64): i64 {        
-        switch(c){
-            case '0':       {return 0}
-            case '1':       {return 1}
-            case '2':       {return 2}
-            case '3':       {return 3}
-            case '4':       {return 4}
-            case '5':       {return 5}
-            case '6':       {return 6}
-            case '7':       {return 7}
-            case '8':       {return 8}
-            case '9':       {return 9}
-            case 'a', 'A':  {return 10}
-            case 'b', 'B':  {return 11}
-            case 'c', 'C':  {return 12}
-            case 'd', 'D':  {return 13}
-            case 'e', 'E':  {return 14}
-            case 'f', 'F':  {return 15}
-        }
-    }
-    __cstrtoi_base :: (str: mut *i8, base: i64): i64 {
-        val: i64 = 0
-        
-        while *str
-        {            
-            digit: i64 = std.__chartoi(*str)                        
-            if digit == 0 and !(*str == '0') {                        
-                return -1
-            }
-
-            if base <= digit {                
-                return -1
-            }
-            // TODO: check UINT64_MAX
-            val = val * base + digit
-            str = str + 1            
-        }
-        return val        
-    }
-}
-impl std {
-    cstrtoi :: (str: mut *i8): i64 {
-        base: i64 = 10
-        if(*str == '0'){
-            str = str + 1
-            if *str == 'x' or *str == 'X' {
-                base = 16
-                str = str + 1
-            }
-
-            elif *str == 'b' or *str == 'B' {
-                base = 2
-                str = str + 1                
-            }
-            
-            elif std.isDigit(*str){
-                base = 8
-                str = str + 1
-            }
-        }        
-        return std.__cstrtoi_base(str, base)
-    }    
-
-    int_reverse :: (n: i64): i64{
-        ret: i64 = 0
-        rem: i64 = 0
-        while n {
-            rem = std.__mod(n, 10);
-            ret = ret * 10 + rem;
-            n = n / 10
-        }        
-        return ret
-    }
-    itocstr_base :: (d: i64, base: i64): mut *i8 {
-        d_rev: i64 = std.int_reverse(d)   
-        d_len: i64 = std.intlen(d)    
-        str: mut *i8 = std.allocate(d_len + 1)        
-        i: i64 = 0
-        while d_rev {
-            char: i64 
-            rem: i64 = std.__mod(d_rev, base)
-
-            if rem > 9  char = rem - 10 + 'a'
-            else        char = rem + '0'            
-
-            str[i] = char
-            d_rev = d_rev / base
-            i = i + 1            
-        }
-        if d_len != std.intlen(d_rev){
-            str[i] = '0'
-            i = i + 1
-        }
-        str[d_len] = '\0'
-        return str
-    }        
-
-    itocstr :: (d: i64): mut *i8 return std.itocstr_base(d, 10)
-}
-
-impl String {
-    __eq__ :: (self: *Self, str: cstr){
-        self.data = str;
-        self.size = std.strlen(self.data)
-    }            
+impl String __eq__ :: (self: *Self, str: cstr){
+    self.data = str;
+    self.size = std.strlen(self.data)
+    
 }
 

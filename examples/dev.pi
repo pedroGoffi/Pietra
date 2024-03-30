@@ -1,9 +1,24 @@
 use std{std}
+// hello
 
-// Preprocess stuff
-
-#run {
-    puts("No Preprocesssamento\n")     
+wrap :: (s: *i8){
+  std.puts("'")
+  std.puts(s)
+  std.puts("'\n");
 }
-
-main :: (){}
+main :: (){  
+  src: *i8    = "some time 123 dasdas "
+  delim: *i8  = " "  
+  i: i64 = 0
+  
+  end: *i8 = std.cstrtok(src, delim)
+  
+  begin: *i8 = end - std.strlen(delim)
+  if(begin > 0){
+    tok: *i8 = std.cstrndup(begin, std.strlen(delim))        
+    wrap(tok)
+  }
+  else {
+    std.puts("Not found.\n")
+  }
+}

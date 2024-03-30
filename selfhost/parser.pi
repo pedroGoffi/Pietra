@@ -13,7 +13,7 @@ literal_expr_assign :: (name: cstr): *Expr {
     ts: *TypeSpec = null;
     rhs: *Expr   = null;
     
-    
+    if is_kind(TK_EQ){}
     std.puts("unimplemented Assign.\n")
     exit(1)
 }
@@ -43,16 +43,155 @@ literal_expr :: (): *Expr {
         return expr_string(val)
     }
 
+    elif is_kind(TK_OPEN_ROUND_BRACES){
+        next_token()
+        val = expr()
+        if !is_kind(TK_CLOSE_ROUND_BRACES){
+            std.puts("ERROR: expected ')'\n")
+            exit(1)
+        }
+        next_token()
+
+        return val
+    }
+
     std.puts("no expr boss...\n")
     std.puts(stream)
     exit(1)
 }
-parse_typespec :: (): *TypeSpec {}
+is_base_expr :: (): i64 {
+    switch(token.kind){
+        case 
+            TK_PREP, 
+            TK_DOT, 
+            TK_OPEN_ROUND_BRACES, 
+            TK_OPEN_SQUARED_BRACES: return true
+        default:                    return false    
+    }
+
+    
+}
+base_expr :: (): *Expr {
+    base: *Expr = literal_expr()
+    std.puts(token.name)
+    while is_base_expr() {}
+    return base
+}
+is_unary_expr :: (): i64 {
+    switch(token.kind){
+        case 
+            TK_ADD,
+            TK_SUB,
+            TK_NOT,
+            TK_MULT,
+            TK_AMPERSAND:   return true
+        default:            return false
+    }
+}
+unary_expr :: (): *Expr {
+    while is_unary_expr(){
+        kind: TokenKind = token.kind
+        next_token()
+        std.puts("[TODO]: unary expr.\n")
+        return unary_expr()
+    }
+
+    return base_expr()
+}
+is_mult_expr :: (){
+    switch(token.kind){
+        case 
+            TK_MULT, 
+            TK_DIV,
+            TK_PIPE,
+            TK_MOD: return true
+        default:    return false
+    }
+}
+mult_expr :: (): *Expr {
+    unary: *Expr = unary_expr()
+    while is_mult_expr() {
+        kind: TokenKind = token.kind
+        next_token()
+        rhs: *Expr = unary_expr()
+
+        // TODO: unary = expr_binary(kind, unary, rhs)
+    }
+    return unary
+}
+is_add_expr :: (): i64 {
+    switch(token.kind){
+        case TK_ADD, TK_SUB:    return true
+        default:                return false
+    }
+}
+add_expr :: (): *Expr {
+    mult: mut *Expr = mult_expr()
+    while is_add_expr(){
+        kind: TokenKind = token.kind
+        next_token()
+        rhs: *Expr = mult_expr()
+        mult = expr_binary(kind, mult, rhs)
+    }
+    return mult
+}
+is_cmp_expr :: (): i64 {
+    switch(token.kind){
+        case 
+            TK_CMPEQ,
+            TK_LT,
+            TK_GT,
+            TK_LTE,
+            TK_NEQ: return true
+        default:    return false
+    }
+}
+cmp_expr :: (): *Expr {
+    add: mut *Expr = add_expr()
+    while is_cmp_expr(){
+        kind: TokenKind = token.kind
+        next_token()
+        rhs: *Expr = add_expr()
+        add = expr_binary(kind, add, rhs)
+    }
+    return add
+}
+is_logic_expr :: (): i64 {
+    // TODO: LAND | LOR
+    return false
+}
+logic_expr :: (): *Expr {
+    // TODO: token NOT expr
+    cmp: mut *Expr = cmp_expr()
+    while is_logic_expr(){
+        kind: TokenKind = token.kind
+        next_token()
+        rhs: *Expr = cmp_expr()
+        cmp = expr_binary(kind, cmp, rhs)
+    }
+    return cmp
+}
+ternary_expr :: (): *Expr {
+    logic: *Expr = logic_expr()
+    // TODO: Ternary parsing
+    return logic
+}
+cast_expr :: (): *Expr {
+    ternary: *Expr = ternary_expr()
+    return ternary
+}
+is_assign :: (): i64 {
+    return token.kind == TK_EQ
+}
+assign_expr :: (): *Expr {
+    cast: *Expr = cast_expr()    
+    return cast
+}
 expr :: (): *Expr{
-    return literal_expr()
+    return assign_expr()
 }
 
 parse :: (): *Expr{
-    return literal_expr()
+    return expr()
     
 }

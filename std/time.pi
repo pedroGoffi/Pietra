@@ -1,6 +1,3 @@
-type time_t :: i64
+#package "pietra.time"
+use std::core{types}
 
-timespec :: {
-    tv_sec:     time_t 
-    tv_nsec:    i64
-}

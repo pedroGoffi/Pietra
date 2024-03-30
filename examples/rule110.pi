@@ -1,0 +1,51 @@
+use std{std}
+
+TRUE_IMAGE  :: "#"
+FALSE_IMAGE :: " "
+SIZE        :: 40
+LINES       :: SIZE / 2
+RULE        :: 0
+
+get_pattern :: (A: i64, B: i64, C: i64): i64  {
+    if A == 0 and B == 0 and C == 0 return 0 // 000 
+    if A == 0 and B == 0 and C == 1 return 1 // 001 
+    if A == 0 and B == 1 and C == 0 return 1 // 010
+    if A == 0 and B == 1 and C == 1 return 1 // 011
+    if A == 1 and B == 0 and C == 0 return 0 // 100
+    if A == 1 and B == 0 and C == 1 return 1 // 101
+    if A == 1 and B == 1 and C == 0 return 1 // 110
+    if A == 1 and B == 1 and C == 1 return 0 // 111
+}
+
+show :: (state: *i8){
+    i: i64 = SIZE - 1
+    while 0 < i {        
+        if state[i] == 0    std.puts(FALSE_IMAGE)
+        else                std.puts(TRUE_IMAGE)
+        i = i - 1
+    }     
+    std.puts("\n")
+}
+
+next_state :: (state: mut *i8){    
+    next: *i8 = std.allocate(LINES)
+    i: i64 = 0
+    while i < SIZE - 1 {                        
+        next[i] = get_pattern(state[i - 1], state[i], state[i + 1])
+        i = i + 1
+    }  
+    return next
+}
+
+main :: () {         
+    std.puts("Rule110 in PietraLang:\n")
+    state: mut *i8 = std.allocate(LINES)
+    state[RULE] = 1
+
+    i: i64 = 0
+    while i < LINES {
+        show(state)
+        state = next_state(state)
+        i = i + 1
+    }    
+}

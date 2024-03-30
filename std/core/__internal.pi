@@ -1,0 +1,3 @@
+#package "pietra.__internal"
+heap_begin: imut *null = syscall(0, SYS_brk)
+heap_ptr:   mut *null  = heap_begin

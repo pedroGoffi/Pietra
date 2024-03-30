@@ -6,6 +6,7 @@
 #include "resolve.cpp"
 #include "ast.cpp"
 #include "bridge.cpp"
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -731,31 +732,46 @@ void makeLabel() {
                 assert(args.len() < MAX_ARGREG);
             }
             int id = 0;
+            assert(!isVa && "Varargs unimplemented");
+                           
             
             for(Expr* arg: args) {
-                if(isVa and id + 1 >= vaPos){                                        
-                    println("push 0"); 
-                    for(int i = args.len(); i >= vaPos; i--){
-                        compile_expr(args.at(i - 1), state);
-                        println("push rax");
-                    }
-                    
-                    break;
-                }
-                else {          
-                    if(arg->kind == EXPR_NAME){                        
-                        if(Sym* sym = sym_get(arg->name)){
-                            if(sym->type->kind == Ast::TYPE_STRUCT or sym->type->kind == Ast::TYPE_UNION){
-                                compile_expr(arg, state_getaddr);
-                                println("mov %s, rax", argreg64[id++]);        
-                                continue;
-                            }
+                id++;
+                Type* t;
+                if(arg->kind == EXPR_NAME){                        
+                    if(Sym* sym = sym_get(arg->name)){
+                        if(sym->type->kind == Ast::TYPE_STRUCT or sym->type->kind == Ast::TYPE_UNION){                            
+                            t = compile_expr(arg, state_getaddr);
+                            push("rax", t);                            
+                            continue;
                         }
                     }
-                    compile_expr(arg, state_none);
-                    println("mov %s, rax", argreg64[id++]);        
                 }
+                t = compile_expr(arg, state_none);
+                push("rax", t);
+                //println("mov %s, rax", argreg64[id++]);        
             }        
+            
+            
+            for(Expr* arg: args){
+                Type* t = pop();
+                
+                switch(t->size){
+                    case 1:
+                        println("mov %s, rax", argreg64[--id]);
+                        break;
+                    case 2:
+                        println("mov %s, rax", argreg64[--id]);
+                        break;
+                    case 4:
+                        println("mov %s, rax", argreg64[--id]);
+                        break;
+                    case 8:
+                    default:
+                        println("mov %s, rax", argreg64[--id]);
+                        break;
+                }                
+            }
 
             if(!isVa){
                 pop("rax");            
@@ -952,7 +968,67 @@ void makeLabel() {
         makeLabel(end_addr);
         return lhs;   
     }
+    Type* compile_expr_switch(Expr* e, CState& state){
+        assert(e->kind == EXPR_SWITCH);
+        Expr* cond = e->expr_switch.cond;
+        
+        auto cases = e->expr_switch.cases;
+        auto has_default = e->expr_switch.has_default;
+        auto default_case = e->expr_switch.default_case;            
 
+        Type* cond_t = compile_expr(cond, state);
+        cmp_zero(cond_t);
+        
+        int end = count();
+
+        for(SwitchCase* c: cases){
+            // if __eq__(cond, case) {block, skip_end}
+            int begin       = count();
+            int end_case    = count();
+
+            for(SwitchCasePattern* pt: c->patterns){
+                if(pt->begin != pt->end){
+                    Expr* lt = Utils::expr_binary(
+                        Lexer::TK_LT,
+                        Utils::expr_int(pt->begin),
+                        cond);
+
+                    Expr* gt = Utils::expr_binary(
+                        Lexer::TK_GT,
+                        Utils::expr_int(pt->begin),
+                        cond);
+
+                    Expr* lt_and_gt = Utils::expr_binary(Lexer::TK_LAND, lt, gt);
+                    Type* cond_t = compile_expr(lt_and_gt, state);
+                    cmp_zero(cond_t);
+                    println("jne .L%i", begin);
+                }
+                else {
+                    err("IDK daDAS\n");
+                    exit(1);
+                }
+            }
+            println("jmp .L%i", end_case);
+            makeLabel(begin);
+            compile_block(c->block);
+            makeLabel(end_case);
+        }
+
+
+        if(has_default){
+            makeLabel(end);
+            int after_end = count();
+            println("jmp .L%i", after_end);
+            compile_block(default_case);
+            makeLabel(after_end);
+        }
+
+        else {
+            makeLabel(end);
+        }
+
+        return cond_t;
+    }
     Type* compile_expr(Expr* e, CState& state){                
         static int i = 0;
         
@@ -965,7 +1041,7 @@ void makeLabel() {
                 makeLabel();
                 int str_id = CreateGlobalString(e->string_lit);
                 println("mov rax, S%i", str_id);                
-                return type_string();
+                return type_string(false);
             }                
             
             case EXPR_NAME:     return compile_name(e->name, state);
@@ -979,6 +1055,7 @@ void makeLabel() {
                     false,
                     state
                 );            
+            case EXPR_SWITCH:       return compile_expr_switch(e, state);
             case EXPR_CALL:         return compile_call(e->call.base, e->call.args, state);
             case EXPR_CAST:         return compile_cast(e->cast.typespec, e->cast.expr, state);                
             case EXPR_ARRAY_INDEX:  return compile_index(e->array.base, e->array.index, state);

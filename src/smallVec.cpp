@@ -1,10 +1,12 @@
 #ifndef SMALLVEC_CPP
 #define SMALLVEC_CPP
 #include "../include/smallVec.hpp"
+#include <algorithm>
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
 #include <stdio.h>
+#include <vector>
 using namespace Pietra;
 
 #define __SVEC_BLOCK_SIZE(_type) sizeof(_type) * 1024 * 1024
@@ -135,6 +137,5 @@ template<typename T>
 T& SVec<T>::next(){
     return this->at(this->id++);
 }
-
 }
 #endif /*SMALLVEC_CPP*/

@@ -82,10 +82,10 @@ namespace Pietra::Ast {
     Type* type_ptr(Type* base, bool ismut);
     Type* type_array(Type* base, int size, bool ismut);
     Type* type_struct(SVec<TypeField*> fields, bool ismut);
-    Type* type_self();
+    Type* type_self(bool ismut = false);
     Type* type_union(SVec<TypeField*> fields, bool ismut);
     Type* type_proc(const char* name, SVec<TypeField*> params, Type* ret_type, bool is_vararg, bool ismut);
-    Type* type_string();
+    Type* type_string(bool ismut = false);
     Type* type_aggregate(SVec<TypeField*> items, bool isStruct = true, bool ismut = false);
     Type* type_unresolved();
     Type* unqualify_type(Type* type);

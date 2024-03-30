@@ -33,5 +33,17 @@
     "**/.vscode",
     "**/.vscode/**"
   ],
-  "C_Cpp_Runner.useAddressSanitizer": false
+  "C_Cpp_Runner.useAddressSanitizer": false,
+
+  "editor.tokenColorCustomizations": {
+    "textMateRules": [
+      {
+        "scope": "if",
+        "settings": {
+          "foreground": "#FF5733" // Custom color for keywords
+        }    
+      }
+    ]
+  }
 }
+  

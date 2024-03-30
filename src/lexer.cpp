@@ -85,11 +85,20 @@ void Lexer::skip_empty(){
         stream++;
     }
 }
-void Lexer::skip_opt_comment(){
-    if(stream[0] == '/' and stream[1] == '/'){        
+
+bool at_comment_begin(){
+    return stream[0] == '/' and stream[1] == '/';
+}
+
+void Lexer::skip_opt_comment(){    
+    if(at_comment_begin()){        
         while(*stream != '\0' and *stream != '\n'){
             stream++;
         }                
+    }
+    skip_empty();
+    if(at_comment_begin()){
+        skip_opt_comment();
     }
 }
 

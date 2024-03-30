@@ -52,8 +52,9 @@ next_token      :: (){
             }
 
             token.end = stream;
-            token.name = intern_range(token.start, token.end);
             token.kind = TK_NAME
+            token.name = intern_range(token.start, token.end);            
+            
         }
 
         case '0'...'9': {
@@ -92,6 +93,26 @@ next_token      :: (){
             token.name  = scan_string() 
             token.end   = stream
             
+        }
+        case '[': {
+            token.name = "["
+            stream = stream + 1
+            token.kind = TK_OPEN_ROUND_BRACES
+        }
+        case ']': {
+            token.name = "]"
+            stream = stream + 1
+            token.kind = TK_CLOSE_SQUARED_BRACES
+        }
+        case '(': {
+            stream = stream + 1
+            token.kind = TK_OPEN_ROUND_BRACES
+            token.name = "("
+        }        
+        case ')': {
+            stream = stream + 1
+            token.kind = TK_CLOSE_ROUND_BRACES
+            token.name = ")"
         }
 
         default: {

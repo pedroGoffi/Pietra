@@ -1,0 +1,30 @@
+use std{std, stat}
+
+main :: (){
+    st: Stat
+    path: *i8 = "selfhost/parse_me.pi"
+    f: *FILE = std.fopen(path, "r")
+    if f.fd != 3 {
+        std.puts("[ERROR]: idk\n")
+        exit(1)
+    }
+
+    
+    dump(sizeof(Stat))
+    dump(fstat(f.fd, &st))
+    dump(st.st_size)
+    dump(st.st_size)
+    dump(st.st_mode)
+    dump(st.st_ino)
+    dump(st.st_dev)
+    dump(st.st_rdev)
+    dump(st.st_nlink)
+    dump(st.st_uid)
+    dump(st.st_gid)
+    dump(st.st_size)
+    dump(st.st_atim)
+    dump(st.st_mtim)
+    dump(st.st_ctim)
+    dump(st.st_blksize)
+    dump(st.st_blocks)
+}

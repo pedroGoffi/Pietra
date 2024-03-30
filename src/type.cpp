@@ -12,7 +12,8 @@ using namespace Pietra::Core;
 // TODO: cached types for faster compilation
 
 namespace Pietra::Ast{
-    
+
+
 Type int8_ty        = {.kind = TYPE_I8,     .name = Core::cstr("i8"),   .size = sizeof(int8_t), .ismut = true};
 Type int16_ty       = {.kind = TYPE_I16,    .name = Core::cstr("i16"),  .size = sizeof(int16_t), .ismut = true};
 Type int32_ty       = {.kind = TYPE_I32,    .name = Core::cstr("i32"),  .size = sizeof(int32_t), .ismut = true};
@@ -40,39 +41,67 @@ Type* type_init(TypeKind kind, bool ismut = false){
     return t;
 }
 Type* type_void(){
-    return &void_ty;
+  return &void_ty;
+    Type* null = type_init(TYPE_VOID, false);
+    null->name = Core::cstr("null");
+    return null;
 }
-Type* type_self(){
-    return &self_ty;
+Type* type_self(bool ismut){
+  return &self_ty;
+    Type* self = type_init(TYPE_SELF, ismut);
+    self->name = Core::cstr("Self");
+    self->size = 8;
+    return self;
 }
-Type* type_int(int size = 64, bool ismut = false){
+Type* type_int(int size, bool ismut){
     assert(size == 8 or size == 16 or size == 32 or size == 64);    
+    TypeKind kind = TYPE_NONE;
+    const char* name;
 
     switch(size){
         case 8:{
             return &int8_ty;
+            kind = TYPE_I8;  
+            name = Core::cstr("i8");
+            break;
         }
         case 16:{
             return &int16_ty;
+            kind = TYPE_I16;   
+            name = Core::cstr("i16");
+            break;
         }
         case 32:{
             return &int32_ty;
+            kind = TYPE_I32;    
+            name = Core::cstr("i32");
+            break;
         }
         case 64:{
             return &int64_ty;
+            kind = TYPE_I64;    
+            name = Core::cstr("i64");
+            break;
         }
     }
-    assert(0);
+    Type* type = type_init(kind, ismut);
+    type->ismut = ismut;
+    type->size = size;
+    type->name = name;
+    return type;
 }
 Type* type_float(int size = 64, bool ismut = false){
     assert(size == 32 or size == 64);
-    
-    if(size == 64) {
-        return &f64_ty;
-    } else {
-        assert(size == 32);
-        return &f32_ty;
-    }
+    return size == 64
+      ? &f64_ty
+      : &f32_ty;
+    Type* f_t = type_init(
+        size == 64? TYPE_F64: TYPE_F32,
+        ismut
+    );
+    f_t->size = 8;
+    f_t->name = Core::cstr(size == 64? "f64": "f32");
+    return f_t;
 }
 Type* type_ptr(Type* base, bool ismut){
     Type* t = type_init(TYPE_PTR, ismut);
@@ -81,8 +110,13 @@ Type* type_ptr(Type* base, bool ismut){
     t->base = base;
     return t;
 }
-Type* type_string(){
-    return &str_ty;
+Type* type_string(bool ismut){
+    // str :: *imut i8        
+    Type* ptr = type_ptr(type_init(TYPE_I8, false), ismut);
+    ptr->name = Core::cstr("cstr");
+    ptr->base->name = Core::cstr("i8");
+    ptr->base->size = 1;    
+    return ptr;
 }
 Type* type_array(Type* base, int size, bool ismut){
     Type* t         = type_init(TYPE_ARRAY, ismut);
@@ -110,7 +144,11 @@ Type* type_proc(const char* name, SVec<TypeField*> params, Type* ret_type, bool 
     return t;
 }
 Type* type_any(){
-    return &any_ty;
+    Type* any = type_init(TYPE_ANY, true);
+    any->size = 8;
+    any->name = Core::cstr("any");
+    
+    return any;
 }
 Type* type_aggregate(SVec<TypeField*> items, bool isStruct, bool ismut){
     Type* t = type_init(isStruct? TYPE_STRUCT: TYPE_UNION, ismut);
@@ -137,7 +175,7 @@ Type* unqualify_type(Type* type){
     return type;
 }
 Type* type_unresolved(){
-    return &unresolved_ty;    
+    return type_init(TYPE_UNRESOLVED, false);
 }
 bool isNumericType(Type* type){    
     return  type->kind == TYPE_I8 or 
@@ -155,7 +193,7 @@ bool can_add_type(Type* lhs, Type* rhs){
     return false;
 }
 
-bool Type::typeCheck(Type* other){
+bool Type::typeCheck(Type* other){    
     if(this->kind == TYPE_ARRAY and isNumericType(other)){
         if(this->base->typeCheck(other)){
             return true;

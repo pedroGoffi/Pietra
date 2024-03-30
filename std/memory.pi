@@ -8,7 +8,7 @@ MEM_POLL_PAGE_SIZE  :: 4096
 MEM_POLL :: {
     blocks_end:     mut *null
     blocks_begin:   mut *null
-    blocks:         mut* mut* null
+    blocks:         mut*mut *null
     size:           mut i64 
     cap:            mut i64
     ptr:            mut *null        
@@ -54,8 +54,7 @@ impl MEM_POLL {
 
 std_MEM_POLL: MEM_POLL
 
-impl std{    
-    allocate   :: (nbytes: i64): *any {
-        return std_MEM_POLL.allocate(nbytes)
-    }
+impl std allocate   :: (nbytes: i64): *any {
+    return std_MEM_POLL.allocate(nbytes)
+    
 }

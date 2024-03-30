@@ -1,2 +1,8 @@
 use std{std}
-main :: () std.puts("hello, world\n");
+main :: (){
+    s1: cstr = "hello, ptr"
+    size: i64 = std.strlen(s1)
+    _new: cstr  std.allocate(size)
+    std.memcpy(_new, s1, size)
+    std.puts(_new)
+}

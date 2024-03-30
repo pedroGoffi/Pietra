@@ -62,7 +62,7 @@ namespace Pietra::Core {
         T& find(T item);        
         T& at(int index);
         T& back();
-        T& next();        
+        T& next();                
     };            
     
 }

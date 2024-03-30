@@ -119,6 +119,21 @@ Expr* expr_call(Expr* base, SVec<Expr*> args){
     e->call.args = args;
     return e;
 }
+SwitchCase* switch_case(SVec<SwitchCasePattern*> patterns, SVec<Stmt*> block){
+    SwitchCase* sc = arena_alloc<SwitchCase>();    
+    sc->patterns    = patterns;
+    sc->block       = block;
+    return sc;
+}
+
+Expr* expr_switch(Expr* cond, SVec<SwitchCase*>   cases, bool has_default, SVec<Stmt*> default_case){    
+    Expr* e = init_expr(EXPR_SWITCH);
+    e->expr_switch.cond = cond;
+    e->expr_switch.cases = cases;
+    e->expr_switch.has_default = has_default;
+    e->expr_switch.default_case = default_case;            
+    return e;
+}
 TypeSpec* init_typespec(TypeSpecKind kind, Lexer::Token token){
     TypeSpec* ts = arena_alloc<TypeSpec>();    
     ts->kind = kind;        
@@ -214,12 +229,7 @@ Stmt* stmt_switch(Expr* cond, SVec<SwitchCase*>   cases, bool has_default, SVec<
     st->stmt_switch.default_case = default_case;    
     return st;
 }
-SwitchCase* switch_case(SVec<SwitchCasePattern*> patterns, SVec<Stmt*> block){
-    SwitchCase* sc = arena_alloc<SwitchCase>();    
-    sc->patterns    = patterns;
-    sc->block       = block;
-    return sc;
-}
+
 SwitchCasePattern* init_pattern(){
     SwitchCasePattern* pattern = arena_alloc<SwitchCasePattern>();
     pattern->begin  = 0;

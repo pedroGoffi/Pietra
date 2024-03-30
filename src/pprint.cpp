@@ -167,6 +167,11 @@ namespace Pietra::pPrint{
                 pprint(")");
                 ident--;
             )
+            CASE(EXPR_SWITCH,
+                ident++;
+                pprint("(Switch) TODO: print it...\n");
+                ident--;
+            )
             case EXPR_NONE:
             default:
                 pp_undefined_kind(e->kind);

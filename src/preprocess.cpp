@@ -186,7 +186,7 @@ namespace Pietra::Preprocess{
             expect_arity(args, 1, "prep-proc `readFile` wrong usage, proc trace readFile(filename: cstr): cstr.\n");            
 
             Operand op = eval_expr(args.at(0), ctx);
-            if(op.type != type_string()){
+            if(op.type != type_string(op.type->ismut)){
                 printf("[ERROR]: the 0-nth argument on fopen must be cstr.\n");
                 exit(1);
             }                        
@@ -280,7 +280,7 @@ namespace Pietra::Preprocess{
     Operand eval_expr(Expr* e, PreprocessContext& ctx){        
         switch(e->kind){
             case Ast::EXPR_INT:     return operand_lvalue(type_int(64, false), {.ul = e->int_lit});
-            case Ast::EXPR_STRING:  return operand_lvalue(type_string(), {.p = (uintptr_t)e->string_lit});
+            case Ast::EXPR_STRING:  return operand_lvalue(type_string(false), {.p = (uintptr_t)e->string_lit});
             case Ast::EXPR_CALL:    return eval_call(e->call.base, e->call.args, ctx);
             case Ast::EXPR_BINARY:  return eval_bin(e->binary.binary_kind, e->binary.left, e->binary.right, ctx);
             case Ast::EXPR_NAME:    

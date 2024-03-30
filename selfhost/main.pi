@@ -1,10 +1,10 @@
 use std{std}
 use selfhost{lexer, parser, cursor}
+use selfhost{compiler}
 
 usage :: (fd: i64, program: cstr){
-    std.__fd_puts(1, "<Error>\n");    
+    std.fdputs(1, "<Error>\n");    
 }
-
 
 main :: (argc: i64, argv: *cstr){                                    
     if argc != 2 {        
@@ -13,12 +13,10 @@ main :: (argc: i64, argv: *cstr){
         exit(1);
     }                    
     file: *FILE = std.fopen(argv[1], "r");
-    initialize_token()
+    
     init_stream(file.ptr);        
+    std.fclose(file)
 
-    e: *Expr = parse()
-
-    expr_print(e)
-    
-    
+    e: *Expr = parse();              
+    e.print()
 }

@@ -1,0 +1,7 @@
+#package "pietra.compiler"
+use std{std}
+use selfhost{ast}
+
+impl Expr {
+    compile :: (self: *Self, out_fd: *FILE){}
+}

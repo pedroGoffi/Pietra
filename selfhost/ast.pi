@@ -26,10 +26,35 @@ EXPR_CALL                   :: 18
 
 Expr :: {
     kind:       ExprKind
+    tkKind:     TokenKind
     int_lit:    i64
     name_lit:   cstr    
+    lhs:        mut *i64 // Expr
+    rhs:        mut *i64 // Expr
 }
 
+impl Expr {
+    print :: (self: Self){    
+        dump(self.kind)
+        switch(self.kind){        
+            case EXPR_INT: {                
+                std.puts("<Int: ");            
+                std.puts(std.itocstr(self.int_lit))
+                std.puts(">\n")
+            }
+            case EXPR_NAME: {                
+                std.puts("<Name: ")
+                std.puts(self.name_lit)
+                std.puts(">\n");
+            }
+            default: {
+                std.puts("Idk how to print this...\n")
+                dump(self.kind)
+                exit(1)
+            }
+        }
+    }
+}
 
 StmtKind :: enum {
     STMT_NONE
@@ -40,6 +65,7 @@ StmtKind :: enum {
     STMT_WHILE
     STMT_RETUR
 }
+
 StmtVal :: union {}
 Stmt :: {
     kind:   StmtKind
@@ -107,20 +133,12 @@ expr_string :: (str: cstr): *Expr {
     return e
 }
 
-expr_print :: (e: *Expr){    
-    as_string: mut *i8
-    
-    switch(e.kind){        
-        case EXPR_INT: {
-            as_string = std.itocstr(e.int_lit)
-            std.puts("<Int: ");            
-            std.puts(as_string)
-            std.puts(">\n")
-        }
-        default: {
-            std.puts("Idk how to print this...\n")
-            dump(e.kind)
-            exit(1)
-        }
-    }
+expr_binary :: (kind: TokenKind, lhs: *Expr, rhs: *Expr){
+    dump(kind)
+    e: *Expr            = expr_init(EXPR_BINARY)
+    e.tkKind            = kind
+    // BUG: casting to avoid crashing
+    e.lhs as mut *Expr  = lhs
+    e.rhs as mut *Expr  = rhs
+    return e
 }

@@ -14,6 +14,7 @@ namespace Pietra::Ast {
     struct Expr;
     struct Stmt;
     struct TypeSpec;
+    struct SwitchCase;
 
     struct Note{
         const char* name;
@@ -36,9 +37,10 @@ namespace Pietra::Ast {
         EXPR_CMP,                       //  expr == expr
         EXPR_LOGIC,                     //  expr and expr
         EXPR_CAST,                      //  expr as type | (:type) expr
-        EXPR_TERNARY,                    //  expr if expr else expr
+        EXPR_TERNARY,                   //  expr if expr else expr
         EXPR_ARRAY_INDEX,
-        EXPR_CALL,        
+        EXPR_CALL,   
+        EXPR_SWITCH,                    // Implemented 25/3/2023
     };
     
     struct Expr{
@@ -95,6 +97,12 @@ namespace Pietra::Ast {
                 TypeSpec* typespec;
                 Expr* expr;
             } cast;
+            struct {                    
+                Expr*               cond;
+                SVec<SwitchCase*>   cases;
+                bool                has_default;
+                SVec<Stmt*>         default_case;            
+            } expr_switch;
         };
     };
     enum StmtKind{

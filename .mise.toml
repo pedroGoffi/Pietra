@@ -1,0 +1,3 @@
+[tools]
+neovim = "latest"
+python = "3.10"

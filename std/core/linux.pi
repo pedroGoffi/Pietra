@@ -1,5 +1,6 @@
 #package "pietra.linux.syscall.table"
-use std::core{types}
+use std::core{types, struct_stat}
+use std::core{__internal}
 
 __fd_stdout                     :: 0
 __fd_stderr                     :: 1
@@ -335,11 +336,12 @@ read :: (fd: i64, buf: *null, count: i64): i64 {
 write :: (fd: i64, ptr: *null, size: i64){
     syscall(size, ptr, fd, SYS_write)
 }
+fstat :: (fd: i64, statbuf: *Stat): i64{
+    return syscall(fd, statbuf, SYS_fstat)
+}
 brk :: (addr: *i64): i64 {    
     return syscall(addr, SYS_brk)
 }
-
-
 sbrk :: (size: i64): *any{
     heap_end: imut *any = asm("mov rax, __heap_end__");
     *heap_end = *heap_end + size;
@@ -355,7 +357,6 @@ socket :: (domain: i64, type: i64, protocol: i64): i64 {
 accept :: (sockfd: i64, addr: *any, addrlen: i64): i64 {
     return syscall(addrlen, addr, sockfd, SYS_accept);
 }
-
 bind :: (sockfd: i64, addr: *any, addrlen: i64): i64 {
     return syscall(addrlen, addr, sockfd, SYS_bind);    
 }
@@ -371,7 +372,6 @@ execve :: (pathname: cstr, argv: *cstr, envp: *cstr): i64 {
 close :: (fd: i64) {
     return syscall(fd, SYS_close)    
 }
-type time_t :: i64 
 time :: (t: time_t): time_t {
     return syscall(t, SYS_time)
 }

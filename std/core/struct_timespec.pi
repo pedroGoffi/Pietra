@@ -1,0 +1,7 @@
+#package "pietra.core.struct_timespec"
+use std::core{types}
+
+timespec :: {
+    tv_sec:     time_t 
+    tv_nsec:    time_t
+}

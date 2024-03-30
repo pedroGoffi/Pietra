@@ -2,12 +2,23 @@
 use std{std, errno}
 
 
-S_ISUID     :: 0x4000   
-S_ISGID     :: 0x2000
-S_ISVTX     :: 0x1000
-S_IREAD     :: 0x400 // [Owner]: Read permission 
-S_IWRITE    :: 0x200 // [Owner]: Write permission 
-S_IEXEC     :: 0x100 // [Owner]: Exec permission 
+O_RDONLY    :: 0
+O_WRONLY    :: 1
+O_RDWR      :: 2
+O_CREAT     :: 64
+O_EXCL      :: 128
+O_TRUNC     :: 512
+O_APPEND    :: 1024
+S_ISUID     :: 2048
+S_ISGID     :: 1024
+S_ISVTX     :: 512
+S_IREAD     :: 256
+S_IWRITE    :: 128
+S_IEXEC     :: 64
+S_IRUSR     :: 256
+S_IWUSR	    :: 128
+S_IRWXU 	:: 448
+
 
 FILE :: {
     start:  mut *i8
@@ -19,31 +30,31 @@ FILE :: {
     mode:   mut i64    
 }
 
-O_RDONLY  :: 000   
-O_WRONLY  :: 001   
-O_RDWR    :: 0x2   
-O_CREAT   :: 0100 
-O_EXCL    :: 0200 
-O_TRUNC   :: 1000
-O_APPEND  :: 2000
+impl FILE is_open :: (self: *Self) return self.fd > 0
+
+
 
 impl std {    
+
     fopen :: (filename: imut *i8, _flags: imut *i8): *FILE {
         // NOTE: to avoid _flags param ptr destruction
         flags: cstr = _flags;
         // TODO: parse flags
-        mode: i64 = 0;
-        file_flags: i64 = 256;
+        mode: i64 = S_IRUSR | S_IWUSR as i64;
+        file_flags: i64 = S_IRWXU | O_RDWR as i64;
 
         if std.streq(flags, "r") {
-            mode = mode | O_RDONLY;
+            mode = mode | O_RDONLY
         }
+
+        if std.streq(flags, "w") {
+            mode = mode | O_WRONLY | O_CREAT
+        }
+        
 
         
         f: *FILE = std.allocate(sizeof(FILE));
-
         f.fd = open(filename, mode, file_flags)
-
         f.ptr   = std.allocate(4096)
         f.size  = read(f.fd, f.ptr, 4096)
         f.start = f.ptr
@@ -55,5 +66,7 @@ impl std {
 
     fclose :: (file: *FILE){
         close(file.fd);
-    }
+    }    
 }
+
+

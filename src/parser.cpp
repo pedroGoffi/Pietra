@@ -36,10 +36,20 @@ Expr* literal_expr_assign(const char* name){
     return Utils::expr_assign(name, ts, init);
 
 }
+
 Expr* literal_expr(){
     if(is_kind(TK_NAME)){
+        if(token.name == Core::cstr("switch")){
+            Stmt* st_switch = stmt_switch();
+            return Utils::expr_switch(
+                st_switch->stmt_switch.cond, 
+                st_switch->stmt_switch.cases,                  
+                st_switch->stmt_switch.has_default,
+                st_switch->stmt_switch.default_case);
+        }
+
         const char* name = token.name;
-        next();
+        next();        
         if(is_kind(Lexer::TK_DDOT)){
             // fast assign var :type = expr
             return literal_expr_assign(name);
@@ -244,8 +254,16 @@ Expr* ternary_expr(){
     Expr* logic = logic_expr();
 
     if(is_kind(TK_QUESTION)){
-        printf("[ERROR]: ternary (<expr>?expr : expr) is not implemented yet.\n");
-        exit(1);
+        next();
+        Expr* then = ternary_expr();
+        if(!is_kind(Lexer::TK_DDOT)){
+            printf("[ERROR]: expected ':' while parsing ternary.\n");
+            exit(1);
+        }
+        next();
+        Expr* otherwise = ternary_expr();
+        
+        logic = Utils::expr_ternary(logic, then, otherwise);
     }
     else if(is_kind(TK_DQUESTION)){
         next();        
@@ -508,7 +526,7 @@ static inline bool is_case(){
     |   token.name == keyword_default
     ;
 }
-Stmt* stmt_switch(){    
+Stmt* stmt_switch(){
     assert(token.name == keyword_switch);
     next();
     Expr*               cond            = expr();
@@ -946,22 +964,30 @@ SVec<Note*> parse_notes(){
 }
 SVec<Decl*> parse_impl_body(){
     SVec<Decl*> body;
-    assert(is_kind(Pietra::Lexer::TK_OPEN_CURLY_BRACES));
-    next();
-    while(!is_kind(Pietra::Lexer::TK_CLOSE_CURLY_BRACES)){
+    if(!is_kind(Pietra::Lexer::TK_OPEN_CURLY_BRACES)){
         Decl* node = decl();
         if(!node){
             exit(1);
         }
-        if(node->kind == DECL_IMPL){
-            printf("[ERROR]: Impl can't be nested.\n");
-            exit(1);
-        }        
         body.push(node);
     }
-    assert(is_kind(Pietra::Lexer::TK_CLOSE_CURLY_BRACES));
-    next();
-    
+    else {
+        assert(is_kind(Pietra::Lexer::TK_OPEN_CURLY_BRACES));
+        next();
+        while(!is_kind(Pietra::Lexer::TK_CLOSE_CURLY_BRACES)){
+            Decl* node = decl();
+            if(!node){
+                exit(1);
+            }
+            if(node->kind == DECL_IMPL){
+                printf("[ERROR]: Impl can't be nested.\n");
+                exit(1);
+            }        
+            body.push(node);
+        }
+        assert(is_kind(Pietra::Lexer::TK_CLOSE_CURLY_BRACES));
+        next();
+    }        
     return body;
 } 
 Decl* decl_impl(){
