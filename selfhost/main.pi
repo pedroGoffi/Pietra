@@ -6,17 +6,20 @@ usage :: (fd: i64, program: cstr){
     std.fdputs(1, "<Error>\n");    
 }
 
+
+
+
 main :: (argc: i64, argv: *cstr){                                    
     if argc != 2 {        
         usage(1, argv[0])
         std.puts("[ERROR]: expected <program> <input>\n");
         exit(1);
-    }                    
-    file: *FILE = std.fopen(argv[1], "r");
-    
+    }                        
+    file: *FILE = std.fopen(argv[1], "r");    
     init_stream(file.ptr);        
     std.fclose(file)
 
-    e: *Expr = parse();              
-    e.print()
+    s: *Stmt = parse();                  
+    std.puts("---- Printing the Expr:\n")
+    stmt_print(s)    
 }

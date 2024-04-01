@@ -1,5 +1,5 @@
 #package "pietra.parser"
-use std{std}
+use std{std, list}
 use selfhost{token, lexer, ast}
 
 
@@ -11,23 +11,27 @@ literal_expr_assign :: (name: cstr): *Expr {
     next_token()
 
     ts: *TypeSpec = null;
-    rhs: *Expr   = null;
+    rhs: mut *Expr   = null;
     
-    if is_kind(TK_EQ){}
+    if is_kind(TK_EQ){        
+        next_token()        
+        rhs = asm("call expr")
+    }
     std.puts("unimplemented Assign.\n")
     exit(1)
 }
 
 literal_expr :: (): *Expr {    
+    dump(69010)
     val: any;
     
-    if is_kind(TK_NAME){
+    if is_kind(TK_NAME){        
         val = token.name;
         next_token();        
-        if is_kind(TK_DDOT) {            
+        if is_kind(TK_DDOT) {                        
             return literal_expr_assign(val)
         }
-        
+                
         return expr_name(val);
     }
 
@@ -51,7 +55,6 @@ literal_expr :: (): *Expr {
             exit(1)
         }
         next_token()
-
         return val
     }
 
@@ -60,35 +63,32 @@ literal_expr :: (): *Expr {
     exit(1)
 }
 is_base_expr :: (): i64 {
-    switch(token.kind){
-        case 
-            TK_PREP, 
-            TK_DOT, 
-            TK_OPEN_ROUND_BRACES, 
-            TK_OPEN_SQUARED_BRACES: return true
-        default:                    return false    
-    }
-
+    if token.kind == TK_OPEN_SQUARED_BRACES return true    
+    if token.kind == TK_PREP                return true
+    if token.kind == TK_DOT                 return true
+    if token.kind == TK_OPEN_ROUND_BRACES   return true    
     
+    return false    
 }
 base_expr :: (): *Expr {
-    base: *Expr = literal_expr()
-    std.puts(token.name)
-    while is_base_expr() {}
+    dump(6909)
+    base: *Expr = literal_expr()    
+    while is_base_expr() {
+        std.puts("base_expr is unimplemented")
+        exit(1)
+    }
     return base
 }
-is_unary_expr :: (): i64 {
-    switch(token.kind){
-        case 
-            TK_ADD,
-            TK_SUB,
-            TK_NOT,
-            TK_MULT,
-            TK_AMPERSAND:   return true
-        default:            return false
-    }
+is_unary_expr :: (): i64 {    
+    if token.kind == TK_ADD         return true
+    if token.kind == TK_SUB         return true
+    if token.kind == TK_NOT         return true
+    if token.kind == TK_MULT        return true
+    if token.kind == TK_AMPERSAND   return true
+    return false    
 }
 unary_expr :: (): *Expr {
+    dump(6908)
     while is_unary_expr(){
         kind: TokenKind = token.kind
         next_token()
@@ -109,28 +109,31 @@ is_mult_expr :: (){
     }
 }
 mult_expr :: (): *Expr {
-    unary: *Expr = unary_expr()
+    dump(6907)
+    unary: mut *Expr = unary_expr()
     while is_mult_expr() {
         kind: TokenKind = token.kind
         next_token()
         rhs: *Expr = unary_expr()
 
-        // TODO: unary = expr_binary(kind, unary, rhs)
+        unary = expr_binary(kind, unary, rhs)
     }
     return unary
 }
 is_add_expr :: (): i64 {
-    switch(token.kind){
-        case TK_ADD, TK_SUB:    return true
-        default:                return false
-    }
+    std.puts("is_add_expr\n")
+    dump(312032)
+    if token.kind == TK_ADD return true
+    if token.kind == TK_SUB return true    
+    return false    
 }
 add_expr :: (): *Expr {
-    mult: mut *Expr = mult_expr()
+    dump(6906)
+    mult: mut *Expr = mult_expr()    
     while is_add_expr(){
         kind: TokenKind = token.kind
         next_token()
-        rhs: *Expr = mult_expr()
+        rhs: *Expr = mult_expr()        
         mult = expr_binary(kind, mult, rhs)
     }
     return mult
@@ -147,21 +150,28 @@ is_cmp_expr :: (): i64 {
     }
 }
 cmp_expr :: (): *Expr {
+    dump(6905)
     add: mut *Expr = add_expr()
-    while is_cmp_expr(){
+    while is_cmp_expr(){            
         kind: TokenKind = token.kind
         next_token()
         rhs: *Expr = add_expr()
         add = expr_binary(kind, add, rhs)
-    }
+    }    
     return add
 }
 is_logic_expr :: (): i64 {
-    // TODO: LAND | LOR
+    if std.streq(token.name, "and") return true
+    if std.streq(token.name, "or") return true    
     return false
 }
 logic_expr :: (): *Expr {
+    if std.streq(token.name, "_not"){
+        std.puts("TODO: parse NOT expr")
+        exit(1)        
+    }
     // TODO: token NOT expr
+    dump(6904)
     cmp: mut *Expr = cmp_expr()
     while is_logic_expr(){
         kind: TokenKind = token.kind
@@ -172,26 +182,88 @@ logic_expr :: (): *Expr {
     return cmp
 }
 ternary_expr :: (): *Expr {
+    dump(6903)
     logic: *Expr = logic_expr()
     // TODO: Ternary parsing
     return logic
 }
 cast_expr :: (): *Expr {
-    ternary: *Expr = ternary_expr()
+    dump(6902)
+    ternary: *Expr = ternary_expr()    
     return ternary
 }
-is_assign :: (): i64 {
+is_assign :: (): i64 {    
     return token.kind == TK_EQ
 }
-assign_expr :: (): *Expr {
-    cast: *Expr = cast_expr()    
+expr :: (): *Expr {
+    dump(6901)
+    cast: *Expr = cast_expr()     
+    if is_assign() {
+        kind: i64 = token.kind;
+        next_token();
+        rhs: *Expr = expr();
+        
+    }
     return cast
 }
-expr :: (): *Expr{
-    return assign_expr()
-}
 
-parse :: (): *Expr{
-    return expr()
-    
+stmt_if_clause :: (): *IfClause {
+    cond: *Expr     = expr()
+    block: *ll_list   = asm("call stmt_opt_curly_block")        
+    return ifClause_init(cond, block)
 }
+if_stmt :: (): *Stmt {
+    if not std.streq(token.name, "if") {
+        std.puts("INTERNAL ERROR: called if_stmt when token.name is not if\n")
+        exit(1)
+    }
+    next_token()
+    ifClause:   mut *IfClause       = stmt_if_clause()
+    elifs:      mut *ll_list        = init_ll_list_ptr()
+    elseb:      mut *ll_list        = init_ll_list_ptr()
+
+    while std.streq(token.name, "elif"){
+        next_token()
+        nelif: *IfClause = stmt_if_clause()
+        // TOOD: push nelif to elifs
+        exit(1)    
+    }
+
+    if std.streq(token.name, "else"){
+        next_token()
+        elseb = asm("call stmt_opt_curly_block")
+    }
+
+    return stmt_if(ifClause, elifs, elseb)
+}
+expr_stmt :: (): *Stmt {
+    e: *Expr = expr()
+    return stmt_expr(e)
+}
+stmt :: (): *Stmt {
+    if is_kind(TK_DCOMMA) return nullptr
+
+    if std.streq(token.name, "if")  return if_stmt()
+    else                            return expr_stmt()
+}
+stmt_opt_curly_block :: (): *ll_list{    
+    // TODO: bug when parsing the list in if blocks
+    block: *ll_list = init_ll_list_ptr()    
+    st: mut *Stmt
+    if not is_kind(TK_OPEN_CURLY_BRACES){
+        st = stmt()    
+        block.push(st)                    
+        return block
+    }
+    else {
+        next_token() 
+        while not is_kind(TK_OPEN_CURLY_BRACES){
+            st = stmt()        
+            block.push(st)
+        }
+        next_token()         
+        return block
+    }
+}
+parse :: (): *Stmt 
+    return is_kind(TK_EOF)? 0: stmt()   

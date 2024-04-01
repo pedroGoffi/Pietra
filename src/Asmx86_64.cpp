@@ -1163,7 +1163,12 @@ void makeLabel() {
                     }
                     
                     else {
-                        assert(p->string);
+                        if(not p->string){                            
+                            compile_expr(s->stmt_switch.cond, state_none);
+                            println("cmp rax, 0\n");
+                            println("jne .L%i", case_end_addr);
+                            continue;
+                        }
                         if(!string_comparator){
                             err("[WARN]: Didn't found any string comparator procedure defined with @string_comparator.\n");
                             err("[NOTE]: Maybe you should use stdlib, try: `use std{std}`.\n");

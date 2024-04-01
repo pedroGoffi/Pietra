@@ -6,6 +6,7 @@ __fd_stdout                     :: 0
 __fd_stderr                     :: 1
 __fd_stdin                      :: 2
 
+nullptr                         ::  null
 AT_FDCWD	                    ::  0
 MAP_SHARED                      ::  1 
 MAP_PRIVATE                     ::  2 

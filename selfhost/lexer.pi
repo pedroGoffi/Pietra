@@ -14,8 +14,7 @@ init_stream :: (str: cstr){
 }
 
 skip_empty      :: (){
-    if not *stream return 0
-
+    if not *stream return 0    
     switch *stream {
         case ' ', '\t', '\n': {
             stream = stream + 1
@@ -37,23 +36,29 @@ skip_comment    :: (){
 }
 
 next_token      :: (){    
+    std.puts("-- NEXT TOKEN\n")
+    std.puts("STREAM AT = ")
+    std.putc(*stream)
+    std.puts("\n")
     skip_empty();
-    skip_comment();        
+    skip_comment();       
+    
 
     token.start = stream;    
     if *stream == 0 {
         token.kind = TK_EOF;
         return 0;
-    }
-    switch *stream {
-        case 'a'...'z', 'A'...'Z', '_': {
-            while is_keyword(*stream) or is_numeric(*stream) {
+    }        
+    switch *stream {        
+        case 'a'...'z', 'A'...'Z', '_': {                        
+            while is_keyword(*stream){
+                std.putc(*stream)
                 stream = stream + 1;
-            }
-
+            }               
             token.end = stream;
             token.kind = TK_NAME
-            token.name = intern_range(token.start, token.end);            
+            token.name = std.cstrndup(token.start, token.end - token.start)
+                        
             
         }
 
@@ -68,11 +73,13 @@ next_token      :: (){
 
 
         case '+': {
+            std.puts("Got an token ADD == \n")
+            dump(TK_ADD)
             stream = stream + 1;
+            token.kind = TK_ADD
             token.end = stream;
             token.name = intern_range(token.start, token.end);
-            token.kind = TK_ADD
-            
+
         }
 
         case ',', '.': {
@@ -86,6 +93,21 @@ next_token      :: (){
                 token.kind = TK_DOT
             }
         }
+        case '=':{
+            token.kind = TK_EQ
+            stream = stream + 1
+            token.name = "="            
+        }
+        case ';': {
+            token.kind = TK_DCOMMA
+            stream = stream + 1
+            token.name = ";"            
+        }
+        case ':': {
+            token.kind = TK_DDOT
+            stream = stream + 1
+            token.name = ";"            
+        }
         
         case '"': {
             token.kind  = TK_STRING            
@@ -94,10 +116,20 @@ next_token      :: (){
             token.end   = stream
             
         }
+        case '{': {
+            token.name = "{"
+            stream = stream + 1
+            token.kind = TK_OPEN_CURLY_BRACES
+        }
+        case '}': {
+            token.name = "}"
+            stream = stream + 1
+            token.kind = TK_CLOSE_CURLY_BRACES
+        }
         case '[': {
             token.name = "["
             stream = stream + 1
-            token.kind = TK_OPEN_ROUND_BRACES
+            token.kind = TK_OPEN_SQUARED_BRACES
         }
         case ']': {
             token.name = "]"
@@ -114,6 +146,14 @@ next_token      :: (){
             token.kind = TK_CLOSE_ROUND_BRACES
             token.name = ")"
         }
+        case '\0': {
+            token.kind = TK_EOF
+            token.name = "EOF"
+        }
+        case ' ', '\n': {
+            stream = stream + 1
+            next_token()
+        }
 
         default: {
             std.puts("Undefined token:\n\tascii == ");
@@ -125,20 +165,27 @@ next_token      :: (){
 
 is_numeric      :: (c: i64){
     switch c {
-        case '0'...'9': return 1
-        default: return 0
+        case '0'...'9': return true
+        default:        return false
     }
 }
-is_keyword      :: (c: i64){
+is_keyword      :: (c: i64){    
     switch c {
-        case 'a'...'z', 'A'...'z', '_': return 1
-        default: return 0
+        case 'a'...'z', 'A'...'z', '_': return true    
+        default:                        return false
     }
 }
 is_kind         :: (kind: i64){
     return token.kind == kind;
 }
-expects_kind    :: ();
+expects_kind    :: (kind: TokenKind): i64 {
+    if token.kind == kind {
+        next_token()
+        return true
+    }
+    return false
+}
+// TODO
 escape_to_char  :: ();
 scan_string     :: (): cstr
 {
@@ -161,17 +208,16 @@ scan_string     :: (): cstr
         std.puts("[ERROR]: expected end of the string but got EOF\n")
         exit(1)
     }
-
     
     end: cstr = stream
     stream = stream + 1
       
-
     str_len: i64 = end - begin
     buffer: cstr = std.allocate(str_len)
     std.cstrncopy(buffer, begin, str_len)          
     return buffer
 }
+
 scan_char       :: ();
 scan_int        :: ();
 scan_int_base   :: ();

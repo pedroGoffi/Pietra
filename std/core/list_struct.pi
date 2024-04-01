@@ -1,0 +1,11 @@
+#package "pietra.core.List_struct"
+ll_node :: {
+    value: mut *any
+    next:  mut *any // ptr to ll_node
+}
+
+ll_list :: {
+    head:   mut *ll_node
+    end:    mut *ll_node
+    size:   mut i64 
+}

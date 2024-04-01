@@ -1,0 +1,22 @@
+#package "pietra.List"
+use std{std}
+use std::core{list_struct}
+
+impl ll_list constructor :: (self: *Self){    
+    self.head = self.end    = std.allocate(sizeof(ll_node))
+    head: *ll_node          = self.head;
+    head.next               = self.end        
+    self.size               = 0
+}
+impl ll_list push :: (self: *Self, item: any){    
+    ptr: mut *ll_node   = self.end
+    ptr.value           = item    
+    ptr                 = ptr.next = std.allocate(sizeof(ll_node))            
+    self.end            = ptr
+    self.size           = self.size + 1
+}
+init_ll_list_ptr :: (): *ll_list {
+    ll: mut *ll_list = std.allocate(sizeof(ll_list));
+    ll.constructor()
+    return ll
+}

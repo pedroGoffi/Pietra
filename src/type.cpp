@@ -24,7 +24,7 @@ Type str_ty         = {.kind = TYPE_PTR,    .name = Core::cstr("cstr"), .size = 
 Type void_ty        = {.kind = TYPE_VOID,   .name = Core::cstr("null"), .size = 0, .ismut = false};
 Type unresolved_ty  = {.kind = TYPE_UNRESOLVED, .name = Core::cstr("auto")};
 Type any_ty         = {.kind = TYPE_ANY,    .name = Core::cstr("any"), .size = sizeof(void*), .ismut = true};
-Type self_ty        = {.kind = TYPE_SELF,   .name = Core::cstr("Self"), .ismut = false};
+Type self_ty        = {.kind = TYPE_SELF,   .name = Core::cstr("Self"), .ismut = true};
 
 
 

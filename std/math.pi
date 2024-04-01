@@ -1,9 +1,12 @@
 #package "pietra.math"
 use std{std}
 
-impl std{
-   __mod :: (x: i64, y: i64): i64 {    
-            x / y
-        return asm("mov rax, rdx")
-    }
+impl std __mod :: (x: i64, y: i64): i64 {    
+    // NOTE: till we don't have the % operator builtin in the code we do this little hack
+    x / y
+    return asm("mov rax, rdx")
 }
+
+
+impl std isBetweenI64 :: (test: i64, begin: i64, end: i64) 
+    return (begin - 1 < test) + (test < end + 1)

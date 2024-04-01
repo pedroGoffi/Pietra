@@ -1,18 +1,19 @@
 #package "pietra.ast"
+use std{list}
 type ExprKind :: i64
 
 
 
-EXPR_NONE                   :: 00
-EXPR_INT                    :: 01
-EXPR_FLOAT                  :: 02
-EXPR_STRING                 :: 03
-EXPR_NAME                   :: 04
-EXPR_INIT_VAR               :: 05
-EXPR_COMPOUND               :: 06
-EXPR_FIELD                  :: 07
-EXPR_COMPOUND_LIST_INDEXING :: 08
-EXPR_COMPOUND_NAME          :: 09
+EXPR_NONE                   :: 0
+EXPR_INT                    :: 1
+EXPR_FLOAT                  :: 2
+EXPR_STRING                 :: 3
+EXPR_NAME                   :: 4
+EXPR_INIT_VAR               :: 5
+EXPR_COMPOUND               :: 6
+EXPR_FIELD                  :: 7
+EXPR_COMPOUND_LIST_INDEXING :: 8
+EXPR_COMPOUND_NAME          :: 9
 EXPR_NEW                    :: 10
 EXPR_UNARY                  :: 11
 EXPR_BINARY                 :: 12
@@ -33,43 +34,122 @@ Expr :: {
     rhs:        mut *i64 // Expr
 }
 
-impl Expr {
-    print :: (self: Self){    
-        dump(self.kind)
-        switch(self.kind){        
-            case EXPR_INT: {                
-                std.puts("<Int: ");            
-                std.puts(std.itocstr(self.int_lit))
-                std.puts(">\n")
-            }
-            case EXPR_NAME: {                
-                std.puts("<Name: ")
-                std.puts(self.name_lit)
-                std.puts(">\n");
-            }
-            default: {
-                std.puts("Idk how to print this...\n")
-                dump(self.kind)
-                exit(1)
-            }
+
+spaces: i64 = 0
+IDENT_LVL   :: 1
+ident       :: (){
+    i: i64 = 0
+    while i < spaces * IDENT_LVL {
+        std.putc(' ')
+        i = i + 1
+    }
+
+}
+expr_print :: (e: *Expr){                    
+    switch e.kind {
+        case EXPR_INT: {                        
+            std.puts("<Int: ");            
+            std.puts(std.itocstr(e.int_lit))            
+            std.puts(">\n")            
         }
+        case EXPR_NAME: {                
+            std.puts("<Name: ")
+            std.puts(e.name_lit)
+            std.puts(">\n");            
+        }    
+        case EXPR_BINARY: {
+            std.puts("<Binary ")
+            expr_print(e.lhs)
+            std.puts("\t")
+            expr_print(e.rhs)
+            std.puts(">\n")
+        }
+        default: {
+            std.puts("Idk how to print this...\n")
+            dump(e.kind)
+            exit(1)
+        }    
     }
 }
 
-StmtKind :: enum {
-    STMT_NONE
-    STMT_EXPR
-    STMT_IF
-    STMT_SWITCH
-    STMT_FOR
-    STMT_WHILE
-    STMT_RETUR
-}
 
-StmtVal :: union {}
-Stmt :: {
-    kind:   StmtKind
-    as:     StmtVal
+
+STMT_NONE   :: 0
+STMT_EXPR   :: 1
+STMT_IF     :: 2
+// TODO: implementation node STMT_SWITCH
+// TODO: implementation node STMT_FOR
+// TODO: implementation node STMT_WHILE
+// TODO: implementation node STMT_RETURN
+
+
+
+IfClause :: {
+    cond:           mut *Expr
+    block:          mut *ll_node
+}
+ifClause_print :: (ic: *IfClause){
+    std.puts("{\n")
+    expr_print(ic.cond)
+
+    i: i64 = 0
+    block: mut *ll_node = ic.block;
+    while *block.value  {
+        *block.value
+        asm("mov rdi, rax")
+        asm("call stmt_print")
+        block = block.next
+
+    } 
+    exit(1)
+    
+    std.puts("TODO: print block\n")
+    std.puts("}\n")
+}
+ifClause_init :: (cond: mut *Expr, block: *ll_node): *IfClause {
+    clause: *IfClause   = std.allocate(sizeof(IfClause))
+    clause.cond         = cond
+    clause.block        = block
+    return clause
+}
+STStmt_if :: {   
+    ifClause:               mut* IfClause
+    elif_clauses:   mut*    mut* IfClause   // List of clauses
+    else_block:     mut*    mut* null    
+}
+STStmt_if_init :: (ifClause: *IfClause, elifs: **IfClause, elseb: **null){
+    st_if: *STStmt_if       = std.allocate(sizeof(STStmt_if))
+    st_if.ifClause          = ifClause
+    st_if.elif_clauses      = elifs
+    st_if.else_block        = elseb
+    return st_if
+}
+Stmt :: {    
+    kind:   i64
+    expr:   mut *Expr    
+    if:     mut *STStmt_if
+}
+stmt_print :: (s: *Stmt){
+    switch(s.kind){
+        case STMT_NONE: std.puts("<NONE>")            
+        case STMT_EXPR: {
+            std.puts("<Stmt Expr: ")
+            expr_print(s.expr)
+            std.puts(">\n")
+        }
+        case STMT_IF: {
+            std.puts("<Stmt IF: ")
+            ifc: *STStmt_if = s.if            
+            
+            std.puts(">\n")
+        }
+        default: {
+            std.puts("stmt_print, idk how to print this")
+            exit(1)
+        }
+        
+
+    }
 }
 
 TypeSpecKind :: enum {
@@ -141,4 +221,22 @@ expr_binary :: (kind: TokenKind, lhs: *Expr, rhs: *Expr){
     e.lhs as mut *Expr  = lhs
     e.rhs as mut *Expr  = rhs
     return e
+}
+
+
+stmt_init :: (kind: i64): *Stmt {
+    s: *Stmt = std.allocate(sizeof(Stmt));
+    s.kind as i64 = kind;    
+    return s;
+}
+stmt_expr :: (e: *Expr){
+    s: *Stmt = stmt_init(STMT_EXPR)
+    s.expr = e
+    return s
+}
+
+stmt_if :: (ifClause: *IfClause, elifs: **IfClause, elseb: **null): *Stmt {
+    s: *Stmt = stmt_init(STMT_IF)    
+    s.if = STStmt_if_init(ifClause, elifs, elseb)    
+    return s
 }

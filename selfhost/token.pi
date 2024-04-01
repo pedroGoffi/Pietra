@@ -53,9 +53,8 @@ Token :: {
     as:         TokenVal
 }
 
-impl Token {
-    set_kind :: (self: *Self, kind: TokenKind){
-        self.kind = kind;
-    }
-}
+impl Token set_kind :: (self: *Self, kind: TokenKind) 
+    self.kind = kind
+
+
 token: Token;
