@@ -1,0 +1,26 @@
+use std{std}
+use std{socket}
+use std{math}
+use std{http}
+use std{stat}
+
+INADDR_ANY    :: 0
+LOCAL_HOST_IP :: 16777343 // af_inet("127.0.0.1")
+SERVER_PORT   :: 8080
+ServerLoop :: (server: *HTTP_SERVER)
+{  
+  html_data: *i8 = map_file("examples/server_html.html")
+  server.send_html(html_data)    
+}
+
+main :: (){        
+  
+  server: *HTTP_SERVER                 = HTTP_SERVER.new(LOCAL_HOST_IP, SERVER_PORT)          
+  if server == SERVER_ERROR 
+  {
+    std.puts("[ERROR]: Could not open the server...\n")
+    exit(1)
+  }
+  ServerLoop(server)
+  server.close()
+}

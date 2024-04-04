@@ -5,29 +5,38 @@ use std{std}
 // Note: the way you use it. is up to you. here is some methods i think might be usefull
 @help("A smart pointer is used when u dont wanna to deal with pointer allocation, just to use it")
 Smart_ptr :: {    
-    data: *any    
+    data: mut *any    
 }
 
-impl Smart_ptr {    
-    get :: (self: *Self): *any {
-        return &self.data
+impl Smart_ptr value_or :: (self: *Self, or_v: *any): *any {
+    return self.data ?? or_v
+}
+impl Smart_ptr get :: (self: *Self): *any {
+    return &self.data
+}
+impl Smart_ptr set :: (self: *Self, data: any){
+    self.data = data;
+}    
+impl Smart_ptr release :: (self: *Self){
+    self.data = null;
+}    
+impl Smart_ptr __eq__ :: (self: *Self, data: any){
+    if self.data == 0 {
+        self.set(data)
+        return self
     }
-    set :: (self: *Self, data: any){
-        self.data = data;
-    }    
-    release :: (self: *Self){
-        self.data = null;
-    }    
-    __eq__ :: (self: *Self, data: any){
-        self.release();
-        self.set(data);
-    }        
-    delete :: (self: *Self){        
-        self.release();
-    }
+
+    std.puts("[ERROR]: Smart_ptr can't be modified with '=' operator.\n")
+    std.puts("[NOTE]: Try to use ptr.set(value)\n")
+    exit(1)
+}        
+impl Smart_ptr delete :: (self: *Self){        
+    self.release();
 }
 
-// NOTE: since Smart_ptr is 8 bytes sized, we can just return the data as any (8 bytes) with casting it.
-make_smart_ptr :: (data: any): Smart_ptr {
-    return data as Smart_ptr;
+
+move :: (ptr: *any){
+    value: *any = ptr;
+    *ptr = nullptr
+    return value
 }

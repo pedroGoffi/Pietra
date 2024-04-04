@@ -1,6 +1,7 @@
 use std{std}
 use selfhost{lexer, parser, cursor}
 use selfhost{compiler}
+use selfhost{Asmx86_64}
 
 usage :: (fd: i64, program: cstr){
     std.fdputs(1, "<Error>\n");    
@@ -8,8 +9,7 @@ usage :: (fd: i64, program: cstr){
 
 
 
-
-main :: (argc: i64, argv: *cstr){                                    
+main :: (argc: i64, argv: *cstr){                                       
     if argc != 2 {        
         usage(1, argv[0])
         std.puts("[ERROR]: expected <program> <input>\n");
@@ -18,8 +18,11 @@ main :: (argc: i64, argv: *cstr){
     file: *FILE = std.fopen(argv[1], "r");    
     init_stream(file.ptr);        
     std.fclose(file)
+    
+    e: *Expr = expr();                  
+    std.puts("---- Printing the Expr:\n")    
 
-    s: *Stmt = parse();                  
-    std.puts("---- Printing the Expr:\n")
-    stmt_print(s)    
+    
+    compile_expr(e)
+    compile_data_section()        
 }

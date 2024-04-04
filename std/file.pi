@@ -1,23 +1,8 @@
 #package "pietra.file"
 use std{std, errno}
+use std::core{struct_stat}
 
 
-O_RDONLY    :: 0
-O_WRONLY    :: 1
-O_RDWR      :: 2
-O_CREAT     :: 64
-O_EXCL      :: 128
-O_TRUNC     :: 512
-O_APPEND    :: 1024
-S_ISUID     :: 2048
-S_ISGID     :: 1024
-S_ISVTX     :: 512
-S_IREAD     :: 256
-S_IWRITE    :: 128
-S_IEXEC     :: 64
-S_IRUSR     :: 256
-S_IWUSR	    :: 128
-S_IRWXU 	:: 448
 
 
 FILE :: {
@@ -34,37 +19,51 @@ impl FILE is_open :: (self: *Self) return self.fd > 0
 
 
 
-impl std {    
-
-    fopen :: (filename: imut *i8, _flags: imut *i8): *FILE {
-        // NOTE: to avoid _flags param ptr destruction
-        flags: cstr = _flags;
-        // TODO: parse flags
-        mode: i64 = S_IRUSR | S_IWUSR as i64;
-        file_flags: i64 = S_IRWXU | O_RDWR as i64;
-
-        if std.streq(flags, "r") {
-            mode = mode | O_RDONLY
-        }
-
-        if std.streq(flags, "w") {
-            mode = mode | O_WRONLY | O_CREAT
-        }
-        
-
-        
-        f: *FILE = std.allocate(sizeof(FILE));
-        f.fd = open(filename, mode, file_flags)
-        f.ptr   = std.allocate(4096)
-        f.size  = read(f.fd, f.ptr, 4096)
-        f.start = f.ptr
-        f.end   = f.start + f.size
-        f.mode  = mode
-        f.flags = file_flags
-        return f;        
+impl std fopen :: (filename: imut *i8, _flags: imut *i8): *FILE {
+    // NOTE: to avoid _flags param ptr destruction
+    flags: cstr = _flags;
+    // TODO: parse flags
+    mode: i64 = S_IRUSR | S_IWUSR as i64;
+    file_flags: i64 = S_IRWXU | O_RDWR as i64;
+    if std.streq(flags, "r") {
+        mode = mode | O_RDONLY
     }
-
-    fclose :: (file: *FILE){
-        close(file.fd);
-    }    
+    if std.streq(flags, "w") {
+        mode = mode | O_WRONLY | O_CREAT
+    }
+    
+    
+    f: *FILE = std.allocate(sizeof(FILE));
+    f.fd = open(filename, mode, file_flags)
+    f.ptr   = std.allocate(4096)
+    f.size  = read(f.fd, f.ptr, 4096)
+    f.start = f.ptr
+    f.end   = f.start + f.size
+    f.mode  = mode
+    f.flags = file_flags
+    return f;        
 }
+
+impl std fclose :: (file: *FILE){
+    close(file.fd);
+}    
+
+
+impl std fputs :: (file: *FILE, msg: *i8): i64 
+{
+    std.fdputs(file.fd, msg)
+}
+
+impl std __init_basic_file_from_fd :: (fd: i64): *FILE {
+    ptr: *FILE = std.allocate(sizeof(FILE))
+    ptr.fd = fd
+    return ptr
+}
+
+// Integer value	Name
+// 0	    input	stdin
+// 1	    output	stdout
+// 2	    error	stderr
+stdout: *FILE = std.__init_basic_file_from_fd(__fd_stdout)
+stderr: *FILE = std.__init_basic_file_from_fd(__fd_stderr)
+stdin:  *FILE = std.__init_basic_file_from_fd(__fd_stdin)

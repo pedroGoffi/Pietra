@@ -30,6 +30,8 @@ impl std int_reverse :: (n: i64): i64{
 }
 
 impl std itocstr_base :: (d: i64, base: i64): mut *i8 {
+    if d == 0 return "0"
+    
     d_rev: i64 = std.int_reverse(d)   
     d_len: i64 = std.intlen(d)    
     str: mut *i8 = std.allocate(d_len + 1)        
@@ -76,7 +78,7 @@ impl std fdputi :: (fd: i64, x: i64){
 impl std puti :: (i: i64){        
     std.fdputi(__fd_stdout, i)
 }
-    
+
 
 impl std memcpy :: (dst: *i8, src: *i8, n: i64){
     i: i64 = 0
@@ -187,7 +189,7 @@ impl std cstrtok :: (str: mut *i8, delim: *i8){
     }    
     i = i + 1
   }
-  return null
+  return str
 }
 impl std cstrndup :: (s: imut *i8, n: i64): *i8 {
     // The  strdup()  function returns a pointer to a new string which is a duplicate of the string s.                  
@@ -255,3 +257,12 @@ impl String __eq__ :: (self: *Self, str: cstr){
     
 }
 
+impl std cstrcat :: (s1: *i8, s2: *i8): *i8 {
+    s1_len: i64 = std.strlen(s1)
+    s2_len: i64 = std.strlen(s2)
+    ret: *i8 = std.allocate(s1_len + s2_len + 1)
+    
+    std.memcpy(ret, s1, s1_len)
+    std.memcpy(ret + s1_len, s2, s2_len)
+    return ret
+}

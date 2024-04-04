@@ -1,0 +1,155 @@
+#package "pietra.selfhost_assembler"
+use std{std}
+use std{list}
+C_NONE      :: 0
+C_GET_ADDR  :: 1
+C_GOT_PROC  :: 2
+state: i64 = C_NONE
+out_buffer: *FILE = stdout
+
+__label_count: i64 = 0
+// Strings UTILS
+strings: *ll_list = init_ll_list_ptr()
+save_string_and_get_its_addr :: (str: *i8): i64 
+{
+    addr: i64 = strings.size
+    strings.push(str)
+    return addr
+}
+//////////////////////
+count :: (): i64
+{
+    __label_count = __label_count + 1
+    return __label_count
+}
+makeLabelAt :: (addr: i64): null
+{    
+    repr: cstr = std.cstrcat(".L", std.itocstr(addr))
+    repr = std.cstrcat(repr, ":\n")
+    std.fputs(out_buffer, repr)
+}
+
+
+makeLabel   :: (): null
+{
+    addr: i64 = count()
+    makeLabelAt(addr)
+}
+code: *ll_list = init_ll_list_ptr()
+commit :: (inst: *i8)
+{    
+    code.push(inst)
+    std.fputs(out_buffer, inst)
+}
+// RAX UTILS
+mov_rax_to_i64 :: (i: i64)
+{
+    inst: mut *i8 = std.cstrcat("\tmov rax, ", std.itocstr(i))
+    inst = std.cstrcat(inst, "\n")            
+    commit(inst)
+}
+mov_rax_to_string_addr :: (id: i64)
+{
+    inst: mut *i8 = std.itocstr(id)
+    inst = std.cstrcat("S", inst)
+    inst = std.cstrcat("\tmov rax, ", inst)
+    inst = std.cstrcat(inst, "\n")            
+    commit(inst)
+}
+add_to_rax :: (reg: *i8)
+{
+    inst: mut *i8 = "\tadd rax, "
+    inst = std.cstrcat(inst, reg)
+    inst = std.cstrcat(inst, "\n")
+    commit(inst)
+}
+////////////////////
+push :: (reg: *i8) 
+{
+    inst: mut *i8 = "\tpush "
+    inst = std.cstrcat(inst, reg)
+    inst = std.cstrcat(inst, "\n")    
+    commit(inst)
+}
+pop :: (reg: *i8)
+{
+    inst: mut *i8 = "\tpop "
+    inst = std.cstrcat(inst, reg)
+    inst = std.cstrcat(inst, "\n")    
+    commit(inst)
+}
+
+compile_expr :: (e: *Expr): null 
+{
+    inst: mut *i8
+    switch e.kind 
+    {
+        case EXPR_INT: 
+        {                
+            mov_rax_to_i64(e.int_lit)
+            
+        }
+        case EXPR_STRING: 
+        {                                    
+            str_id: i64 = save_string_and_get_its_addr(e.name_lit)
+            mov_rax_to_string_addr(str_id)            
+        }
+        case EXPR_BINARY:
+        {         
+            compile_expr(e.lhs)
+            push("rax")
+            compile_expr(e.rhs)
+            pop("rbx")
+            // rax :: lhs
+            // rbx :: rhs
+            add_to_rax("rbx") // rax = lhs + rhs
+
+        }
+        
+        default: 
+        {
+            std.puts("ERROR: Can't compile this expression.\n")
+            exit(1)
+        }
+    }
+    makeLabel()    
+}
+
+compile_stmt :: (s: *Stmt): null {
+    switch s.kind 
+    {
+        case STMT_EXPR: compile_expr(s.expr)
+        default:
+        {
+            std.puts("ERROR: Can't compile this statement.\n")
+            exit(1)
+        }
+    }
+}
+
+extend_string_db :: (inst: *mut *i8, str: *i8){
+    *inst = std.cstrcat(*inst, str)
+}
+compile_data_section :: (){
+    
+    if strings.size == 0     
+        return 0
+    
+    commit("segment .data\n")
+    i: mut *ll_node = strings.head
+    idx: i64 = 0
+    while i.value{
+        str: mut *i8 = i.value
+        str_size: i64 = std.strlen(str)
+        inst: mut *i8 = std.cstrcat("\tS", std.itocstr(idx))
+        inst = std.cstrcat(inst, ' db "')
+        j: i64 = 0                
+        extend_string_db(&inst, str)
+        inst = std.cstrcat(inst, '"\n')
+        
+        commit(inst)        
+
+        i = i.next
+        idx = idx + 1
+    }    
+}

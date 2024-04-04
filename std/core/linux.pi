@@ -2,12 +2,12 @@
 use std::core{types, struct_stat}
 use std::core{__internal}
 
-__fd_stdout                     :: 0
-__fd_stderr                     :: 1
-__fd_stdin                      :: 2
+__fd_stdin                      :: 0
+__fd_stdout                     :: 1
+__fd_stderr                     :: 2
 
 nullptr                         ::  null
-AT_FDCWD	                    ::  0
+AT_FDCWD	                    ::  -100
 MAP_SHARED                      ::  1 
 MAP_PRIVATE                     ::  2 
 PROT_READ                       ::  1 
@@ -337,9 +337,18 @@ read :: (fd: i64, buf: *null, count: i64): i64 {
 write :: (fd: i64, ptr: *null, size: i64){
     syscall(size, ptr, fd, SYS_write)
 }
-fstat :: (fd: i64, statbuf: *Stat): i64{
-    return syscall(fd, statbuf, SYS_fstat)
+
+
+mmap :: (addr: *i64, len: i64, prot: i64, flags: i64, fd: i64, offset: i64): any
+{
+    // %rax	System call	%rdi	%rsi	%rdx	%r10	%r8	%r9
+    // 9	sys_mmap	addr	len     prot	flags	fd	off
+    asm(";; HERE")
+    
+    return syscall(offset, fd, flags, prot, len, addr, SYS_mmap)
+    
 }
+
 brk :: (addr: *i64): i64 {    
     return syscall(addr, SYS_brk)
 }
@@ -352,10 +361,16 @@ sbrk :: (size: i64): *any{
 open :: (filename: cstr, flags: i64, mode: i64): i64 {    
     return syscall(mode, flags, filename, SYS_open)    
 }
+openat :: (dirfd: i64, pathname: imut *i8, flags: imut i64, mode: imut i64): mut i64 
+{
+    // %rax	        System call	%rdi	    %rsi	                %rdx	    %r10
+	// 257          sys_openat	int dfd	    const char *filename	int flags	int mode	    
+    return syscall(mode, flags, pathname, dirfd, SYS_openat)
+}
 socket :: (domain: i64, type: i64, protocol: i64): i64 { 
     return syscall(protocol, type, domain, SYS_socket);
 }
-accept :: (sockfd: i64, addr: *any, addrlen: i64): i64 {
+accept :: (sockfd: i64, addr: *any, addrlen: *i64): i64 {
     return syscall(addrlen, addr, sockfd, SYS_accept);
 }
 bind :: (sockfd: i64, addr: *any, addrlen: i64): i64 {

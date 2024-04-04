@@ -1,6 +1,23 @@
 #package "pietra.core.struct_stat"
+use std::core{linux}
 use std::core{types, types, struct_timespec}
 
+O_RDONLY    :: 0
+O_WRONLY    :: 1
+O_RDWR      :: 2
+O_CREAT     :: 64
+O_EXCL      :: 128
+O_TRUNC     :: 512
+O_APPEND    :: 1024
+S_ISUID     :: 2048
+S_ISGID     :: 1024
+S_ISVTX     :: 512
+S_IREAD     :: 256
+S_IWRITE    :: 128
+S_IEXEC     :: 64
+S_IRUSR     :: 256
+S_IWUSR	    :: 128
+S_IRWXU 	:: 448
 
 __S_ISUID		:: 04000	// Set user ID on execution.  
 __S_ISGID		:: 02000	// Set group ID on execution.  
@@ -16,27 +33,28 @@ type nlink_t    :: i64
 type off_t      :: i64
 type blksize_t  :: i64
 type blkcnt_t   :: i64
+type gid_t      :: i64
 type mode_t     :: i32
 type uid_t      :: i32
-type gid_t      :: i32
 
-Stat :: {
-    st_dev:     dev_t
-    st_ino:     ino_t
-    st_mode:    mode_t
-    st_nlink:   nlink_t
-    st_uid:     uid_t
-    st_gid:     gid_t
-    st_rdev:    dev_t
-    st_size:    off_t
-    st_atim:    timespec
-    st_mtim:    timespec
-    st_ctim:    timespec
-    st_blksize: blksize_t
-    st_blocks:  blkcnt_t
-    __pad1:     i64
-    __pad2:     i64
-    __pad3:     i64
-    
+__Glibc_reserved :: {
+    __d1: i64
+    __d2: i64
+    __d3: i64    
 }
-
+Stat :: {
+    st_dev:             dev_t
+    st_ino:             ino_t
+    st_nlink:           nlink_t
+    st_mode:            mode_t    
+    st_uid:             uid_t
+    st_gid:             gid_t
+    st_rdev:            dev_t
+    st_size:            off_t
+    st_blksize:         blksize_t
+    st_blocks:          blkcnt_t
+    st_atim:            timespec
+    st_mtim:            timespec
+    st_ctim:            timespec    
+    __glibc_reserved:   __Glibc_reserved
+}

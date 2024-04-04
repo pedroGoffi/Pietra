@@ -41,14 +41,13 @@ impl MEM_POLL {
 
     allocate :: (self: *Self, nbytes: i64): *any {
         if nbytes <= 0 return -1
-        if self.ptr + nbytes > self.blocks_end {
-            if self.grow() == -1 
-                return -1;
-        }
-
-        ptr: *any = self.ptr;        
+        if self.ptr + nbytes > self.blocks_end
+            if self.grow() == -1
+                return -1
+        
+        
         self.ptr = self.ptr + nbytes;
-        return ptr;
+        return self.ptr - nbytes;
     }    
 }
 

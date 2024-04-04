@@ -141,6 +141,7 @@ Type* type_proc(const char* name, SVec<TypeField*> params, Type* ret_type, bool 
     t->proc.params   = params;
     t->proc.ret_type = ret_type;
     t->proc.is_vararg = is_vararg;
+    t->ismut = ismut;
     return t;
 }
 Type* type_any(){

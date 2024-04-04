@@ -2,3 +2,22 @@
 use std{time}
 use std::core{struct_stat}
 
+
+fstat :: (fd: i64, statbuf: *Stat): i64{
+    return syscall(statbuf, fd, SYS_fstat)
+}
+
+map_file :: (filename: *i8): *i8 {
+    statbuf: Stat
+    fd: i64 = open(filename, O_RDONLY, 0644)    
+    fstat(fd, &statbuf)
+
+    // mmap(addr:*i64, len:i64, prot:i64, flags:i64, fd:i64, offset:i64):any
+    return mmap(
+        0, 
+        statbuf.st_size,
+        PROT_READ | PROT_WRITE,
+        MAP_PRIVATE,
+        fd,
+        nullptr)
+}

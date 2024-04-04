@@ -1,0 +1,51 @@
+#package "pietra.socket"
+use std{std}
+use std{math}
+
+AF_INET     :: 2
+SOCK_STREAM :: 1
+
+SocketAddrData :: {
+    __d1: i64 // 8
+    __d2: i32 // 12
+}
+SocketAddr :: {
+  sa_family:  i16
+  sa_data:    SocketAddrData
+}
+SocketAddr_in :: {
+  sin_family: i16 
+  sin_port:   i16
+  sin_addr:   i32 
+  sin_zero:   i64 
+}
+
+assert :: (v: i64, msg: *i8){
+  if not v 
+  {
+    std.puts(msg)
+    exit(1)
+  }
+}
+
+use std{bits}
+htons :: (s: i64): i64 
+{
+  return bor(shl(band(s, 255), 8), band(shr(s, 8), 255))
+}
+
+send :: (fd: i64, msg: *i8, flags: i64, count: i64){    
+    // rax	System call	%rdi	%rsi	            %rdx	
+    // 46	sys_sendmsg	int fd	struct msghdr *msg	unsigned flags
+    return syscall(fd, msg, flags, count, SYS_sendfile)
+}
+recv :: (fd: i64, msg: *i8, flags: i64){
+    // rax	System call	%rdi	%rsi	            %rdx	
+    // 47	sys_recvmsg	int fd	struct msghdr *msg	unsigned int flags	
+    return syscall(fd, msg, flags, SYS_recvmsg)
+}
+connect :: (fd: i64, sockaddr: *SocketAddr_in, addrlen: *i64){
+    // rax	System call	%rdi	%rsi	            %rdx	    
+    // 42	sys_connect	int fd	struct sockaddr *uservaddr	int addrlen    
+    return syscall(fd, sockaddr, addrlen, SYS_connect)
+}

@@ -1,4 +1,6 @@
+
 // TODO: move all Core::cstr(...) to an static variable to avoid being called a lot of times
+#include <experimental/internet>
 #ifndef ASMPLANG
 #define ASMPLANG
 #include "../include/Asmx86_64.hpp"
@@ -48,10 +50,10 @@ using namespace Ast;
 std::vector<Type*> stack;
 bool has_extern = false;
 const char* extern_paths = "";
-const char* argreg8[]  = {"dil", "sil", "dl", "cl", "r8b", "r9b"};
-const char *argreg16[] = {"di", "si", "dx", "cx", "r8w", "r9w"};
-const char *argreg32[] = {"edi", "esi", "edx", "ecx", "r8d", "r9d"};
-const char *argreg64[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
+const char* argreg8 [] = {"dil", "sil", "dl",  "r10b", "r8b", "r9b"};
+const char *argreg16[] = {"di",  "si",  "dx",  "r10w", "r8w", "r9w"};
+const char *argreg32[] = {"edi", "esi", "edx", "r10d", "r8d", "r9d"};
+const char *argreg64[] = {"rdi", "rsi", "rdx", "r10",  "r8",  "r9"};
 #define MAX_ARGREG 7
 
 X86Context ctx;
@@ -339,11 +341,16 @@ void makeLabel() {
                 else if(kind == Lexer::TK_LTE) {
                     println("cmovle rcx, rdx");
                 }
+                else {
+                    err("Couldn't compile this binary.\n");                    
+                    pPrint::expr(Utils::expr_binary(kind, lhs, rhs));                    
+                    exit(1);                    
+                }
                 println("mov rax, rcx");
 	        
                 return lhs_t;
             }            
-        }
+        }        
         pPrint::expr(Utils::expr_binary(kind, lhs, rhs));
         exit(1);
     }
@@ -434,12 +441,18 @@ void makeLabel() {
         }
     }      
                             
-    void store(){        
-        Type* ty = pop("rdi");
-
-        switch(ty->kind){
-            default:
-                println("mov [rdi], rax");
+    void store(){             
+        Type* type = pop("rdi");        
+        const char* word = get_word_size(type->size);        
+        if(type->size == 1)
+        {
+            println("mov [edi], %s\n",                
+                rax_reg_from_size(type->size));        
+        }
+        else {
+            println("mov %s [rdi], %s\n",
+                    word,
+                    rax_reg_from_size(type->size));        
         }
     }
 
@@ -489,21 +502,21 @@ void makeLabel() {
             const char* inst = "movs";
             if(type->size == 1){
 	            println("%sx rax, %s [rax]\n", 
-                inst,
-		        word);
+                    inst,
+		            word);
             } else if (type->size == 2){
 	            println("%sx rax, %s [rax]\n", 
-                inst,
-		        word);
+                    inst,
+		            word);
             }
             else if (type->size == 4){
 	            println("%sxd rax, %s [rax]\n",
-                inst,
-		        word);
+                    inst,
+		            word);
             }
             else {
     	        println("mov rax, %s [rax]\n",
-		        word);
+		            word);
             }
             return type;
         }
@@ -717,7 +730,7 @@ void makeLabel() {
                 return type_void();
             }
         }
-        if(args.len() > 0){
+        if(args.len() >= 0){
                 
             Type* base_t = compile_expr(base, state_none);        
             bool isVa  = false;
@@ -752,23 +765,23 @@ void makeLabel() {
                 //println("mov %s, rax", argreg64[id++]);        
             }        
             
-            
+                        
             for(Expr* arg: args){
                 Type* t = pop();
                 
                 switch(t->size){
                     case 1:
-                        println("mov %s, rax", argreg64[--id]);
+                        println("mov %s %s, rax", get_word_size(t->size), argreg8[--id]);
                         break;
                     case 2:
-                        println("mov %s, rax", argreg64[--id]);
+                        println("mov %s %s, rax", get_word_size(t->size), argreg16[--id]);
                         break;
                     case 4:
-                        println("mov %s, rax", argreg64[--id]);
+                        println("mov %s %s, rax", get_word_size(t->size), argreg32[--id]);
                         break;
                     case 8:
                     default:
-                        println("mov %s, rax", argreg64[--id]);
+                        println("mov %s %s, rax", get_word_size(t->size), argreg64[--id]);
                         break;
                 }                
             }
@@ -785,7 +798,10 @@ void makeLabel() {
         }
         else {                                    
             Type* base_t = compile_expr(base, state_none);        
-            assert(base_t->kind == TYPE_PROC);
+            if(base_t->kind != TYPE_PROC){
+                err("Expected base_t to be procedure but got %s", base_t->repr());
+                exit(1);
+            }
             println("call rax");
             return base_t->proc.ret_type;
         }
@@ -1211,7 +1227,6 @@ void makeLabel() {
         makeLabel(end_addr);
     }
     void compile_stmt(Stmt* stmt){
-
         switch(stmt->kind){
             case Ast::STMT_EXPR:    {
                 compile_expr(stmt->expr, state_none);                
@@ -1535,5 +1550,5 @@ void makeLabel() {
     }    
 }
 
-#undef printf
+#undef printfz
 #endif /*ASMPLANG*/

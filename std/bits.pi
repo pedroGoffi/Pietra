@@ -21,3 +21,10 @@ bor :: (x: i64, y: i64): i64{
     // rbx == y and rax == x
     return asm("or rax, rcx")
 }
+band :: (x: i64, y: i64): i64{
+    y
+    asm("mov rcx, rax")
+    x
+    // rbx == y and rax == x
+    return asm("and rax, rcx")
+}
