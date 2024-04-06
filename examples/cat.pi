@@ -1,24 +1,34 @@
 use std{std}
+use std{stat}
 
-fd_getText :: (fd: *null): cstr{    
-    ptr_len: i64 = 1024;
-    ptr: cstr = std.allocate(ptr_len);        
-    read(fd, ptr, ptr_len);            
-    return ptr;
+
+cat :: (filename: imut *i8) std.puts(map_file(filename))
+show_help :: ()
+{
+  std.puts("pcat is created using Pietra_lang\n")
+  std.puts("./pcat filename1 filename2 filename3\n")
+  std.puts("FLAGS:\n")
+  std.puts("    --help: shows this help menu\n")
+  std.puts("    We just have one flag\n")
 }
 
-cat :: (fn: cstr){    
-    fd: i64 = open(fn, O_RDONLY, 0);
-    text: cstr = fd_getText(fd);
-    std.puts(text)
-    std.puts("\n")
-    close(fd)    
-}
+main :: (argc: i64, argv: mut *cstr){
+    // Skips the program
+    argv = argv + 8
+    while argc 
+    {
+        flag: imut *i8  = *argv 
+        argv            = argv + 8
+        argc            = argc - 1
+        if std.cstrncmp(flag, "--help", 6) == 0
+        {
+          show_help()
+          return 0
+        }
 
-main :: (argc: i64, argv: *cstr){
-    if argc != 2 {
-        std.puts("Error pcat expects <program> <target>\n");
-        exit(1)
+        else
+        {
+          std.puts(flag)
+        }
     }
-    cat(argv[1])
 }

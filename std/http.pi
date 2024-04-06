@@ -1,11 +1,14 @@
 #package "pietra.http"
-use std{socket}
 
+use std{socket}
 HTTP_SERVER_BACKLOG: i64 = 1
 http_payload: mut *i8
 http :: {}
 impl http release_payload :: () http_payload = ""
-impl http append_payload :: (append_payload: *i8) http_payload = http_payload? std.cstrcat(http_payload, append_payload): append_payload    
+impl http append_payload :: (append_payload: *i8) 
+    http_payload = http_payload
+        ? std.cstrcat(http_payload, append_payload)
+        : append_payload    
 
 
 impl http commit_payload :: (fd: i64)
@@ -13,15 +16,16 @@ impl http commit_payload :: (fd: i64)
     std.fdputs(fd, http_payload)
     http.release_payload()
 }
+
 impl http send_html_to_fd :: (fd: i64, html: *i8)
 {
     http.release_payload()
     http.append_payload("HTTP/1.1 200 OK\r\n")
-    http.append_payload("Server: HTTP-Pietra\r\n")
-    http.append_payload("Content-Type: text/html\r\n")
-    http.append_payload("Connection: Closed\r\n\r\n")
+    http.append_payload("Connection: keep-alive\r\n")    
+    http.append_payload("Keep-Alive: timeout=5, max=1000")
+    http.append_payload("Content-Type: text/html\r\n")    
+    http.append_payload("Server: HTTP-Pietra\r\n\r\n")
     http.append_payload(html)
-
     std.puts("=> Sending HTML\n")    
     http.commit_payload(fd)
 }
@@ -29,12 +33,13 @@ impl http send_html_to_fd :: (fd: i64, html: *i8)
 
 HTTP_SERVER :: 
 {
-    addr:       mut SocketAddr_in
-    cli:        mut SocketAddr_in
-    addrlen:    mut i32
-    clilen:     mut i32
-    sockfd:     mut i32
-    connfd:     mut i32
+    addr:           mut SocketAddr_in
+    cli:            mut SocketAddr_in
+    addrlen:        mut i32
+    cli_handle:     mut proc(i64): i64
+    clilen:         mut i32
+    sockfd:         mut i32
+    connfd:         mut i32
 }
 SERVER_ERROR :: -1
 impl HTTP_SERVER new :: (ip: i64, port: i64): *Self {
@@ -46,21 +51,21 @@ impl HTTP_SERVER new :: (ip: i64, port: i64): *Self {
     addr.sin_family         = AF_INET
     addr.sin_addr           = ip    
     addr.sin_port           = htons(port)
-
+    
     std.puts("[]: Initializing the server\n")
-    std.puts("|\\--[]: Binding the server            .. ")
+    std.puts("\t||>[]: Binding the server            .. ")
     if not bind(serv.sockfd, addr, sizeof(SocketAddr_in)) == 0  return SERVER_ERROR
     std.puts("OK\n")
     
-    std.puts("|\\--[]: Starting listening            .. ")
+    std.puts("\t||>[]: Starting listening            .. ")
     if not listen(serv.sockfd, HTTP_SERVER_BACKLOG) == 0        return SERVER_ERROR
     std.puts("OK\n")
     
-    std.puts("|\\--[]: Awaiting to accept the Client .. ")
+    std.puts("\t||>[]: Awaiting to accept the Client .. ")
     serv.connfd = accept(serv.sockfd, &serv.cli, &serv.clilen)
     std.puts("OK\n")
-    std.puts("+--[*]: Server initialized and bound with the client!\n")
-    std.puts("---------------------------------------\n")
+    std.puts("||[*]: Server initialized and bound with the client!\n")
+    std.puts("---------------------------------------\n")    
     return serv
 }
 
@@ -73,3 +78,4 @@ impl HTTP_SERVER close :: (self: *Self)
 impl HTTP_SERVER send_html :: (self: *Self, html_data: *i8){
     http.send_html_to_fd(self.connfd, html_data)
 }
+

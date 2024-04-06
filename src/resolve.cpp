@@ -218,8 +218,7 @@ namespace Pietra::Resolver{
                                 fields.push(field);                                
                             }
                         } break;
-                            
-                                                        
+                                                    
                         default:
                             assert(0 && "undefined aggregate type.");                            
                     }
@@ -961,6 +960,11 @@ namespace Pietra::Resolver{
                         printf("[ERROR]: @string_comparator can't be used inside a impl method.\n");
                         exit(1);
                     }
+                    if(string_comparator){
+                        printf("[ERROR]: multiples definition of @string_comparator\n");
+                        exit(1);
+                    }
+                    
                     string_comparator = d;    
                 }
                 else {

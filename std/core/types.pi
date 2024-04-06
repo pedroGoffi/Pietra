@@ -4,4 +4,5 @@ type cstr           :: mut *i8
 type int            :: i64
 type pid_t          :: i64
 type ptrdiff_t      :: i64
-type time_t :: i64 
+type time_t         :: i64 
+type size_t         :: i64

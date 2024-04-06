@@ -53,13 +53,13 @@ namespace Pietra::Lexer{
     };
     const char* tokenKind_repr(tokenKind k);
     struct tokenPos{
-        const char* filename    = "<stdin>";
+        const char* filename    = "<stdin>";        
         int         col         = 0;
         int         line        = 0;
     };
     struct Token{    
         tokenKind   kind;            
-        tokenPos    pos;
+        tokenPos    pos;        
         const char* str_start;
         const char* str_end;
         const char* name;        

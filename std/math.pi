@@ -3,6 +3,7 @@ use std{std}
 
 impl std __mod :: (x: i64, y: i64): i64 {    
     // NOTE: till we don't have the % operator builtin in the code we do this little hack
+    return x % y
     x / y
     return asm("mov rax, rdx")
 }

@@ -39,10 +39,12 @@ send :: (fd: i64, msg: *i8, flags: i64, count: i64){
     // 46	sys_sendmsg	int fd	struct msghdr *msg	unsigned flags
     return syscall(fd, msg, flags, count, SYS_sendfile)
 }
-recv :: (fd: i64, msg: *i8, flags: i64){
-    // rax	System call	%rdi	%rsi	            %rdx	
-    // 47	sys_recvmsg	int fd	struct msghdr *msg	unsigned int flags	
-    return syscall(fd, msg, flags, SYS_recvmsg)
+
+recv :: (sockfd: i64, buf: *i8, len: i64, flags: i64): size_t
+{
+    // %rax	System call	    %rdi	  %rsi	              %rdx	
+    // 47	  sys_recvmsg	    int fd	struct msghdr *msg	unsigned int flags
+    return syscall(sockfd, buf, len, flags, SYS_recvmsg) 
 }
 connect :: (fd: i64, sockaddr: *SocketAddr_in, addrlen: *i64){
     // rax	System call	%rdi	%rsi	            %rdx	    

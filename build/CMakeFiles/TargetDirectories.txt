@@ -1,0 +1,3 @@
+/home/robot/Dev/PLang/Pietra/build/CMakeFiles/pi.dir
+/home/robot/Dev/PLang/Pietra/build/CMakeFiles/edit_cache.dir
+/home/robot/Dev/PLang/Pietra/build/CMakeFiles/rebuild_cache.dir

@@ -1,12 +1,14 @@
-cmake_minimum_required(VERSION 3.27)
+cmake_minimum_required(VERSION 3.25)
 project(
     PI
     VERSION 0.1.0
     LANGUAGES CXX
-    DESCRIPTION Programming Language
 )
+
+set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
+set(CMAKE_C_COMPILER "/usr/bin/clang")
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# General
-add_executable(pi src/main.cpp)
+add_executable(pi ../main.cpp)
+
