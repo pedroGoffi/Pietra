@@ -1,0 +1,1 @@
+/usr/bin/clang++ -Wall -Wextra -O3 CMakeFiles/pi.dir/main.cpp.o -o pi 

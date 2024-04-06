@@ -1,0 +1,7 @@
+[
+{
+  "directory": "/home/robot/Dev/PLang/Pietra/release",
+  "command": "/usr/bin/clang++   -Wall -Wextra -O3 -std=gnu++20 -o CMakeFiles/pi.dir/main.cpp.o -c /home/robot/Dev/PLang/Pietra/main.cpp",
+  "file": "/home/robot/Dev/PLang/Pietra/main.cpp"
+}
+]

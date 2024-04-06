@@ -12,23 +12,14 @@ show_help :: ()
   std.puts("    We just have one flag\n")
 }
 
-main :: (argc: i64, argv: mut *cstr){
-    // Skips the program
-    argv = argv + 8
-    while argc 
+main :: (argc: i64, argv: mut *cstr)
+{
+    if argc != 2
     {
-        flag: imut *i8  = *argv 
-        argv            = argv + 8
-        argc            = argc - 1
-        if std.cstrncmp(flag, "--help", 6) == 0
-        {
-          show_help()
-          return 0
-        }
-
-        else
-        {
-          std.puts(flag)
-        }
+      show_help()
+      std.puts("Cat err...\n")
+      exit(1)
     }
+
+    cat(argv[1])
 }
