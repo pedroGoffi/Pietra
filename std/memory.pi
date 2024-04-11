@@ -1,5 +1,6 @@
 #package "pietra.memory"
-use std{std, errno}
+use std{std}
+use std{errno_base}
 // A mem poll is a limited amount of memory that contains all the pointers that are allocated
 
 MEM_POLL_NUM_BLOCKS :: 20
@@ -30,7 +31,7 @@ impl MEM_POLL {
         
     grow :: (self: *Self){        
         if self.cap <= self.size 
-            return -1
+            return ENOMEM
 
         self.size           = self.size + 1;
         self.ptr            = self.blocks[self.size]
@@ -40,9 +41,9 @@ impl MEM_POLL {
     }
 
     allocate :: (self: *Self, nbytes: i64): *any {
-        if nbytes <= 0 return -1
+        if nbytes <= 0 return EBADALLOC
         if self.ptr + nbytes > self.blocks_end
-            if self.grow() == -1
+            if self.grow() == ENOMEM
                 return -1
         
         
@@ -53,7 +54,9 @@ impl MEM_POLL {
 
 std_MEM_POLL: MEM_POLL
 
-impl std allocate   :: (nbytes: i64): *any {
-    return std_MEM_POLL.allocate(nbytes)
-    
+impl std allocate   :: (nbytes: i64): *any return std_MEM_POLL.allocate(nbytes)
+impl std swap_ptr   :: (p1: *any, p2: *any) {
+    tmp: *any = *p1;
+    *p1 = *p2;
+    *p2 = tmp;
 }

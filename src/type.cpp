@@ -138,6 +138,7 @@ Type* type_union(SVec<TypeField*> fields, bool ismut){
 Type* type_proc(const char* name, SVec<TypeField*> params, Type* ret_type, bool is_vararg, bool ismut){    
     Type* t = type_init(TYPE_PROC, ismut);
     t->name = Core::cstr(name);
+    t->size = 8;
     t->proc.params   = params;
     t->proc.ret_type = ret_type;
     t->proc.is_vararg = is_vararg;

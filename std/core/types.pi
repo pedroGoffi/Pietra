@@ -6,3 +6,4 @@ type pid_t          :: i64
 type ptrdiff_t      :: i64
 type time_t         :: i64 
 type size_t         :: i64
+type addr_t         :: i64

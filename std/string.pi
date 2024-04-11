@@ -55,19 +55,19 @@ impl std itocstr_base :: (d: i64, base: i64): mut *i8 {
 
 impl std itocstr :: (d: i64): mut *i8 return std.itocstr_base(d, 10)
 
-
 impl std fdputs  :: (fd: i64, str: cstr){
     len: i64 = std.strlen(str);                
     write(fd, str, len)                    
 }
+
 impl std puts    :: (str: cstr){    
     std.fdputs(__fd_stdout, str)
 }    
 
 impl std putc :: (c: i64){
-    w: *i8 = " ";
-    w[0] = c;        
-    std.puts(w)
+    tmp: *i8 = " ";    
+    tmp[0] = c;        
+    std.puts(tmp)
 }
 
 impl std fdputi :: (fd: i64, x: i64){
@@ -79,6 +79,16 @@ impl std puti :: (i: i64){
     std.fdputi(__fd_stdout, i)
 }
 
+impl std memset :: (ptr: *i8, val: i64, size: i64): *i8{
+    // The memset() function returns a pointer to the memory area s.
+    i: i64 = 0
+    while i < size {
+        ptr[i] = val
+        i = i + 1
+    }
+    return ptr
+}
+// The memset() function fills the first n bytes of the memory area pointed to by s with the constant byte c.
 
 impl std memcpy :: (dst: *i8, src: *i8, n: i64){
     i: i64 = 0
@@ -153,18 +163,7 @@ impl std cstrtoi :: (str: mut *i8): i64 {
 
 
 
-impl std streq :: (s1: cstr, s2: cstr): i64 {
-    ls1: i64 = std.strlen(s1);
-    if ls1 != std.strlen(s2) return false
-    
-    i: i64 = 0;
-    while i < ls1 {
-        if s1[i] != s2[i] return false
-        i = i + 1;
-    }
-    return true;
 
-}
 impl std cstrncmp :: (s1: imut *i8, s2: imut *i8, size: i64): ptrdiff_t {
     // The  strcmp() function compares the two strings s1 and s2.  The locale is not taken into account (for a locale-
     // aware comparison, see strcoll(3)).  The comparison is done using *i8        
@@ -179,6 +178,32 @@ impl std cstrncmp :: (s1: imut *i8, s2: imut *i8, size: i64): ptrdiff_t {
     
     return size - i
 }
+impl std cstrcmp :: (s1: imut *i8, s2: *i8): ptrdiff_t
+{    
+    s1_len: i64 = std.strlen(s1)
+    s2_len: i64 = std.strlen(s2)    
+    return std.cstrncmp(
+        s1, 
+        s2, 
+        (s2_len > s1_len)
+        ? (s1_len)
+        : (s2_len))
+}
+impl std streq :: (s1: cstr, s2: cstr): i64 {
+    ls1: i64 = std.strlen(s1);
+    if ls1 != std.strlen(s2) return false    
+    i: i64 = 0;    
+
+    l2: i64 = std.strlen(s2)
+    while i < l2
+    {        
+        if s1[i] != s2[i] return false
+        i = i + 1;
+    }        
+    return true;    
+
+}
+
 impl std cstrtok :: (str: mut *i8, delim: *i8){
   str_sz: i64 = std.strlen(str)
   delim_sz: i64 = std.strlen(delim)
@@ -191,6 +216,8 @@ impl std cstrtok :: (str: mut *i8, delim: *i8){
   }
   return str
 }
+
+
 impl std cstrndup :: (s: imut *i8, n: i64): *i8 {
     // The  strdup()  function returns a pointer to a new string which is a duplicate of the string s.                  
     // Memory for the new string is obtained with std.allocate
@@ -246,14 +273,16 @@ impl std cstrncopy :: (dst: cstr, src: cstr, n: i64){
 }
 
 
-String :: {
-    data: mut *i8
-    size: mut i64
-}
+impl std mut_cstrtok :: (src: mut*mut* i8, delim: *i8): *i8 // returns a copy of the separated stream buffer
+{        
+    begin: *i8  = *src;    
+    *src         = std.cstrtok(*src, delim);    
+    // Perfom calculations
+    
+    if *src == begin 
+        return std.cstrndup(*src, std.strlen(*src))
 
-impl String __eq__ :: (self: *Self, str: cstr){
-    self.data = str;
-    self.size = std.strlen(self.data)
+    return std.cstrndup(begin, *src - begin)
     
 }
 
@@ -266,3 +295,27 @@ impl std cstrcat :: (s1: *i8, s2: *i8): *i8 {
     std.memcpy(ret + s1_len, s2, s2_len)
     return ret
 }
+impl std countdelim :: (_str: *i8, delim: *i8): i64 
+{
+    count: i64 = 0
+    str: mut *i8 = _str
+    begin: mut *i8  = str
+    offset: i64 
+
+    
+    do {
+        begin       = str
+        str         = std.cstrtok(str, delim) 
+        offset      = str - begin - 1         
+        count       = count + 1                                            
+    } while offset > 0
+    
+    return count
+}
+
+sized_string_buffer_t :: {
+    buffer: mut *mut * i8
+    size:   mut i64 
+    cap:    mut i64     
+}
+

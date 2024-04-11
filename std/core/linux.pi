@@ -352,11 +352,12 @@ mmap :: (addr: *i64, len: i64, prot: i64, flags: i64, fd: i64, offset: i64): any
 brk :: (addr: *i64): i64 {    
     return syscall(addr, SYS_brk)
 }
-sbrk :: (size: i64): *any{
-    heap_end: imut *any = asm("mov rax, __heap_end__");
-    *heap_end = *heap_end + size;
-    brk(*heap_end)
-    return *heap_end - size;
+sbrk :: (size: i64): *any
+{ 
+    
+    heap_ptr = heap_ptr + size
+    brk(heap_ptr)    
+    return heap_ptr - size;
 }
 open :: (filename: cstr, flags: i64, mode: i64): i64 {    
     return syscall(mode, flags, filename, SYS_open)    

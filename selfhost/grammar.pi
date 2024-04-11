@@ -1,0 +1,61 @@
+#package "pietra.selfhost.grammar"
+use selfhost{intern}
+
+
+KEYWORD_if          :: "_if"
+KEYWORD_elif        :: "_elif"
+KEYWORD_else        :: "_else"
+KEYWORD_while       :: "_while"
+KEYWORD_let         :: "_let"
+KEYWORD_const       :: "_const"
+KEYWORD_prep        :: "::"
+KEYWORD_proc        :: "_proc"
+KEYWORD_as          :: "_as"
+KEYWORD_return      :: "_return"
+KEYWORD_sizeof      :: "_sizeof"
+KEYWORD_struct      :: "_struct"
+KEYWORD_union       :: "_union"
+KEYWORD_enum        :: "_enum"
+KEYWORD_preprocess  :: "_preprocess"
+KEYWORD_use         :: "_use"
+KEYWORD_and         :: "_and"
+KEYWORD_or          :: "_or"
+KEYWORD_not         :: "_nNot"
+KEYWORD_for         :: "_for"
+KEYWORD_switch      :: "_switch"
+KEYWORD_type        :: "_type"
+KEYWORD_land        :: "_and"
+KEYWORD_lor         :: "_or"
+KEYWORD_case        :: "_case"
+KEYWORD_impl        :: "_impl"
+KEYWORD_default     :: "_default"
+KEYWORD_do          :: "_do"
+
+keyword_if          :imut *i8 = intern_str(KEYWORD_if)
+keyword_elif        :imut *i8 = intern_str(KEYWORD_elif)
+keyword_else        :imut *i8 = intern_str(KEYWORD_else)
+keyword_while       :imut *i8 = intern_str(KEYWORD_while)
+keyword_let         :imut *i8 = intern_str(KEYWORD_let)
+keyword_const       :imut *i8 = intern_str(KEYWORD_const)
+keyword_prep        :imut *i8 = intern_str(KEYWORD_prep)
+keyword_proc        :imut *i8 = intern_str(KEYWORD_proc)
+keyword_as          :imut *i8 = intern_str(KEYWORD_as)
+keyword_return      :imut *i8 = intern_str(KEYWORD_return)
+keyword_sizeof      :imut *i8 = intern_str(KEYWORD_sizeof)
+keyword_struct      :imut *i8 = intern_str(KEYWORD_struct)
+keyword_union       :imut *i8 = intern_str(KEYWORD_union)
+keyword_enum        :imut *i8 = intern_str(KEYWORD_enum)
+keyword_preprocess  :imut *i8 = intern_str(KEYWORD_preprocess)
+keyword_use         :imut *i8 = intern_str(KEYWORD_use)
+keyword_and         :imut *i8 = intern_str(KEYWORD_and)
+keyword_or          :imut *i8 = intern_str(KEYWORD_or)
+keyword_not         :imut *i8 = intern_str(KEYWORD_not)
+keyword_for         :imut *i8 = intern_str(KEYWORD_for)
+keyword_switch      :imut *i8 = intern_str(KEYWORD_switch)
+keyword_type        :imut *i8 = intern_str(KEYWORD_type)
+keyword_land        :imut *i8 = intern_str(KEYWORD_land)
+keyword_lor         :imut *i8 = intern_str(KEYWORD_lor)
+keyword_case        :imut *i8 = intern_str(KEYWORD_case)
+keyword_impl        :imut *i8 = intern_str(KEYWORD_impl)
+keyword_default     :imut *i8 = intern_str(KEYWORD_default)
+keyword_do          :imut *i8 = intern_str(KEYWORD_do)

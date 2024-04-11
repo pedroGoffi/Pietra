@@ -4,7 +4,7 @@ use std::core{list_struct}
 
 
 
-impl ll_list constructor :: (self: *Self){    
+impl ll_list constructor :: (self: *Self){        
     self.head = self.end    = std.allocate(sizeof(ll_node))
     head: *ll_node          = self.head;
     head.next               = self.end        
@@ -17,7 +17,20 @@ impl ll_list push :: (self: *Self, item: any){
     self.end            = ptr
     self.size           = self.size + 1
 }
+impl ll_list at :: (self: *Self, index: i64): *any {
+    if self.size < index {
+        std.puts("[ERROR]: ll_list.at index out of range\n")
+        exit(1)        
+    }
 
+    node: mut *ll_node = self.head
+    i: i64 = 0
+    while i < index {                    
+        node = node.next
+        i    = i + 1
+    }    
+    return &node.value
+}
 init_ll_list_ptr :: (): *ll_list {
     ll: mut *ll_list = std.allocate(sizeof(ll_list));
     ll.constructor()
@@ -34,6 +47,47 @@ ll_push :: (list: *ll_list, item: any){
 
 impl ll_list new :: (): *ll_list {
     ll: mut *ll_list = std.allocate(sizeof(ll_list));
-    ll.constructor()
+    ll.constructor()    
     return ll
+}
+
+
+impl ll_list swap :: (self: *Self, idx1: i64, idx2: i64): null {
+    v_idx1: *ll_node = self.at(idx1);
+    v_idx2:  *ll_node = self.at(idx2)
+    std.swap_ptr(&v_idx1.value, &v_idx2.value)
+}
+
+impl ll_list sort_by :: (self: *Self, sort_func: proc(i64, i64)){
+    i: i64 = 0
+    while i < self.size {
+        j: i64 = 0
+        while j < self.size {
+            vi: *ll_node = self.at(i)
+            vj: *ll_node = self.at(j)
+            
+            if sort_func(vi.value, vj.value){
+                self.swap(i, j)
+            }            
+            j = j + 1
+        }
+        i = i + 1
+    }
+    //n1: mut *ll_node = self.head 
+    //while n1.value {
+    //    n2: mut *ll_node = self.head 
+    //
+    //    while n2.value {
+    //        if sort_func(n1.value, n2.value){                
+    //            
+    //            //n1_v: *any = n1.value;
+    //            //n1.value = n2.value;
+    //            //n2.value = n1_v                
+    //        }
+    //        n2 = n2.next
+    //    }
+    //
+    //    n1 = n1.next
+    //}
+
 }

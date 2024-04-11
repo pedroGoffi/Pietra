@@ -37,7 +37,10 @@ namespace Pietra::Lexer {
     
 }
 
-
+const char* keyword_run         = cstr("run");
+const char* keyword_package     = cstr("package");
+const char* keyword_mut         = cstr("mut");
+const char* keyword_imut        = cstr("imut");
 const char* keyword_if          = cstr("if");
 const char* keyword_elif        = cstr("elif");
 const char* keyword_else        = cstr("else");

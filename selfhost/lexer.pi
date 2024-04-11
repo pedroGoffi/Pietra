@@ -1,5 +1,6 @@
 #package "pietra.lexer"
 use selfhost{token, ast, intern}
+use selfhost{grammar}
 
 StreamInfo ::  {
     stream: cstr
@@ -13,68 +14,60 @@ init_stream :: (str: cstr){
     next_token();    
 }
 
-skip_empty      :: (){
-    if not *stream return 0    
-    switch *stream {
-        case ' ', '\t', '\n': {
-            stream = stream + 1
-        }
+isspace :: (n: i64): i64 {
+    switch n {
+        case ' ', '\t', '\n':   return true
+        default:                return false
     }
+
+
+}
+skip_empty      :: (){
+    while isspace(*stream) stream = stream + 1    
+}
+at_comment_begin :: (){
+    return std.cstrncmp(stream, "//", 2) == 0
 }
 skip_comment    :: (){
-    if *stream == '/' {
-        if *(stream + 1) == '/' {
-            while *stream {
-                if *stream == '\n' {
-                    stream = stream + 1;
-                    skip_empty();
-                }
-                stream = stream + 1;
-            }
-        }
+    if at_comment_begin()
+    {
+        while not(*stream == '\0') + (*stream == '\n')
+            stream = stream + 1
     }
+    skip_empty();
+    if(at_comment_begin()) skip_comment()
+    
 }
 
 next_token      :: (){    
-    std.puts("-- NEXT TOKEN\n")
-    std.puts("STREAM AT = ")
-    std.putc(*stream)
-    std.puts("\n")
     skip_empty();
-    skip_comment();       
-    
+    skip_comment();           
+    while isspace(*stream) stream = stream + 1
+    token.start = stream; 
 
-    token.start = stream;    
-    if *stream == 0 {
-        token.kind = TK_EOF;
-        return 0;
-    }        
     switch *stream {        
         case 'a'...'z', 'A'...'Z', '_': {                        
-            while is_keyword(*stream){
-                std.putc(*stream)
+            while is_keyword(*stream){                
                 stream = stream + 1;
-            }               
+            }                           
             token.end = stream;
+            stream = stream + 1
             token.kind = TK_NAME
-            token.name = std.cstrndup(token.start, token.end - token.start)
-                        
+            token.name = intern_range(token.start, token.end)                                    
             
-        }
-
+        }    
         case '0'...'9': {
             while is_numeric(*stream){
                 stream = stream + 1
             }
             token.end = stream;
             token.kind = TK_INT
-            token.name = intern_range(token.start, token.end);            
+            token.name = intern_range(token.start, token.end);
         }
 
 
         case '+': {
-            std.puts("Got an token ADD == \n")
-            dump(TK_ADD)
+            std.puts("Got an token ADD == \n")            
             stream = stream + 1;
             token.kind = TK_ADD
             token.end = stream;
@@ -93,7 +86,7 @@ next_token      :: (){
                 token.kind = TK_DOT
             }
         }
-        case '=':{
+        case '=': {
             token.kind = TK_EQ
             stream = stream + 1
             token.name = "="            
@@ -105,8 +98,15 @@ next_token      :: (){
         }
         case ':': {
             token.kind = TK_DDOT
-            stream = stream + 1
-            token.name = ";"            
+            token.name = ":"            
+            stream = stream + 1            
+
+            if *stream == ':' {                                
+                token.name = "::"
+                token.kind = TK_PREP                
+                stream = stream + 1            
+                
+            }            
         }
         
         case '"': {
@@ -186,8 +186,8 @@ expects_kind    :: (kind: TokenKind): i64 {
     return false
 }
 // TODO
-escape_to_char  :: ();
-scan_string     :: (): cstr
+escape_to_char  :: (c: i64);
+scan_string     :: (): *i8
 {
     if *stream != '"' {
         std.puts("[ERROR]: expected string\n")
@@ -195,7 +195,7 @@ scan_string     :: (): cstr
     }    
     stream = stream + 1
 
-    begin: cstr = stream    
+    begin: cstr = stream        
     while *stream != '"' {
         if not *stream {
             std.puts("[ERROR - 1]: expected end of the string but got EOF\n")
@@ -207,15 +207,11 @@ scan_string     :: (): cstr
     if *stream != '"' {
         std.puts("[ERROR]: expected end of the string but got EOF\n")
         exit(1)
-    }
-    
+    }    
     end: cstr = stream
     stream = stream + 1
-      
-    str_len: i64 = end - begin
-    buffer: cstr = std.allocate(str_len)
-    std.cstrncopy(buffer, begin, str_len)          
-    return buffer
+
+    return intern_range(begin, end)    
 }
 
 scan_char       :: ();
@@ -223,3 +219,4 @@ scan_int        :: ();
 scan_int_base   :: ();
 scan_float      :: ();
 char_to_int     :: ();
+

@@ -13,9 +13,6 @@ The resolver will
 #include "pprint.cpp"    
 #include "bridge.cpp"
 #include "preprocess.cpp"
-#include <clocale>
-#include <cstdio>
-#include <cstring>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -118,6 +115,7 @@ namespace Pietra::Resolver{
         Sym* s  = arena_alloc<Sym>();        
         s->type = Utils::type_unresolved();
         s->kind = kind;        
+        // useless 
         s->impls.self = s;
         return s;
     }
@@ -186,7 +184,6 @@ namespace Pietra::Resolver{
 
                 // Global scoped procedure
                 sym->type = type_proc(sym->name, params, ret, decl->proc.is_vararg, true);
-
                 break;
             }
             case Ast::DECL_AGGREGATE:   {

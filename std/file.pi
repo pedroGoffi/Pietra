@@ -24,12 +24,12 @@ impl std fopen :: (filename: imut *i8, _flags: imut *i8): *FILE {
     flags: cstr = _flags;
     // TODO: parse flags
     mode: i64 = S_IRUSR | S_IWUSR as i64;
-    file_flags: i64 = S_IRWXU | O_RDWR as i64;
+    file_flags: i64 = 0644 // S_IRWXU | O_RDWR as i64;
     if std.streq(flags, "r") {
         mode = mode | O_RDONLY
     }
     if std.streq(flags, "w") {
-        mode = mode | O_WRONLY | O_CREAT
+        mode = mode | O_WRONLY
     }
     
     

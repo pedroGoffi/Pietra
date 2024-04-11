@@ -1,0 +1,368 @@
+#package "pietra.selfhost.resolver"
+use std{std}
+use selfhost{ast, bridge}
+
+Val :: {
+    i8:     i8
+    i16:    i16
+    i32:    i32
+    i64:    i64
+    ptr:    *any
+}
+
+SymImpl :: {
+    self: *any      // *Sym
+    body: *ll_list  // list of *Sym
+}
+
+
+SYM_UNRESOLVED  :: 0
+SYM_RESOLVING   :: 1
+SYM_RESOLVED    :: 2
+
+SYM_NONE        :: 0
+SYM_VAR         :: 1
+SYM_CONST       :: 2
+SYM_PROC        :: 3
+SYM_AGGREGATE   :: 4
+SYM_TYPE        :: 5
+SYM_ENUM        :: 6
+SYM_ENUM_CONST  :: 7
+SYM_CONSTEXPR   :: 8
+SYM_TYPE_ALIA   :: 9
+Sym     :: {
+    state:  i64
+    kind:   i64
+    name:   mut *i8
+    decl:   mut *Decl
+    expr:   mut *Expr
+    type:   mut *Type
+    val:    Val
+    impls:  SymImpl
+}
+impl Sym new :: (kind: i64): *Self
+{
+    s: *Sym = std.allocate(sizeof(Sym))
+    s.kind = kind
+    return s
+}
+Operand :: {
+    type:       mut *Type
+    is_lvalue:  mut i64
+    is_const:   mut i64
+    val:        mut Val
+}
+
+impl Operand new :: (type: *Type, is_lvalue: i64, is_const: i64, val: Val)
+{
+    op: *Operand        = std.allocate(sizeof(Operand))
+    op.type             = type
+    op.is_lvalue        = is_lvalue
+    op.is_const         = is_const
+    // Force var change
+    op.val as mut any   = val 
+    return op
+}
+
+operand_lvalue :: (type: *Type, val: Val): *Operand 
+{
+    //return Operand.new(type, true, false, val)
+}
+////////////////////////////////////////////////////////////
+//  The resolver will
+//  [1]: order the AST
+//  [2]: TODO: type checking
+//  [3]: TODO: const evaluation    
+////////////////////////////////////////////////////////////
+
+ctx_impl: i64 = false
+str_comparator: *Decl = null
+// TODO: note in structs
+Syms:       *ll_list = init_ll_list_ptr() // SVec<Sym*>
+localSyms:  *ll_list = init_ll_list_ptr() // SVec<Sym*>
+final_ast:  *ll_list = init_ll_list_ptr() // SVec<Decl*>
+packages:   *ll_list = init_ll_list_ptr() // SVec<PPackage*>
+
+// TODO: get_package :: (name: imut *i8): *PPackage
+
+sym_get :: (name: imut *i8): *Sym 
+{
+    node: mut *ll_node = Syms.head
+    while node.value
+    {
+        sym: *Sym = node.value                
+        if name == sym.name 
+        {
+            return sym
+        }                    
+        
+        node = node.next
+    }
+
+    return null
+}
+sym_from_decl :: (name: imut *i8, decl: imut *Decl): *Sym
+{
+    std.puts("\tCreating a Sym: '")
+    std.puts(name)
+    std.puts("'.\n")
+    if sym_get(name) 
+    {
+        std.puts("[ERROR]: The name: '")
+        std.puts(name)
+        std.puts("' is already declared in this scope.\n")
+        exit(1)
+    }
+    kind: i64 = 0
+    type: *Type
+    switch decl.kind 
+    {
+        case DECL_CONSTEXPR:
+        {
+            kind = SYM_CONSTEXPR
+        }   
+        case DECL_ENUM:
+        {
+            kind = SYM_ENUM
+        }
+        case DECL_VAR: 
+        {
+            // TODO: resolve typespec
+        }
+    }    
+    sym: *Sym   = Sym.new(kind)
+   
+    
+    sym.name    = name    
+    sym.type    = type
+    sym.decl    = decl
+    return sym
+}
+// EXPR 
+resolve_name :: (name: *i8): *Operand
+{
+    sym: *Sym = sym_get(name)
+    if not sym {
+        std.puts("[ERROR]: the name '")
+        std.puts(name)
+        std.puts("' is not declared in this scope.\n")
+        exit(1)                
+    }
+
+
+    // impl Constexpr find :: (name: *i8): *Constexpr
+    if ce: *Constexpr = Constexpr.find(sym.name)
+    {
+        return resolve_expr(ce.expr)
+    }
+}
+@todo("typechecker")
+resolve_init_var :: (name: *i8, ts: *TypeSpec, rhs: *Expr, is_local: i64, is_param: i64): *Operand {
+        ts
+        asm("mov rdi, rax")
+    t: *Type = asm("call resolve_typespec")
+
+    if is_local or is_param {
+        s: *Sym //= sym_var(name, t, rhs)
+        localSyms.push(s)
+        var: *Var = Var.new_local(s.name, s.type, s.expr, Var.allocate_on_stack(t.size))
+        cp_allocate_var_on_cp(var)
+    }
+
+    else {
+        std.puts("Global variables are not implemented yet\n")
+        exit(1)
+    }
+    return null
+}
+resolve_binary :: (e: *Expr): *Operand {
+    // TODO: do this    
+    lhs: *Operand = resolve_expr(e.lhs)
+    rhs: *Operand = resolve_expr(e.rhs)
+    return lhs
+    
+}
+resolve_expr    :: (e: *Expr): *Operand
+{
+    switch e.kind 
+    {
+        case EXPR_INT:      return operand_lvalue(type_int(64), e.int_lit)
+        case EXPR_STRING:   return operand_lvalue(type_string(), e.name_lit)
+        case EXPR_NAME:     return resolve_name(e.name_lit)
+        case EXPR_BINARY:   return resolve_binary(e)
+        case EXPR_INIT_VAR: return resolve_init_var(e.name_lit, e.type, e.rhs, true, false)
+        default:
+        {            
+            std.puts("Idk how to resolve this expression.\n")
+            exit(1)
+        }
+    }
+}
+resolve_stmt    :: (s: *Stmt)
+{
+    switch s.kind 
+    {
+        case STMT_EXPR: resolve_expr(s.expr)
+        default:
+        {
+            std.puts("Idk how to resolve this stmt.\n")
+            exit(1)
+        }
+    }
+}
+resolve_stmt_block :: (block: *ll_list)
+{
+    node: mut *ll_node = block.head
+    while node.value 
+    {
+        resolve_stmt(node.value)
+        node = node.next
+    }
+}
+decay_typespec :: (ts: *TypeSpec): *TypeSpec
+{
+    if ts.kind == TYPESPEC_CONST    return ts.base
+    if ts.kind == TYPESPEC_POINTER  return ts.base
+    
+    return ts
+}
+resolve_typespec_check_int_size :: (ts: *TypeSpec, sz: i64): *Type 
+{
+    if sz ==  8 or sz == 16 or sz == 32 or sz == 64
+    {
+        str: mut *i8 = "i"
+        str = std.cstrcat(str, std.itocstr(sz))
+                
+        if std.streq(ts.name, str) 
+        {
+            ts.resolved_type = type_int(sz, true)
+            return true
+        }
+    }
+    else {
+        std.puts("<Internal error> Integer typs must be 8. 16. 32. 64 bits.\n")
+        exit(1)
+    }
+    
+    
+    return false
+    
+}
+resolve_typespec :: (ts: mut *TypeSpec): *Type 
+{            
+    if ts == null {                
+        ts = TypeSpec.new_name("i64")
+        return resolve_typespec(ts)
+    }
+
+    switch ts.kind 
+    {
+        case TYPESPEC_NAME:
+        {           
+            
+            if   resolve_typespec_check_int_size(ts, 8){
+                return ts.resolved_type
+            } elif resolve_typespec_check_int_size(ts, 16){
+                return ts.resolved_type
+            } elif resolve_typespec_check_int_size(ts, 32){
+                return ts.resolved_type
+            } elif resolve_typespec_check_int_size(ts, 64){
+                return ts.resolved_type
+            }
+            
+            std.puts("Undefined type: '")
+            std.puts(ts.name)
+            std.puts("'.\n")
+            exit(1)
+        }
+
+        default:
+        {
+            std.puts("[ERROR]: Couldn't resolve typespec...\n")
+            exit(1)
+        }
+    }
+}
+
+declare_ast :: (ast: *ll_list)    
+{
+    node: mut *ll_node = ast.head   
+    while node.value 
+    {
+        decl: *Decl = node.value
+        // TODO: Check if decl is an import or move it to lexing stage                
+
+        sym: *Sym = sym_from_decl(decl.name, decl)
+        Syms.push(sym)        
+        node = node.next
+    }
+}
+resolve_constexpr :: (d: *Decl){
+    define_name(d.name)
+    Constexpr.store(d.name, d.expr)
+}
+@todo("params resolving")
+resolve_proc :: (name: *i8, p: *DeclProc)
+{    
+    ret: *Type = resolve_typespec(p.ret)
+    params: *ll_list = ll_list.new()     
+    Proc.new(name, ret, params)
+
+    resolve_stmt_block(p.block)
+}
+resolve_decl    :: (d: *Decl)
+{
+    if not d {
+        std.puts("Where my d bro?\n")
+        exit(1)
+    }
+    
+    switch d.kind 
+    {        
+        case DECL_CONSTEXPR:    resolve_constexpr(d)        
+        case DECL_PROC:         
+        {            
+            resolve_proc(d.name, d.proc)
+        }
+        default: 
+        {
+            std.puts("Idk how to resolve this shit\n")
+            exit(1)
+        }
+    }
+}
+resolve_sym     :: (sym: *Sym){
+    if not sym {
+        std.puts("Where is sym bro??\n")
+        exit(1)
+    }
+
+    if      sym.state == SYM_RESOLVED   
+        return sym
+
+    elif    sym.state == SYM_RESOLVING {        
+        std.puts("Error: Found a cyclic dependence at: ")
+        std.puts(sym.name)
+        std.puts("'\n")
+        exit(1)
+    }
+    
+    sym.state = SYM_RESOLVING
+    if sym.decl {
+        resolve_decl(sym.decl)
+        final_ast.push(sym.decl)
+    }    
+
+    sym.state = SYM_RESOLVED        
+    return sym
+}
+resolve_ast     :: (ast: *ll_list)
+{
+    declare_ast(ast)    
+
+    node: mut *ll_node = Syms.head
+    while node.value {
+        resolve_sym(node.value)
+        node = node.next
+    }
+}

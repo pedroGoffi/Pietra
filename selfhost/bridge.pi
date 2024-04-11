@@ -1,0 +1,192 @@
+#package "pietra.selfhost.bridge"
+use std{std}
+use std::core{types}
+use selfhost{ast}
+
+defined_names:      *ll_list = ll_list.new()
+tmp_defined_names:  *ll_list = ll_list.new()
+
+raise_exception_if      :: (cond: i64, desc: *i8){
+    if cond {
+        std.puts("Raised exception: ")
+        std.puts(desc)
+        std.puts("\n")
+        exit(1)
+    }
+}
+
+check_name_redefinition :: (str: imut *i8){
+    node: mut *ll_node = defined_names.head
+
+    while node.value 
+    {
+        if std.streq(str, node.value) return true
+        node = node.next
+    }
+
+    return false
+}
+
+define_name :: (name: *i8){
+    if check_name_redefinition(name)
+    {
+        std.puts("<ERROR>: the name '")
+        std.puts(name)
+        std.puts("' is already declared.\n")
+        exit(1)
+    }
+
+    defined_names.push(name)
+}
+
+
+Constexpr :: {    
+    name: mut *i8
+    expr: mut *Expr
+}
+Constexpr_list: *ll_list = ll_list.new()
+impl Constexpr new :: (name: *i8, e: *Expr ): *Constexpr
+{
+    ce: *Constexpr  = std.allocate(sizeof(Constexpr))
+    ce.name         = name
+    ce.expr         = e
+    return ce
+}
+impl Constexpr find :: (name: *i8): *Constexpr
+{
+    node: mut *ll_node = Constexpr_list.head 
+    while node.value 
+    {
+        ce: *Constexpr = node.value
+        if std.streq(ce.name, name)        
+            return ce
+
+        node = node.next
+    }
+    return null
+}
+impl Constexpr store :: (name: *i8, e: *Expr)
+{
+    if Constexpr.find(name)
+    {
+        std.puts("<Internal error>: Why the fuck is '")
+        std.puts(name)
+        std.puts("' is already declared in constexpr?\n")
+        exit(1)        
+    }
+    
+    ce: *Constexpr = Constexpr.new(name, e)    
+    Constexpr_list.push(ce)
+}
+Var :: {
+    name:           mut *i8
+    type:           mut *Type
+    opt_init:       mut *Expr
+    is_global:      mut i64
+    stack_offset:   mut i64 // if is local
+}
+impl Var __new__       :: (is_global: i64, name: *i8, type: *Type, init: *Expr){
+    v: *Var = std.allocate(sizeof(Var))
+    v.name = name
+    v.type = type 
+    v.opt_init = init
+    v.is_global = is_global    
+    return v
+}
+
+__VAR_STACKA_ALLOCATION: i64 = 0
+impl Var allocate_on_stack :: (size: i64): addr_t {
+    __VAR_STACKA_ALLOCATION = __VAR_STACKA_ALLOCATION + size
+    return __VAR_STACKA_ALLOCATION - size
+}
+impl Var new_local  :: (name: *i8, type: *Type, init: *Expr, stack_offset: i64){
+    v: *Var = Var.__new__(false, name, type, init)
+    v.stack_offset = stack_offset
+    return v
+}
+impl Var new_global :: (name: *i8, type: *Type, init: *Expr){
+    v: *Var = Var.__new__(true, name, type, init)
+    return v
+}
+
+Proc :: {
+    name:               mut *i8
+    is_recursive:       mut i64
+    stack_allocation:   mut i64
+    ret_type:           mut *Type
+    params:             mut *ll_list // *Var
+    locals:             mut *ll_list // *Var
+}
+current_proc: mut *Proc = std.allocate(sizeof(Proc))
+Proc_list: *ll_list = ll_list.new()
+
+
+cp_allocate_var_on_list :: (list: *ll_list, var: *Var): addr_t{
+    dump(list)
+    if not list {
+        list.constructor()
+    }
+    list.push(var)
+    return var.stack_offset
+}
+cp_allocate_var_on_cp :: (var: *Var): addr_t
+{
+    t: *Type = var.type    
+    current_proc.stack_allocation = current_proc.stack_allocation + t.size
+    return current_proc.stack_allocation - t.size
+    
+}
+impl Proc new :: (name: *i8, ret_type: *Type, params: *ll_list): *Proc 
+{
+    proc: *Proc = std.allocate(sizeof(Proc))
+    proc.name = name
+    proc.stack_allocation = 0
+    proc.ret_type = ret_type
+    proc.params = params    
+    
+    current_proc = proc
+    Proc_list.push(proc)
+    return proc
+}
+impl Proc find :: (name: i64): *Proc 
+{
+    node: mut *ll_node = Proc_list.head
+    while node.value     
+    {
+        proc: *Proc = node.value
+        if name == proc.name 
+            return proc
+        node = node.next
+    }
+    return null
+}
+
+STATE_NONE      :: 0
+STATE_GET_ADDR  :: 1
+STATE_GOT_PROC  :: 2
+
+State :: {
+    state: i64
+}
+
+impl State is       :: (self: *Self, k: i64){
+    return self.state == k
+}
+impl State set      :: (self: *Self, k: i64){
+    self.state = k
+}
+impl State expect   :: (self: *Self, k: i64){
+    if self.is(k){
+        self.set(STATE_NONE)
+        return true
+    }
+
+    return false
+}
+
+Global_strings: *ll_list = ll_list.new()
+create_global_string :: (str: *i8): addr_t {    
+    addr: addr_t = Global_strings.size
+    Global_strings.push(str)    
+    return addr
+}

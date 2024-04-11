@@ -1,6 +1,9 @@
 #package "pietra.selfhost_assembler"
 use std{std}
 use std{list}
+use std::core{types}
+use selfhost{ast}
+
 C_NONE      :: 0
 C_GET_ADDR  :: 1
 C_GOT_PROC  :: 2
@@ -8,16 +11,8 @@ state: i64 = C_NONE
 out_buffer: *FILE = stdout
 
 __label_count: i64 = 0
-// Strings UTILS
-strings: *ll_list = init_ll_list_ptr()
-save_string_and_get_its_addr :: (str: *i8): i64 
-{
-    addr: i64 = strings.size
-    strings.push(str)
-    return addr
-}
 //////////////////////
-count :: (): i64
+addr_count :: (): i64
 {
     __label_count = __label_count + 1
     return __label_count
@@ -26,13 +21,13 @@ makeLabelAt :: (addr: i64): null
 {    
     repr: cstr = std.cstrcat(".L", std.itocstr(addr))
     repr = std.cstrcat(repr, ":\n")
-    std.fputs(out_buffer, repr)
+    commit(repr)    
 }
 
 
 makeLabel   :: (): null
 {
-    addr: i64 = count()
+    addr: i64 = addr_count()
     makeLabelAt(addr)
 }
 code: *ll_list = init_ll_list_ptr()
@@ -42,6 +37,15 @@ commit :: (inst: *i8)
     std.fputs(out_buffer, inst)
 }
 // RAX UTILS
+sub_reg_by_i64 :: (reg: *i8, by: i64)
+{
+    inst: mut *i8 = "\tsub "
+    inst = std.cstrcat(inst, reg)
+    inst = std.cstrcat(inst, ", ")
+    inst = std.cstrcat(inst, std.itocstr(by))
+    inst = std.cstrcat(inst, "\n")
+    commit(inst)
+}
 mov_rax_to_i64 :: (i: i64)
 {
     inst: mut *i8 = std.cstrcat("\tmov rax, ", std.itocstr(i))
@@ -49,7 +53,7 @@ mov_rax_to_i64 :: (i: i64)
     commit(inst)
 }
 mov_rax_to_string_addr :: (id: i64)
-{
+{    
     inst: mut *i8 = std.itocstr(id)
     inst = std.cstrcat("S", inst)
     inst = std.cstrcat("\tmov rax, ", inst)
@@ -60,6 +64,21 @@ add_to_rax :: (reg: *i8)
 {
     inst: mut *i8 = "\tadd rax, "
     inst = std.cstrcat(inst, reg)
+    inst = std.cstrcat(inst, "\n")
+    commit(inst)
+}
+get_addr_str :: (addr: addr_t): imut *i8 
+{
+    addr_str: mut *i8 = ".L"
+    addr_str = std.cstrcat(addr_str, std.itocstr(addr))
+    return addr_str
+}
+jmp_inst :: (j_inst: imut *i8, addr: addr_t)
+{
+    inst: mut *i8 = "\t"
+    inst = std.cstrcat(inst, j_inst)
+    inst = std.cstrcat(inst, " ")
+    inst = std.cstrcat(inst, get_addr_str(addr))
     inst = std.cstrcat(inst, "\n")
     commit(inst)
 }
@@ -78,8 +97,22 @@ pop :: (reg: *i8)
     inst = std.cstrcat(inst, "\n")    
     commit(inst)
 }
+compile_name    :: (name: *i8): *Type 
+{
+    if ce: *Constexpr = Constexpr.find(name) return compile_expr(ce.expr)
 
-compile_expr :: (e: *Expr): null 
+    std.puts("Idk this name bruh\n")
+    exit(1)
+}
+compile_local_var :: (name: *i8, ty: *Type, init: *Expr): *Type {    
+    commit(";; TODO: get current_proc and variable\n")
+
+    if init {
+        compile_expr(init)
+    }
+    return ty
+}
+compile_expr :: (e: *Expr): *Type
 {
     inst: mut *i8
     switch e.kind 
@@ -91,7 +124,7 @@ compile_expr :: (e: *Expr): null
         }
         case EXPR_STRING: 
         {                                    
-            str_id: i64 = save_string_and_get_its_addr(e.name_lit)
+            str_id: i64 = create_global_string(e.name_lit)
             mov_rax_to_string_addr(str_id)            
         }
         case EXPR_BINARY:
@@ -105,6 +138,8 @@ compile_expr :: (e: *Expr): null
             add_to_rax("rbx") // rax = lhs + rhs
 
         }
+        case EXPR_NAME:     return compile_name(e.name_lit)
+        case EXPR_INIT_VAR: return compile_local_var(e.name_lit, e.type, e.rhs)
         
         default: 
         {
@@ -114,11 +149,26 @@ compile_expr :: (e: *Expr): null
     }
     makeLabel()    
 }
+@todo("Struct TYPE")
+compile_if :: (If: *STStmt_if){
+    end_addr: addr_t = addr_count()
+    ifClause: *IfClause = If.ifClause    
+    cond: *Type = compile_expr(ifClause.cond)
+    commit("\tcmp rax, 0\n")
+    jmp_inst("je", end_addr)
 
-compile_stmt :: (s: *Stmt): null {
+
+}
+@todo("CBridge in .pi files")
+compile_stmt :: (s: *Stmt): null {    
     switch s.kind 
-    {
+    {        
         case STMT_EXPR: compile_expr(s.expr)
+        case STMT_IF:   compile_if(s.if)
+        case STMT_RETURN: {
+            compile_expr(s.expr)            
+            jmp_inst("jmp", 69)
+        }
         default:
         {
             std.puts("ERROR: Can't compile this statement.\n")
@@ -126,17 +176,24 @@ compile_stmt :: (s: *Stmt): null {
         }
     }
 }
-
+compile_block :: (b: *ll_list)
+{
+    node: mut *ll_node = b.head
+    while node.value 
+    {
+        compile_stmt(node.value)
+        node = node.next
+    }
+}
 extend_string_db :: (inst: *mut *i8, str: *i8){
     *inst = std.cstrcat(*inst, str)
 }
-compile_data_section :: (){
-    
-    if strings.size == 0     
+compile_data_section :: (){    
+    if Global_strings.size == 0     
         return 0
     
     commit("segment .data\n")
-    i: mut *ll_node = strings.head
+    i: mut *ll_node = Global_strings.head
     idx: i64 = 0
     while i.value{
         str: mut *i8 = i.value
@@ -152,4 +209,81 @@ compile_data_section :: (){
         i = i.next
         idx = idx + 1
     }    
+}
+
+
+compile_decl_proc :: (name: *i8, proc: *DeclProc){
+    current_proc = Proc.find(name)
+    if not current_proc 
+    {
+        std.puts("<Internal error> Couldn't find procedure.\n")
+        exit(1)
+    }
+    commit(name)    commit(":\n")
+    commit(".PB.")  commit(name) commit(":\n")    
+    push("rbp")    
+    commit("\tmov rbp, rsp\n")
+    if current_proc.stack_allocation > 0 
+    {
+        sub_reg_by_i64("rsp", current_proc.stack_allocation)
+    }
+    compile_block(proc.block)
+    commit(".PE.")  commit(name) commit(":\n")
+
+    commit("\tleave\n")
+    commit("\tret\n")
+}
+compile_decl :: (d: *Decl) 
+{
+    if not d
+        return -1 
+    
+    switch d.kind 
+    {
+        // Ignore this should be setup in resolve step
+        case DECL_CONSTEXPR: 
+        {
+            inst: mut *i8 = "\t;; MACRO for '"
+            inst = std.cstrcat(inst, d.name)
+            inst = std.cstrcat(inst, "'\n")
+
+            commit(inst)
+        } 
+        case DECL_PROC: compile_decl_proc(d.name, d.proc)
+        default: 
+        {
+            std.puts("Idk how to compile this shit.\n")
+            exit(1)
+        }            
+    }
+}
+compile_ast :: (ast: *ll_list){
+    commit("BITS 64\n")
+    commit("segment .text\n")
+    commit("global _start:\n")
+    
+    decl: mut *ll_node = ast.head    
+    while decl.value
+    {
+        compile_decl(decl.value)
+        decl = decl.next
+    } 
+
+    // Compile globals
+    // TODO
+    // global: mut *ll_node = globals.head
+    // while global.value 
+    // {
+    //     // TODO: compile global
+    //     global = global.next
+    // }
+
+    commit("_start:\n")
+    // TODO: Initialize global data
+    //call_proc("main")
+    commit("\tcall main\n")
+    mov_rax_to_i64(60)    
+    commit("\tsyscall\n")
+    compile_data_section()    
+    // Compile to binary    
 }

@@ -6,19 +6,10 @@ use std{stat}
 
 INADDR_ANY    :: 0
 LOCAL_HOST_IP :: 16777343 // af_inet("127.0.0.1")
-SERVER_PORT   :: 8081
+SERVER_PORT   :: 6969
 
 
-main :: ()
-{
-  port: i64 = SERVER_PORT  
-  
-  while not server: mut *HTTP_SERVER  = HTTP_SERVER.new(LOCAL_HOST_IP, SERVER_PORT)
-    server = HTTP_SERVER.new(LOCAL_HOST_IP, port = port + 1)
-  
-  std.puts("Port: ")
-    std.puti(port)
-    std.puts("\n")
-
-  server.send_html(map_file("examples/server_html.html"))      
+main :: (){  
+  server: *HTTP_SERVER = HTTP_SERVER.new(LOCAL_HOST_IP, SERVER_PORT)  
+  server.send_html(map_file("examples/server_html.html"))
 }

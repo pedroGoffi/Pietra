@@ -11,3 +11,41 @@ impl std __mod :: (x: i64, y: i64): i64 {
 
 impl std isBetweenI64 :: (test: i64, begin: i64, end: i64) 
     return (begin - 1 < test) + (test < end + 1)
+
+
+RAND_MAX :: 32767
+random_next: i64 = 1
+impl std srand :: (seed: i64) {
+    random_next = seed
+}
+
+impl std rand_from  :: (x: i64): i64 {
+    return (x * 1103515245 + 12345) % (RAND_MAX + 1);
+}
+impl std rand       :: (): i64 {
+    return (random_next = std.rand_from(random_next))
+    //return ((random_next = random_next * 1103515245 + 12345) % (RAND_MAX + 1));
+}
+
+impl std random_range :: (begin: i64, end: i64){
+    // rand() % (max_number + 1 - minimum_number) + minimum_number
+    return std.rand() % (end + 1 - begin) + begin
+}
+
+RandomGenerator :: {
+    seed: i64    
+}
+impl RandomGenerator {
+    constructor :: (self: *Self){
+        self.seed = time(null)
+
+    }
+
+    random :: (self: *Self): i64 {
+        return (self.seed = std.rand_from(self.seed))
+    }
+
+    random_range :: (self: *Self, begin: i64, end: i64): i64 {        
+        return (self.random() % (end - begin + 1) + begin)
+    }    
+}

@@ -1,5 +1,34 @@
 use std{std}
 use std{list}
+SIZE :: 10
 
-main :: () list_test()
+impl std lt :: (first: i64, second: i64) return first < second
+impl std gt :: (first: i64, second: i64) return first > second
+
+
+
+
+main :: () {
+    std.srand(time(null))
+    l: *ll_list = init_ll_list_ptr()
+    i: i64 = 0
+    rg: RandomGenerator
+    while i < SIZE {        
+        l.push(rg.random_range(0, 50))
+        //l.push(std.random_range(0, 20))
+        i = i + 1
+    }
+    // TODO: Fix this in compiler
+    l.sort_by(std.lt)
+    
+    i = 0
+    while i < SIZE {
+        value: *i64 = l.at(i)
+        std.puts("Got value: ");        
+        dump(*value)
+        i = i + 1
+    }
+
+    
+}
     

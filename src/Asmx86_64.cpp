@@ -1,8 +1,6 @@
-
-// TODO: move all Core::cstr(...) to an static variable to avoid being called a lot of times
-#include <experimental/internet>
 #ifndef ASMPLANG
 #define ASMPLANG
+
 #include "../include/Asmx86_64.hpp"
 #include "pprint.cpp"
 #include "resolve.cpp"
@@ -22,8 +20,16 @@
             __x = true;                     \
         }                                   \
     }               
-#define AGGREGATE_CONSTRUCTOR_WORD  "constructor"
-#define AGGREGATE_DELETER_WORD      "delete"
+
+const char* AGGREGATE_CONSTRUCTOR_WORD  = Core::cstr("constructor");
+const char* AGGREGATE_DELETER_WORD      = Core::cstr("delete");
+const char* keyword_asm                 = Core::cstr("asm");
+const char* keyword_syscall             = Core::cstr("syscall");
+const char* keyword_dump                = Core::cstr("dump");
+const char* keyword_warn                = Core::cstr("warn");
+const char* keyword_extern              = Core::cstr("extern");
+const char* keyword_main                = Core::cstr("main");
+
 #define DEBUG_MODE  false
 #if DEBUG_MODE
 #   define __OUT stdout
@@ -548,12 +554,11 @@ void makeLabel() {
     }
     
     void compile_aggregate_constructor(CVar* var, Sym* constructor){
-        // TODO: make the variable childs call for its constructor
-        const char* cons_name = constructor->name;        
+        // TODO: make the variable childs call for its constructor        
         Expr* base  = Utils::expr_name(var->name);                    
         compile_expr(base, state_none);
         println("mov rdi, rax");        
-        Expr* e     = Utils::expr_field_access(base, Utils::expr_name(Core::cstr(AGGREGATE_CONSTRUCTOR_WORD)));
+        Expr* e     = Utils::expr_field_access(base, Utils::expr_name(AGGREGATE_CONSTRUCTOR_WORD));
         compile_expr(e, state_none);                            
         println("call rax");        
     }
@@ -608,7 +613,7 @@ void makeLabel() {
 
     Type* compile_call(Expr* base, SVec<Expr*> args, CState& state){                    
         if(base->kind == EXPR_NAME){
-            if(base->name == Core::cstr("asm")){
+            if(base->name == keyword_asm){
                 println(";; NOTE: inline asm here.\n");
                 for(Expr* arg: args){
                     if(arg->kind != Ast::EXPR_STRING){
@@ -653,7 +658,7 @@ void makeLabel() {
                 return compile_expr(e, state_none);
             }
     
-            if(base->name == Core::cstr("syscall")){
+            if(base->name == keyword_syscall){
                 int len = args.len();
                 if(len > 1){
                     assert(len <= MAX_ARGREG);
@@ -670,59 +675,8 @@ void makeLabel() {
                 compile_expr(args.back(), state);
                 println("syscall");
                 return type_int(64, true);
-            }
-            
-            else if(base->name == Core::cstr("va_begin")){                
-                assert(args.len() == 1);
-                Expr* e = args.at(0);                
-                Type* v = compile_expr(e, state);
-                if(v->kind != TYPE_PTR){
-                    err("[ERROR]: va_next expects a pointer.\n");
-                    exit(1);
-                }
-                push("rax", v);
-                // NOTE: rsp + 8 is the return addr then we add 8
-                println("mov rax, rbp");
-                println("add rax, 16");                
-                println("mov rax, [rax]");
-                println("mov QWORD [__va_offset__], 16");
-                store();
-                return type_void();
-            }   
-
-            else if(base->name == Core::cstr("va_next")){
-                assert(args.len() == 1);
-                Expr* e = args.at(0);                
-                Type* v = compile_expr(e, state_none);
-                if(v->kind != TYPE_PTR){
-                    err("[ERROR]: va_next expects a pointer.\n");
-                    exit(1);
-                }
-                push("rax", v);
-                println("mov rbx, __va_offset__");
-                println("mov rax, [rbx]");
-                println("add rax, 8");
-                println("mov [__va_offset__], rax");
-                println("mov rax, rbp");
-                println("mov rbx, [rbx]");
-                println("add rax, rbx");
-                println("mov rax, [rax]");                                
-                store();
-                return v;
-            }
-            else if(base->name == Core::cstr("va_end")){
-                assert(args.len() == 1);
-                Expr* e = args.at(0);                
-                Type* v = compile_expr(e, state_none);
-                if(v->kind != TYPE_PTR){
-                    err("[ERROR]: va_next expects a pointer.\n");
-                    exit(1);
-                }                
-                println("mov QWORD [rax], 0");
-                println("mov QWORD [__va_offset__], 16");
-                return type_void();
-            }
-            else if(base->name == Core::cstr("dump")){
+            }                        
+            else if(base->name == keyword_dump){
                 assert(args.len() == 1);
                 compile_expr(args.at(0), state_none);
                 println("mov rdi, rax");
@@ -1210,11 +1164,25 @@ void makeLabel() {
                         println("je .L%i", case_end_addr);
                         continue;
                     }                    
-                    
-                    err("Cant compile parrern name yet %s.\n", p->name);
-                    exit(1);                    
+                    assert(p->name);
+                    Sym* sym = sym_get(p->name);                        
+                    if(CConstexpr* ce = CBridge::find_constexpr(sym->name)){
+                        if(ce->expr->kind == EXPR_INT){
+                            compile_expr(s->stmt_switch.cond, state_none);
+                            println("cmp rax, %li\n", ce->expr->int_lit);
+                            println("jne .L%i", case_end_addr);                            
+                            goto compile_body;
+                        }
+                    }
+                    else
+                    {                    
+                        err("Cant compile parrern name yet %s.\n", p->name);
+                        exit(1);                    
+                    }
                 }                
             }
+
+            compile_body:
             makeLabel(case_begin_addr);
             compile_block(c->block);
             println("jmp .L%i", end_addr);
@@ -1351,22 +1319,22 @@ void makeLabel() {
         err("deleter of %s\n", var->name);
         Expr* e = Utils::expr_field_access(
             Utils::expr_name(var->name), 
-            Utils::expr_name(Core::cstr(AGGREGATE_DELETER_WORD)));
-        
+            Utils::expr_name(AGGREGATE_DELETER_WORD));
+                        
         compile_expr(e, state_none);
         println("call rax");
     }
     void compile_decl_proc(Decl* d){        
         if(d->proc.is_internal) return;
-        if(d->name == Core::cstr("dump")) return;
+        if(d->name == keyword_dump) return;
         for(Note* note: d->notes){
-            if(note->name == Core::cstr("warn")){
+            if(note->name == keyword_warn){
                 for(Expr* arg: note->args){
                     assert(arg->kind == Ast::EXPR_STRING);
                     err("[WARN]: %s\n", arg->string_lit);
                 }
             }
-            else if(note->name == Core::cstr("extern")) {
+            else if(note->name == keyword_extern) {
                 has_extern = true;
                 if(note->args.len() != 1){
                     printf("[ERROR]: extern expects the path to the .asm of the extern file.\n");
@@ -1417,8 +1385,42 @@ void makeLabel() {
                 Sym* local_type_sym = sym_get(local->type->name);
                 if(local_type_sym){
                     SymImpl& impls = local_type_sym->impls;            
-                    if(Sym* del = impls.find(AGGREGATE_DELETER_WORD)){                                         
-                        compile_variable_deleter(local, del);                
+                    if(Sym* del = impls.find(AGGREGATE_DELETER_WORD)){                                                                 
+                        Type* t = local_type_sym->type;
+                        assert(t->kind == TYPE_STRUCT);
+
+                        int stack_offset = 0;
+                        if(0){
+                            for(TypeField* tf: t->aggregate.items){
+                                Sym* child_sym = sym_get(tf->type->name);
+                                stack_offset += tf->type->size;
+
+                                if(Sym* child_killer = child_sym->impls.find(AGGREGATE_DELETER_WORD)){
+                                    if(stack_offset > 0){
+                                        lea(local);
+                                        println("add rax, %i", stack_offset)
+                                        load(local, state_none);
+                                        // println("mov rax, [rax]")
+                                    }
+                                    else {
+                                        //lea(local);
+                                        mov(local);
+                                    }
+
+                                    // Dummy allocation
+                                    CVar* child_var = new CVar {
+                                        child_sym->name,
+                                        child_sym->type,
+                                        nullptr,
+                                        false,
+                                        stack_offset                                    
+                                    };
+                                    compile_variable_deleter(child_var, child_killer);
+                                }                            
+                            }
+                        }
+                        // Delete the parent struct
+                        compile_variable_deleter(local, del);                                        
                     }                
                 }
             }
@@ -1494,7 +1496,7 @@ void makeLabel() {
 
 
         printlb("_start");
-        CProc* pmain = GetProc(Core::cstr("main"));
+        CProc* pmain = GetProc(keyword_main);
         if(!pmain){
             err("[ERROR]: Expected the 'main' procedure to be declared\n");
             exit(1);

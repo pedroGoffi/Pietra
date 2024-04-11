@@ -2,6 +2,125 @@
 use std{list}
 type ExprKind :: i64
 
+TYPE_NONE                   ::  0
+TYPE_UNRESOLVED             ::  1
+TYPE_VOID                   ::  2
+TYPE_ANY                    ::  3
+TYPE_FIRST_ARITHMETRIC_TYPE ::  4
+TYPE_I8                     ::  5
+TYPE_I16                    ::  6
+TYPE_I32                    ::  7
+TYPE_I64                    ::  8
+TYPE_F32                    ::  9
+TYPE_F64                    :: 10
+TYPE_LAST_ARITHMETRIC_TYPE  :: 11
+TYPE_PTR                    :: 12
+TYPE_ARRAY                  :: 13
+TYPE_STRUCT                 :: 14
+TYPE_UNION                  :: 15
+TYPE_PROC                   :: 16
+TYPE_CONST                  :: 17
+TYPE_SELF                   :: 18
+TYPE_ENU                    :: 19
+
+TypeField :: {
+    name: imut *i8
+    type: *any // *Type
+}
+TypeArray :: {
+    base: *any // *Type
+    size: i64
+}
+
+TypeProc :: {
+    params:     *ll_list
+    ret_type:   *any // *Type
+    is_varags:  i64
+}
+TypeAggregate :: {
+    is_union:   i64
+    size:       i64
+    items:      *ll_list // TypeField
+}
+Type :: {
+    kind:       i64
+    name:       *i8
+    size:       i64
+    isSelf:     i64
+    isMut:      i64
+    isRef:      i64
+    base:       *any            // *Type
+    array:      *TypeArray
+    proc:       *TypeProc
+    aggregate:  *TypeAggregate
+}
+impl Type new :: (kind: i64, is_mut: i64): *Type 
+{
+    t: *Type = std.allocate(sizeof(Type))
+    t.kind = kind
+    t.isMut = is_mut    
+    return t
+}
+get_type_int_kind :: (sz: i64): i64
+{
+    switch sz {
+        case 8:     return TYPE_I8
+        case 16:    return TYPE_I16
+        case 32:    return TYPE_I32
+        case 64:    return TYPE_I64
+        default:    
+        {
+            std.puts("Type int wrong size in get_type_int_kind.\n")
+            exit(1)
+        }
+    }
+}
+type_int :: (sz: i64, is_mut: i64): *Type
+{
+    t: *Type = Type.new(get_type_int_kind(sz), is_mut)
+    t.size = sizeof(i64)
+    return t
+}
+type_ptr :: (base: *Type, is_mut: i64): *Type 
+{
+    t: *Type = Type.new(TYPE_PTR, is_mut)
+    t.size = sizeof(i64)
+    t.base as any = base
+    return t
+}
+type_string :: (is_mut: i64): *Type 
+{
+    return type_ptr(type_int(8, is_mut), is_mut)
+}
+
+TYPESPEC_NONE       :: 0
+TYPESPEC_NAME       :: 1
+TYPESPEC_POINTER    :: 2
+TYPESPEC_ARRAY      :: 3
+TYPESPEC_PROC       :: 4
+TYPESPEC_CONST      :: 5
+TYPESPEC_TEMPLATE   :: 6
+
+NULL_T_NAME :: "null"
+
+TypeSpec :: {    
+    kind:           i64
+    name:           mut *i8
+    base:           *any
+    resolved_type:  mut *any // *Type   
+}
+impl TypeSpec new        :: (kind: i64): *Self 
+{
+    ts: *TypeSpec = std.allocate(sizeof(TypeSpec))
+    ts.kind = kind
+    return ts
+}
+impl TypeSpec new_name   :: (name: *i8): *Self 
+{
+    ts: *TypeSpec = TypeSpec.new(TYPESPEC_NAME)
+    ts.name = name    
+    return ts
+}
 
 
 EXPR_NONE                   :: 0
@@ -32,163 +151,8 @@ Expr :: {
     name_lit:   cstr    
     lhs:        mut *i64 // Expr
     rhs:        mut *i64 // Expr
+    type:       mut *TypeSpec
 }
-
-
-spaces: i64 = 0
-IDENT_LVL   :: 1
-ident       :: (){
-    i: i64 = 0
-    while i < spaces * IDENT_LVL {
-        std.putc(' ')
-        i = i + 1
-    }
-
-}
-expr_print :: (e: *Expr){                    
-    switch e.kind {
-        case EXPR_INT: {                        
-            std.puts("<Int: ");            
-            std.puts(std.itocstr(e.int_lit))            
-            std.puts(">\n")            
-        }
-        case EXPR_NAME: {                
-            std.puts("<Name: ")
-            std.puts(e.name_lit)
-            std.puts(">\n");            
-        }    
-        case EXPR_BINARY: {
-            std.puts("<Binary ")
-            expr_print(e.lhs)
-            std.puts("\t")
-            expr_print(e.rhs)
-            std.puts(">\n")
-        }
-        default: {
-            std.puts("Idk how to print this...\n")
-            dump(e.kind)
-            exit(1)
-        }    
-    }
-}
-
-
-
-STMT_NONE   :: 0
-STMT_EXPR   :: 1
-STMT_IF     :: 2
-// TODO: implementation node STMT_SWITCH
-// TODO: implementation node STMT_FOR
-// TODO: implementation node STMT_WHILE
-// TODO: implementation node STMT_RETURN
-
-
-
-IfClause :: {
-    cond:           mut *Expr
-    block:          mut *ll_node
-}
-ifClause_print :: (ic: *IfClause){
-    std.puts("{\n")
-    expr_print(ic.cond)
-
-    i: i64 = 0
-    block: mut *ll_node = ic.block;
-    while *block.value  {
-        *block.value
-        asm("mov rdi, rax")
-        asm("call stmt_print")
-        block = block.next
-
-    } 
-    exit(1)
-    
-    std.puts("TODO: print block\n")
-    std.puts("}\n")
-}
-ifClause_init :: (cond: mut *Expr, block: *ll_node): *IfClause {
-    clause: *IfClause   = std.allocate(sizeof(IfClause))
-    clause.cond         = cond
-    clause.block        = block
-    return clause
-}
-STStmt_if :: {   
-    ifClause:               mut* IfClause
-    elif_clauses:   mut*    mut* IfClause   // List of clauses
-    else_block:     mut*    mut* null    
-}
-STStmt_if_init :: (ifClause: *IfClause, elifs: **IfClause, elseb: **null){
-    st_if: *STStmt_if       = std.allocate(sizeof(STStmt_if))
-    st_if.ifClause          = ifClause
-    st_if.elif_clauses      = elifs
-    st_if.else_block        = elseb
-    return st_if
-}
-Stmt :: {    
-    kind:   i64
-    expr:   mut *Expr    
-    if:     mut *STStmt_if
-}
-stmt_print :: (s: *Stmt){
-    switch(s.kind){
-        case STMT_NONE: std.puts("<NONE>")            
-        case STMT_EXPR: {
-            std.puts("<Stmt Expr: ")
-            expr_print(s.expr)
-            std.puts(">\n")
-        }
-        case STMT_IF: {
-            std.puts("<Stmt IF: ")
-            ifc: *STStmt_if = s.if            
-            
-            std.puts(">\n")
-        }
-        default: {
-            std.puts("stmt_print, idk how to print this")
-            exit(1)
-        }
-        
-
-    }
-}
-
-TypeSpecKind :: enum {
-    TYPESPEC_NONE
-    TYPESPEC_NAME
-    TYPESPEC_POINTER
-    TYPESPEC_ARRAY
-    TYPESPEC_PROC
-    TYPESPEC_CONST
-    TYPESPEC_TEMPLAT
-}
-
-TypeSpecVal :: union {}
-TypeSpec :: {    
-    kind:   TypeSpecKind
-    base:   *any
-    as:     TypeSpecVal    
-}
-
-DeclKind :: enum {
-    DECL_NONE
-    DECL_VAR
-    DECL_PROC
-    DECL_AGGREGATE
-    DECL_ENUM
-    DECL_USE
-    DECL_TYPE
-    DECL_CONSTEXPR
-    DECL_IMPL
-}
-
-DeclVal :: union {}
-Decl :: {
-    kind:   DeclKind
-    name:   cstr
-    as:     DeclVal
-}
-
-
 expr_init :: (kind: i64): *Expr {
     e: *Expr = std.allocate(sizeof(Expr));
     e.kind = kind;    
@@ -223,6 +187,51 @@ expr_binary :: (kind: TokenKind, lhs: *Expr, rhs: *Expr){
     return e
 }
 
+expr_var :: (name: *i8, ts: *TypeSpec, rhs: *Expr): *Expr {
+    e: *Expr    = expr_init(EXPR_INIT_VAR)
+    e.name_lit  = name
+    e.type      = ts
+    // To avoid segfault in the compiler
+    e.rhs  as any = rhs
+    return e
+}
+
+STMT_NONE   :: 0
+STMT_EXPR   :: 1
+STMT_IF     :: 2
+STMT_RETURN :: 3
+// TODO: implementation node STMT_SWITCH
+// TODO: implementation node STMT_FOR
+// TODO: implementation node STMT_WHILE
+
+IfClause :: {
+    cond:           mut *Expr
+    block:          mut *ll_node
+}
+
+ifClause_init :: (cond: mut *Expr, block: *ll_node): *IfClause {
+    clause: *IfClause   = std.allocate(sizeof(IfClause))
+    clause.cond         = cond
+    clause.block        = block
+    return clause
+}
+STStmt_if :: {   
+    ifClause:               mut* IfClause
+    elif_clauses:   mut*    mut* IfClause   // List of clauses
+    else_block:     mut*    mut* null    
+}
+STStmt_if_init :: (ifClause: *IfClause, elifs: **IfClause, elseb: **null){
+    st_if: *STStmt_if       = std.allocate(sizeof(STStmt_if))
+    st_if.ifClause          = ifClause
+    st_if.elif_clauses      = elifs
+    st_if.else_block        = elseb
+    return st_if
+}
+Stmt :: {    
+    kind:   i64
+    expr:   mut *Expr    
+    if:     mut *STStmt_if
+}
 
 stmt_init :: (kind: i64): *Stmt {
     s: *Stmt = std.allocate(sizeof(Stmt));
@@ -234,9 +243,72 @@ stmt_expr :: (e: *Expr){
     s.expr = e
     return s
 }
-
+stmt_return :: (e: *Expr){
+    s: *Stmt = stmt_init(STMT_RETURN)
+    s.expr = e
+    return s
+}
 stmt_if :: (ifClause: *IfClause, elifs: **IfClause, elseb: **null): *Stmt {
     s: *Stmt = stmt_init(STMT_IF)    
     s.if = STStmt_if_init(ifClause, elifs, elseb)    
     return s
 }
+
+
+
+
+DECL_NONE       :: 0 
+DECL_VAR        :: 1 
+DECL_PROC       :: 2 
+DECL_AGGREGATE  :: 3 
+DECL_ENUM       :: 4 
+DECL_USE        :: 5 
+DECL_TYPE       :: 6 
+DECL_CONSTEXPR  :: 7 
+DECL_IMPL       :: 8 
+
+DeclProc :: {
+    params: mut *ll_list
+    block:  mut *ll_list
+    ret:    mut *TypeSpec  
+}
+impl DeclProc new :: (params: *ll_list, block: *ll_list, ret: *TypeSpec): *Self 
+{
+    d: *DeclProc = std.allocate(sizeof(DeclProc))
+    d.params    = params
+    d.block     = block
+    d.ret       = ret
+    return d
+}
+
+Decl :: {
+    kind:  i64
+    name:  mut *i8
+    proc:  mut *DeclProc
+    // For constexpr 
+    expr:  mut *any
+}
+
+impl Decl new :: (kind: i64, name: *i8)
+{
+    d: *Decl = std.allocate(sizeof(Decl))
+    d.name = name
+    d.kind = kind
+    return d
+}
+
+decl_proc :: (name: imut *i8, params: *ll_list, ret: *Type, block: *ll_list, is_internal: i64): *Decl
+{
+    d: *Decl = Decl.new(DECL_PROC, name);
+    d.proc = DeclProc.new(params, block, ret)    
+    return d
+}
+
+impl Decl decl_constexpr :: (name: imut *i8, constexpr: *any): *Decl 
+{
+    d: *Decl = Decl.new(DECL_CONSTEXPR, name);
+    d.expr = constexpr
+    return d
+}
+
+

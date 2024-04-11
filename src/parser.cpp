@@ -39,7 +39,7 @@ Expr* literal_expr_assign(const char* name){
 
 Expr* literal_expr(){
     if(is_kind(TK_NAME)){
-        if(token.name == Core::cstr("switch")){
+        if(token.name == keyword_switch){
             Stmt* st_switch = stmt_switch();
             return Utils::expr_switch(
                 st_switch->stmt_switch.cond, 
@@ -397,14 +397,14 @@ TypeSpec* typespec(){
         return Utils::typespec_pointer(typespec(), token);
     } else if(token.name == keyword_proc){        
         return proc_type();
-    } else if(token.name == Core::cstr("mut")){
+    } else if(token.name == keyword_mut){
         next();
         TypeSpec* ts = typespec();
         ts->mutablity = true;
         return ts;        
     } 
     // NOTE: imut is equivalent to const 
-    else if(token.name == Core::cstr("imut") or token.name == Core::cstr("const")){
+    else if(token.name == keyword_imut or token.name == keyword_const){
         next();
         TypeSpec* ts = typespec();
         ts->mutablity = false;
@@ -1009,7 +1009,7 @@ Decl* parse_comptime(){
         exit(1);
     }
 
-    if(token.name == Core::cstr("package")){       
+    if(token.name == keyword_package){       
         next();
         if(!is_kind(Lexer::TK_STRING)){
             printf("[ERROR]: comptime 'package' expects string. #package \"myPackage\".\n");
@@ -1028,7 +1028,7 @@ Decl* parse_comptime(){
         include_me(package_name); // Push the package in the packages        
         return nullptr;
     }
-    else if(token.name == Core::cstr("run")){
+    else if(token.name == keyword_run){
         next();
         SVec<Stmt*> block = stmt_opt_curly_block();        
         Preprocess::eval_block(block);

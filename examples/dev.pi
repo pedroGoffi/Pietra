@@ -1,4 +1,19 @@
 use std{std}
-main :: (){ 
-    dump(10)
+
+String :: {
+    dado: *i8
+    tamanho: i64
+}
+
+impl String construct :: (self: *Self)
+impl String __eq__    :: (self: *Self, eq: *i8){
+    self.dado = eq
+    self.tamanho = std.strlen(eq)
+}
+
+
+
+
+main :: (){
+    s: String
 }

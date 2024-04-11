@@ -10,24 +10,29 @@ literal_expr_assign :: (name: cstr): *Expr {
     }
     next_token()
 
-    ts: *TypeSpec = null;
+    ts:  mut *TypeSpec = null;
     rhs: mut *Expr   = null;
     
+    if not is_kind(TK_EQ){
+        ts = asm("call parse_typespec")
+    }
     if is_kind(TK_EQ){        
         next_token()        
         rhs = asm("call expr")
     }
-    std.puts("unimplemented Assign.\n")
-    exit(1)
+
+    
+    return expr_var(name, ts, rhs)
 }
 
-literal_expr :: (): *Expr {    
-    dump(69010)
+literal_expr :: (): *Expr {        
     val: any;
-    
+    std.puts("TK_NAME = ")
+            std.puts(token.name)
+            std.puts("\n")  
     if is_kind(TK_NAME){        
         val = token.name;
-        next_token();        
+        next_token();                
         if is_kind(TK_DDOT) {                        
             return literal_expr_assign(val)
         }
@@ -70,8 +75,7 @@ is_base_expr :: (): i64 {
     
     return false    
 }
-base_expr :: (): *Expr {
-    dump(6909)
+base_expr :: (): *Expr {    
     base: *Expr = literal_expr()    
     while is_base_expr() {
         std.puts("base_expr is unimplemented")
@@ -87,8 +91,7 @@ is_unary_expr :: (): i64 {
     if token.kind == TK_AMPERSAND   return true
     return false    
 }
-unary_expr :: (): *Expr {
-    dump(6908)
+unary_expr :: (): *Expr {    
     while is_unary_expr(){
         kind: TokenKind = token.kind
         next_token()
@@ -108,8 +111,7 @@ is_mult_expr :: (){
         default:    return false
     }
 }
-mult_expr :: (): *Expr {
-    dump(6907)
+mult_expr :: (): *Expr {    
     unary: mut *Expr = unary_expr()
     while is_mult_expr() {
         kind: TokenKind = token.kind
@@ -121,14 +123,12 @@ mult_expr :: (): *Expr {
     return unary
 }
 is_add_expr :: (): i64 {
-    std.puts("is_add_expr\n")
-    dump(312032)
+    std.puts("is_add_expr\n")    
     if token.kind == TK_ADD return true
     if token.kind == TK_SUB return true    
     return false    
 }
-add_expr :: (): *Expr {
-    dump(6906)
+add_expr :: (): *Expr {    
     mult: mut *Expr = mult_expr()    
     while is_add_expr(){
         kind: TokenKind = token.kind
@@ -149,8 +149,7 @@ is_cmp_expr :: (): i64 {
         default:    return false
     }
 }
-cmp_expr :: (): *Expr {
-    dump(6905)
+cmp_expr :: (): *Expr {    
     add: mut *Expr = add_expr()
     while is_cmp_expr(){            
         kind: TokenKind = token.kind
@@ -161,17 +160,18 @@ cmp_expr :: (): *Expr {
     return add
 }
 is_logic_expr :: (): i64 {
-    if std.streq(token.name, "and") return true
-    if std.streq(token.name, "or") return true    
+    if token.name == keyword_and    return true
+    if token.name == keyword_or     return true
+    
     return false
 }
 logic_expr :: (): *Expr {
-    if std.streq(token.name, "_not"){
+    if token.name == keyword_and
+    {
         std.puts("TODO: parse NOT expr")
         exit(1)        
     }
-    // TODO: token NOT expr
-    dump(6904)
+    // TODO: token NOT expr    
     cmp: mut *Expr = cmp_expr()
     while is_logic_expr(){
         kind: TokenKind = token.kind
@@ -181,22 +181,19 @@ logic_expr :: (): *Expr {
     }
     return cmp
 }
-ternary_expr :: (): *Expr {
-    dump(6903)
+ternary_expr :: (): *Expr {    
     logic: *Expr = logic_expr()
     // TODO: Ternary parsing
     return logic
 }
-cast_expr :: (): *Expr {
-    dump(6902)
+cast_expr :: (): *Expr {    
     ternary: *Expr = ternary_expr()    
     return ternary
 }
 is_assign :: (): i64 {    
     return token.kind == TK_EQ
 }
-expr :: (): *Expr {
-    dump(6901)
+expr :: (): *Expr {    
     cast: *Expr = cast_expr()     
     if is_assign() {
         kind: i64 = token.kind;
@@ -213,7 +210,8 @@ stmt_if_clause :: (): *IfClause {
     return ifClause_init(cond, block)
 }
 if_stmt :: (): *Stmt {
-    if not std.streq(token.name, "if") {
+    if not token.name == keyword_if
+    {    
         std.puts("INTERNAL ERROR: called if_stmt when token.name is not if\n")
         exit(1)
     }
@@ -222,14 +220,16 @@ if_stmt :: (): *Stmt {
     elifs:      mut *ll_list        = init_ll_list_ptr()
     elseb:      mut *ll_list        = init_ll_list_ptr()
 
-    while std.streq(token.name, "elif"){
+    while token.name == keyword_elif
+    {
         next_token()
         nelif: *IfClause = stmt_if_clause()
         // TOOD: push nelif to elifs
         exit(1)    
     }
 
-    if std.streq(token.name, "else"){
+    if token.name == keyword_else
+    {
         next_token()
         elseb = asm("call stmt_opt_curly_block")
     }
@@ -240,11 +240,18 @@ expr_stmt :: (): *Stmt {
     e: *Expr = expr()
     return stmt_expr(e)
 }
+return_stmt :: (): *Stmt 
+{    
+    next_token()
+    e: *Expr = expr()
+    return stmt_return(e)
+}
 stmt :: (): *Stmt {
     if is_kind(TK_DCOMMA) return nullptr
 
-    if std.streq(token.name, "if")  return if_stmt()
-    else                            return expr_stmt()
+    if token.name == keyword_if         return if_stmt()
+    if token.name == keyword_return     return return_stmt()    
+    else                                return expr_stmt()
 }
 stmt_opt_curly_block :: (): *ll_list{    
     // TODO: bug when parsing the list in if blocks
@@ -265,5 +272,134 @@ stmt_opt_curly_block :: (): *ll_list{
         return block
     }
 }
+@todo("Implemend")
+parse_typespec :: (): *TypeSpec {
+    next_token()
+    return TypeSpec.new_name("i64")
+}
 parse :: (): *Stmt 
     return is_kind(TK_EOF)? 0: stmt()   
+
+parse_proc_params :: (): *ll_list 
+{
+    raise_exception_if(not is_kind(TK_OPEN_ROUND_BRACES), "Expected '(' for procedure parameters")
+    next_token()
+
+    raise_exception_if(not is_kind(TK_CLOSE_ROUND_BRACES), "Expected ')' for procedure closing parameters")
+    next_token()
+}
+parse_opt_proc_ret :: (): *TypeSpec
+{    
+    if is_kind(TK_DDOT){
+        next_token()
+        std.puts("Expected parsing of typespec.\n")
+        exit(1)
+        //return typespec()
+    }
+    return null
+}
+parse_opt_block :: (): *ll_list 
+{
+    block: *ll_list = ll_list.new()
+    if is_kind(TK_DCOMMA) {
+        next_token()
+        return block
+    }
+
+    if is_kind(TK_OPEN_CURLY_BRACES){
+        next_token()
+        while *stream and !is_kind(TK_CLOSE_CURLY_BRACES)
+        {
+            node: *Stmt = stmt()
+            if not node return null 
+
+            block.push(node)
+        }
+        raise_exception_if(not is_kind(TK_CLOSE_CURLY_BRACES), "Error: Expected closing block '}'")        
+        return block
+    }
+    
+    singleStmt: *Stmt = stmt()
+    if not singleStmt return null
+    block.push(singleStmt)
+    
+    return block
+}
+parse_decl_proc :: (name: imut *i8): *Decl
+{
+    if token.name == keyword_proc next_token()
+    params:     *ll_list    = parse_proc_params()
+    ret_type:   *TypeSpec   = parse_opt_proc_ret()
+    block:      *ll_list    = parse_opt_block()
+            
+    return decl_proc(name, params, ret_type, block, false)
+}
+decl_base :: (name: imut *i8): *Decl {
+    decl: mut *Decl 
+    std.puts("\t@@DECL_BASE: '")
+    std.puts(name)
+    std.puts("'\n")
+    if token.name == keyword_proc or is_kind(TK_OPEN_ROUND_BRACES) {
+        return parse_decl_proc(name)        
+    }
+
+    else return Decl.decl_constexpr(name, expr())    
+    
+    std.puts("DECL_BASE:")
+    std.puts(decl.name)
+    std.puts("\n")
+    return decl
+}
+
+
+parse_decl :: (): *Decl {
+    if not is_kind(TK_NAME) {
+        std.puts("Expected token name in global scope declaration, got: '")
+        std.puts(token.name)
+        std.puts("'\n")
+        exit(1)
+    }
+    name: *i8 = token.name
+    next_token()
+
+    if is_kind(TK_PREP){
+        next_token()
+        return decl_base(name)
+    } else {
+        std.puts("Idk what is this.\n")
+        exit(1)
+    }
+}
+@todo("Use intern strings here")
+parse_preprocess :: () {    
+    next_token()
+
+    if std.streq(token.name, "package"){
+        std.puts("PACKAGE")
+        exit(1)
+    }
+    else {
+        std.puts("Unknown preprocess word: ")
+        std.puts(token.name)
+        std.puts("\n")
+        exit(1)
+    }
+}
+parse_ast :: (): *ll_list {
+    ast: *ll_list = init_ll_list_ptr()   
+    while *stream
+    {
+        while *stream == '#' 
+            parse_preprocess()
+        
+        decl: *Decl = parse_decl()                
+        ast.push(decl)
+        std.puts("Got decl!\n")
+        std.puts(decl.name)        
+        
+    }
+
+    std.puts("\t@Parsing ok: ")
+    dump(ast.size)
+    return ast
+}

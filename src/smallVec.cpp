@@ -48,13 +48,9 @@ template<typename T>
 void SVec<T>::free(){
     if(this->data){
         SVecHdr* hdr = get_head();
-        assert(hdr);
-
-        
-        hdr->len    = 0;
-        hdr->cap    = 0;
-        // NOTE: cant free this->data idk why
-        // TODO it latter
+        assert(hdr);        
+                
+        this->reset();
     }
     
     

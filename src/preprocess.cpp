@@ -202,39 +202,6 @@ namespace Pietra::Preprocess{
             Operand op = eval_expr(args.at(0), ctx);            
             exit(op.val.i);
         }
-        else if(base->name == prep_proc_BufferPush){
-            expect_arity(args, 2, "prep-proc `BufferPush` wrong usage, proc trace BufferPush(field, value: Expression): null.\n");            
-            Expr* field = args.at(0);
-            Expr* value = args.at(1);
-            assert(field->kind == EXPR_NAME);
-
-            Operand value_op = eval_expr(value, ctx);
-
-            if(not value_op.is_lvalue){
-                printf("[ERROR]: `BufferPush` wrong usage, expected lvalue.\n");
-                exit(1);
-            }
-
-            TypeField* tf = Utils::init_typefield(field->name, type_void());            
-            Expr* e;
-            // TODO: Move this section to anoter function
-            
-            ////////////////////////////////////////////////////
-            if(value->kind == Ast::EXPR_INT){
-                e = Utils::expr_int(value_op.val.i);
-            }
-            else if(value->kind == Ast::EXPR_STRING){
-                e = Utils::expr_string((const char*) value_op.val.p);
-            }            
-            else {
-                printf("[ERROR]: `BufferPush` wrong usage. idk what happened.\n");
-                exit(1);
-            }               
-            ////////////////////////////////////////////////////
-            buffer.push(tf, e);         
-            return operand_lvalue(type_void(), {0});
-        }
-
         else {
             printf("[ERROR]: the prep-proc %s was not declared in this scope.\n", base->name);
             exit(1);

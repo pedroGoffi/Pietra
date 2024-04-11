@@ -1,4 +1,5 @@
 #package "pietra.stdlib"
+std :: {}
 
 use std::core{linux}
 use std{memory}
@@ -7,5 +8,5 @@ use std{file}
 use std{config}
 use std{math}
 
-std :: {}
+
 

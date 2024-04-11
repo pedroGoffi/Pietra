@@ -1,28 +1,47 @@
 use std{std}
 use selfhost{lexer, parser, cursor}
 use selfhost{compiler}
+use selfhost{resolver}
 use selfhost{Asmx86_64}
 
 usage :: (fd: i64, program: cstr){
     std.fdputs(1, "<Error>\n");    
 }
 
+write_code_to_filename :: (filename: *i8, code_list: *ll_list)
+{
+    // Open the file
+    out: *FILE = std.fopen(filename, "w")
+    if not out.is_open() {
+        std.puts("Couldn't open the file.\n")
+        exit(1)
+    }
 
+    code_node: mut *ll_node = code_list.head
+    while code_node.value 
+    {
+        std.fputs(out, code_node.value)            
+        code_node = code_node.next
+    }
+}
 
-main :: (argc: i64, argv: *cstr){                                       
+@todo("Parse argv flags")
+main :: (argc: i64, argv: *cstr){                                               
     if argc != 2 {        
         usage(1, argv[0])
         std.puts("[ERROR]: expected <program> <input>\n");
         exit(1);
-    }                        
+    }      
+                      
     file: *FILE = std.fopen(argv[1], "r");    
     init_stream(file.ptr);        
     std.fclose(file)
     
-    e: *Expr = expr();                  
+    ast: *ll_list = parse_ast()
     std.puts("---- Printing the Expr:\n")    
 
-    
-    compile_expr(e)
-    compile_data_section()        
+    resolve_ast(ast)   
+    compile_ast(ast)    
+
+    write_code_to_filename("selfhost/out_selfhost.asm", code)   
 }
