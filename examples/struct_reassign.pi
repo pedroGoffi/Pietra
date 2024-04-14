@@ -1,0 +1,29 @@
+use std{std}
+
+String :: {
+    field1: i64
+    field2: i64
+    field3: i64
+    field4: i64
+    field5: i64
+    field6: i64
+    field7: i64    
+    data: mut *i8
+    size: i64
+    test: mut *i8
+}
+
+
+main :: (){    
+    dst: String
+    src: String    
+    src.test = "hello, world\n"
+
+    dst = 0
+            
+    switch dst.test {
+        case "hello, world\n":  std.puts("[TEST PASSED]: dst last field == src last field\n")                    
+        default:                std.puts("[TEST FAILED]: dst last field != src last field:\n")
+        
+    }    
+}

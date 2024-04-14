@@ -1,0 +1,8 @@
+#package "pietra.printf"
+use std{std}
+
+
+printf  :: (__fmt: *i8, ...){
+    std.puts(__fmt)
+    exit(1)    
+}

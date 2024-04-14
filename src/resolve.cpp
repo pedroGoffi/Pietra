@@ -16,9 +16,10 @@ The resolver will
 #include <iostream>
 #include <memory>
 #include <string>
-
+#define STRUCT_REASSIGN_FLAG "struct_reassign"
 bool impl_ctx = false;
-Decl* string_comparator = 0;
+Decl* string_comparator = nullptr;
+Decl* struct_reassigner = nullptr;
 Note* find_note(SVec<Note*> notes, const char* name){    
     name = Core::cstr(name);    
     for(Note* note: notes){
@@ -27,6 +28,9 @@ Note* find_note(SVec<Note*> notes, const char* name){
 
     return nullptr;
 }
+#define LIST_SIZEOF(__list)     (sizeof((__list)) / sizeof((__list)[0]))
+#define LIST_LAST_ELEM(__list)  (__list)[LIST_SIZEOF(__list) - 1]
+#define SAD_printf_cond(item, __list) ((item) == LIST_LAST_ELEM(__list))? "": ", " 
 void show_all_decorators(){
     /*
         NOTE: those macros serve to use in the printf loop
@@ -38,20 +42,16 @@ void show_all_decorators(){
     #define LIST_LAST_ELEM(__list)  (__list)[LIST_SIZEOF(__list) - 1]
     #define SAD_printf_cond(item, __list) ((item) == LIST_LAST_ELEM(__list))? "": ", " 
     static const char* decorators_name[] = {
-        "todo", "inline", "error", "warn", "string_comparator"
+        "todo", "inline", "error", "warn", "string_comparator", "flag"
     };
-    const char* last_decorator = LIST_LAST_ELEM(decorators_name);
-        
+            
     printf("Decorators = [");
     for(const char* dc: decorators_name){
         printf("@%s%s", 
             dc, 
             SAD_printf_cond(dc, decorators_name));
     }
-    printf("]\n");
-    #undef LIST_SIZEOF
-    #undef LIST_LAST_ELEM
-    #undef SAD_printf_cond
+    printf("]\n");  
 }
 namespace Pietra::Resolver{
     SVec<Sym*>          Syms;
@@ -220,8 +220,8 @@ namespace Pietra::Resolver{
                             assert(0 && "undefined aggregate type.");                            
                     }
                 }
-                
-                sym->type = type_aggregate(fields, decl->aggregate.aggkind != Ast::AGG_UNION);                                
+                // TODO: parse struct mutablity
+                sym->type = type_aggregate(fields, decl->aggregate.aggkind != Ast::AGG_UNION, true);
                 sym->type->name = sym->name;
                 sym->type->size = size;
                 CBridge::type_set(sym->name, sym->type);                
@@ -937,10 +937,45 @@ namespace Pietra::Resolver{
     void resolve_decl_var(Decl* &d){
         resolve_var_init(d->name, d->var.type, d->var.init, false, false);        
     }
+    void show_flags(){
+        const char* flags[] = {
+            STRUCT_REASSIGN_FLAG
+        };
+        printf("Flags: [ ");
+        for(const char*& flag: flags){                 
+            printf("@%s%s", 
+                flag, 
+                SAD_printf_cond(flag, flags));        
+        }
+
+        printf(" ]");
+    }
+
+    void resolve_decl_flags(SVec<Expr*> args, Decl* &d){
+        assert(d);
+        for(Expr* &arg: args){            
+            if(arg->kind != EXPR_STRING){                
+                printf("[ERROR]: flag preprocessor expect ONLY string in it's arguments");
+                exit(1);
+            }
+
+
+            if(arg->string_lit == Core::cstr(STRUCT_REASSIGN_FLAG)){
+                struct_reassigner = d;
+            }
+            else {
+                // TODO: put error and info in respective functions
+                printf("[ERROR]: the flag `%s` is unkown by the resolver:\n", arg->string_lit);
+                printf("[INFO]: Possible flags:\n");
+                show_flags();
+                exit(1);
+            }
+        }
+    }
     void resolve_decl_proc(Decl* &d, Type* type){                
         if(d->notes.len() > 0){
             SVec<Note*>& notes = d->notes;
-            for(Note* note: notes){
+            for(Note* note: notes){                
                 if(note->name == Core::cstr("todo")){
                     printf("[TODO]: %s\n", d->name);
                     for(Expr* arg: note->args){
@@ -963,6 +998,9 @@ namespace Pietra::Resolver{
                     }
                     
                     string_comparator = d;    
+                }
+                else if(note->name == Core::cstr("flag")){                    
+                    resolve_decl_flags(note->args, d);
                 }
                 else {
                     show_all_decorators();

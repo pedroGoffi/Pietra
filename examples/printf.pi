@@ -1,0 +1,87 @@
+use std{std, string}
+use std{varargs}
+
+
+// WARN: this will destroy the current stream pointer
+__print_parse_arg :: (fmt: *i8, va: *Va_list){
+    if *fmt == '%' {        
+        std.putc('%')
+        return 1
+    }    
+
+    // Va_list has values on the stack
+    val: any = va.value()
+    va.next()
+    if *fmt == 'd' {        
+        std.puti(val)
+        return 1
+    }
+    elif *fmt == 's' {
+        std.puts(val)
+        return 1
+    }
+    else {
+        
+        std.putc('%')
+        std.putc(*fmt)
+        return 1
+    }
+
+    
+    std.puts("AT __print_parse_arg:\n")    
+    dump(va.value())
+    dump(va.end())    
+    exit(1)
+    return 0
+}
+
+printf2 :: (fmt: mut *i8, ...){
+    va: Va_list      
+    dump(*va.__va_ptr)
+    dump(va.end())    
+    i: i64 = 0  
+    while *fmt {        
+        if *fmt == '%' {            
+            fmt = fmt + 1            
+            fmt = fmt + __print_parse_arg(fmt, &va)
+        }
+        else {
+            std.putc(*fmt)
+            fmt = fmt + 1
+        }
+    }
+}
+va_cstrcat :: (dst: mut* mut* i8, ...){
+    if not *dst {
+        *dst = " "
+    }
+    va: Va_list    
+    while va.has_value()
+    {
+        if va.value() == 0 {
+            return *dst
+        }
+        
+        *dst = std.cstrcat(*dst, va.value())
+        va.next()
+    }        
+}
+x__:: {
+    data: *i8
+    sz: i64 
+}
+
+
+main :: ()
+{       
+    w: x__
+    y: x__
+    w.sz = 69;
+    dump(w.sz)
+    std.memcpy(y, w, sizeof(x__))
+    std.memset(w, 0, sizeof(x__))
+    // impl std memcpy :: (dst: *i8, src: *i8, n: i64){    
+    
+
+    dump(y.sz)
+}

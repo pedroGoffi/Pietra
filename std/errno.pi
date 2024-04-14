@@ -150,5 +150,3 @@ perror :: (msg: imut *i8){
     std.puts(strerrno(errno))
     std.puts(".\n")
 }
-
-seterr

@@ -65,8 +65,9 @@ impl std puts    :: (str: cstr){
 }    
 
 impl std putc :: (c: i64){
-    tmp: *i8 = " ";    
-    tmp[0] = c;        
+    tmp: *i8 = " "; 
+    tmp[0] = c;            
+    tmp[1] = '\0'
     std.puts(tmp)
 }
 
@@ -90,7 +91,7 @@ impl std memset :: (ptr: *i8, val: i64, size: i64): *i8{
 }
 // The memset() function fills the first n bytes of the memory area pointed to by s with the constant byte c.
 
-impl std memcpy :: (dst: *i8, src: *i8, n: i64){
+impl std memcpy :: (dst: *i8, src: *i8, n: i64){    
     i: i64 = 0
     while i < n {
         dst[i] = src[i]

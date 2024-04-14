@@ -1,6 +1,24 @@
+
 #package "pietra.config"
 use std{std}
 
 
-@string_comparator  string_comparator  :: (s1: cstr, s2: cstr): i64 return std.streq(s1, s2)
+@string_comparator  
+string_comparator  :: (s1: cstr, s2: cstr): i64 {
+    if not s1 return false
+    if not s2 return false
+    
+    return std.streq(s1, s2)
+}
 
+
+// NOTE: calling std.memcpy crashes in the binary file
+@flag("struct_reassign") 
+struct_reassign :: (dst: *i8, src: *i8, size: i64){    
+    i: i64 = 0
+    while i < size {
+        dst[i] = src[i]
+        i = i + 1
+    }
+    return dst    
+}

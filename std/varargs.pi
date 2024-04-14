@@ -1,0 +1,34 @@
+#package "pietra.std.variadic_args"
+
+Va_list :: {
+    __va_index: mut i64
+    __va_ptr:      mut *i64
+    __va_stack: mut *any
+    __va_end:   mut *null
+    __va_cap:   mut i64
+}
+
+impl Va_list constructor :: (self: *Self){
+    self.__va_index = 0
+    self.__va_stack = asm("mov rax, INTERNAL__va_stack")
+    self.__va_end   = asm("mov rax, INTERNAL__va_end")
+    self.__va_cap   = self.__va_end - self.__va_stack
+    self.__va_ptr   = self.__va_stack
+}
+
+
+impl Va_list next :: (self: *Self){
+    self.__va_index = self.__va_index + 1
+    self.__va_ptr   = self.__va_ptr   + 8
+}
+
+impl Va_list has_value:: (self: *Self){    
+    return self.__va_stack[self.__va_index] != self.__va_end    
+    
+}
+
+impl Va_list value :: (self: *Self): *any
+    return *self.__va_ptr
+
+impl Va_list end :: (self: *Self): *any 
+    return self.__va_end

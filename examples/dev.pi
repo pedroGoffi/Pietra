@@ -1,19 +1,37 @@
 use std{std}
 
 String :: {
-    dado: *i8
-    tamanho: i64
+    data: mut *i8
+    size: i64
+
+    test: mut *i8
 }
-
-impl String construct :: (self: *Self)
-impl String __eq__    :: (self: *Self, eq: *i8){
-    self.dado = eq
-    self.tamanho = std.strlen(eq)
-}
-
-
 
 
 main :: (){
-    s: String
+    dst: String
+    src: String    
+    src.test = "hello, world\n"
+
+
+    
+    dst = src
+    
+    std.puts("TEST:\n")
+    // dst.data must be src.data
+    dump(src.test == dst.test)
+
+    
+
+    switch dst.test {
+        case "hello, world\n": {
+            std.puts("[TEST PASSED]\n")
+            
+        }
+        default: {
+            std.puts("TEST FAILED:\n");
+            exit(1)
+        }
+    }
+    
 }

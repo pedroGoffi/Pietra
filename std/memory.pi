@@ -54,7 +54,9 @@ impl MEM_POLL {
 
 std_MEM_POLL: MEM_POLL
 
-impl std allocate   :: (nbytes: i64): *any return std_MEM_POLL.allocate(nbytes)
+impl std allocate   :: (nbytes: i64): *any 
+    return std_MEM_POLL.allocate(nbytes)
+    
 impl std swap_ptr   :: (p1: *any, p2: *any) {
     tmp: *any = *p1;
     *p1 = *p2;

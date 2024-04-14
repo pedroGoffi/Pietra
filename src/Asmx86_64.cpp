@@ -20,7 +20,7 @@
             __x = true;                     \
         }                                   \
     }               
-
+#define VARIADIC_ARGS_CAP 4096
 const char* AGGREGATE_CONSTRUCTOR_WORD  = Core::cstr("constructor");
 const char* AGGREGATE_DELETER_WORD      = Core::cstr("delete");
 const char* keyword_asm                 = Core::cstr("asm");
@@ -65,6 +65,7 @@ const char *argreg64[] = {"rdi", "rsi", "rdx", "r10",  "r8",  "r9"};
 X86Context ctx;
 Decl* cp;
 int buffer_size = 0;
+
 const char* BUILTIN_DUMP = 
     "dump:\n"
     "\tpush  rbp\n"
@@ -167,6 +168,14 @@ void makeLabel() {
         Type* lhs_t = compile_expr(lhs, state_getaddr);                        
         if(lhs_t->name){
             if(Sym* sym = sym_get(lhs_t->name)){                
+                // NOTE:
+                /*
+                    if method __eq__ exist the compiler will call it even if struct_reassigner exists
+                    struct_reassigner will only be called if:
+                        struct_reassigner exists
+                        __eq__ isn't defined
+                    otherwise will print an error to the screen
+                */
                 if(sym->kind == Resolver::SYM_AGGREGATE){
                     if(Sym* __eq = sym->impls.find("__eq__")){
                         push("rax", lhs_t); 
@@ -177,6 +186,28 @@ void makeLabel() {
                         println("call %s", __eq->name);                    
                         return lhs_t;
                     }                    
+                    else if (struct_reassigner){
+                        // call function(dst, src, dst.size)        
+                        int dst_size = sym->type->size;
+                        Expr* base = Utils::expr_name(STRUCT_REASSIGN_FLAG);
+                        SVec<Expr*> args;
+                        
+                        args.push(Utils::expr_unary(Lexer::TK_AMPERSAND, lhs));
+                        args.push(Utils::expr_unary(Lexer::TK_AMPERSAND, rhs));                                                                        
+                        args.push(Utils::expr_int(dst_size));
+                        Expr* call = Utils::expr_call(base, args);
+                        println(";; Calling std.config `%s`", struct_reassigner->name);
+
+                        // NOTE: this will be compiled to struct_reassign(lhs, rhs, sizeof(lhs))
+                        return compile_expr(call, state_getaddr);                        
+                    }
+                    else {
+                        // Call std.memcpy 
+                        err("[ERROR]: Struct `%s` can't be assigned directly without prep-proc: `%s` or method implementation __eq__.\n",                             
+                            sym->type->repr(),
+                            STRUCT_REASSIGN_FLAG);
+                        exit(1);
+                    }
                 }
             }
 
@@ -437,6 +468,11 @@ void makeLabel() {
         stack.pop_back();
         return type;
     }
+
+    Type* pop_nostack(const char* target){
+        stack.push_back(type_void());
+        return pop(target);
+    }
     Type* cmp_zero(Type* ty){    
         switch (ty->kind) {
         case TYPE_I64:
@@ -496,7 +532,36 @@ void makeLabel() {
         
     }
     
-    Type* load(Type* type){        
+    const char* reg_from_size(int size, int index){
+        switch(size){
+            case 1: return argreg8[index];
+            case 2: return argreg16[index];
+            case 4: return argreg32[index];
+            case 8: return argreg64[index];                            
+        }
+        err("reg_from_sz idk error: size: %i\n", size);
+        exit(1);
+    }
+    void mov_to_rax(Type* type, const char* reg){        
+        switch(type->size){
+            case 1:
+                println("mov %s %s, rax", get_word_size(type->size), reg);
+                return;
+            case 2:
+                println("mov %s %s, rax", get_word_size(type->size), reg);
+                return;
+            case 4:
+                println("mov %s %s, rax", get_word_size(type->size), reg);
+                return;
+            case 8:
+            default:
+                println("mov %s %s, rax", get_word_size(type->size), reg);
+                return;
+        }
+
+        assert(0);
+    }             
+    Type* load(Type* type){
         switch(type->kind){
         case TYPE_I8:
         case TYPE_I16:
@@ -610,9 +675,8 @@ void makeLabel() {
         }           
         return var->type;        
     }
-
     Type* compile_call(Expr* base, SVec<Expr*> args, CState& state){                    
-        if(base->kind == EXPR_NAME){
+        if(base->kind == EXPR_NAME){            
             if(base->name == keyword_asm){
                 println(";; NOTE: inline asm here.\n");
                 for(Expr* arg: args){
@@ -697,53 +761,58 @@ void makeLabel() {
             if(!isVa){
                 push("rax", base_t);
                 assert(args.len() < MAX_ARGREG);
-            }
-            int id = 0;
-            assert(!isVa && "Varargs unimplemented");
-                           
-            
-            for(Expr* arg: args) {
+            }            
+            int id = 0;                                                               
+            for(Expr* arg: args) {                            
+                if(isVa and (id >= vaPos)) break;                    
                 id++;
+
                 Type* t;
                 if(arg->kind == EXPR_NAME){                        
                     if(Sym* sym = sym_get(arg->name)){
                         if(sym->type->kind == Ast::TYPE_STRUCT or sym->type->kind == Ast::TYPE_UNION){                            
                             t = compile_expr(arg, state_getaddr);
-                            push("rax", t);                            
+                            push("rax", type_ptr(t, t->ismut));
                             continue;
                         }
                     }
                 }
                 t = compile_expr(arg, state_none);
-                push("rax", t);
-                //println("mov %s, rax", argreg64[id++]);        
-            }        
+                push("rax", type_ptr(t, t->ismut));                
+            }                   
             
-                        
-            for(Expr* arg: args){
-                Type* t = pop();
-                
-                switch(t->size){
-                    case 1:
-                        println("mov %s %s, rax", get_word_size(t->size), argreg8[--id]);
-                        break;
-                    case 2:
-                        println("mov %s %s, rax", get_word_size(t->size), argreg16[--id]);
-                        break;
-                    case 4:
-                        println("mov %s %s, rax", get_word_size(t->size), argreg32[--id]);
-                        break;
-                    case 8:
-                    default:
-                        println("mov %s %s, rax", get_word_size(t->size), argreg64[--id]);
-                        break;
-                }                
-            }
+            
+            
 
+            int argPos = 0;
+            int va_offset = 0;            
+            for(Expr* arg: args){                
+                (void) arg;
+
+                if(isVa and (argPos >= vaPos)) {                        
+                    for(int i = vaPos - 1; i < args.len(); i++){
+                        Expr* va_arg = args.at(i);
+                        err("VAR %i: ", i);
+                        pPrint::expr(va_arg);
+                        err("\n");
+                        compile_expr(va_arg, state_none);
+                        println("mov qword [INTERNAL__va_stack + %i], rax", va_offset);
+                        va_offset += sizeof(void*);
+                    }                  
+                    println("mov qword [INTERNAL__va_stack + %i], INTERNAL__va_end", va_offset);                                            
+                    break;
+                }
+
+              
+                Type* t = pop_nostack("rax");
+                mov_to_rax(t, reg_from_size(t->size, --id));    
+                argPos++;        
+            }
             if(!isVa){
                 pop("rax");            
             }
-            else {
+            else {                
+                
                 compile_expr(base, state_none);
             }           
             
@@ -910,7 +979,6 @@ void makeLabel() {
                 }
             }            
             err("target = %s\n", p->name);
-
             err("[ERROR]: field %s is not existent in the object %s.", children->name, p->repr());
             exit(1);            
         }
@@ -934,7 +1002,7 @@ void makeLabel() {
         Type* lhs = compile_expr(then, state_none);
         println("jmp .L%i\n", end_addr);
         makeLabel(else_addr);
-        Type* rhs = compile_expr(otherwise, state_none);
+        compile_expr(otherwise, state_none);
         makeLabel(end_addr);
         return lhs;   
     }
@@ -1478,6 +1546,13 @@ void makeLabel() {
                     printc("G%s: resb %i\n", global->name, global->type->calcSize());
             }
         }
+
+        println("INTERNAL__va_at:       resq 1");        
+        println("INTERNAL__va_begin:    resq 0");        
+        println("INTERNAL__va_stack:    resq %i", VARIADIC_ARGS_CAP);        
+        println("INTERNAL__va_end:      resq 1");
+        
+        
     }
 
     void compile_ast(SVec<Decl*> ast){
@@ -1551,6 +1626,5 @@ void makeLabel() {
         }        
     }    
 }
-
 #undef printfz
 #endif /*ASMPLANG*/
