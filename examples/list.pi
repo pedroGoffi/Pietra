@@ -12,7 +12,7 @@ main :: () {
     std.srand(time(null))
     l: *ll_list = init_ll_list_ptr()
     i: i64 = 0
-    rg: RandomGenerator
+    rg: RandomGenerator    
     while i < SIZE {        
         l.push(rg.random_range(0, 50))
         //l.push(std.random_range(0, 20))
@@ -20,15 +20,10 @@ main :: () {
     }
     // TODO: Fix this in compiler
     l.sort_by(std.lt)
-    
-    i = 0
-    while i < SIZE {
-        value: *i64 = l.at(i)
-        std.puts("Got value: ");        
-        dump(*value)
-        i = i + 1
-    }
-
-    
+        
+    new:*ll_list = l.map(std.itocstr)    
+    new.map(proc(str: cstr){
+        std.puts(str)
+        std.puts("\n")
+    })
 }
-    

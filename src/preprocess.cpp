@@ -17,7 +17,7 @@ using namespace Pietra::Preprocess;
 
 // Buffer is a bridge to the preprocessed world to the compiled world
 struct Buffer {    
-    Sym* sym = sym_var("Buffer", type_aggregate({}), nullptr);
+    Resolver::Sym* sym = Resolver::sym_var("Buffer", type_aggregate({}), nullptr);
     Buffer(){
         this->sym->decl = Utils::decl_aggregate("Buffer", Pietra::Ast::AGG_STRUCT, {});
     }

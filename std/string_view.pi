@@ -1,0 +1,35 @@
+#package "pietra.std.string_view"
+use std{std}
+
+String_view :: {
+    data: mut *i8
+    size: i64
+}
+
+impl String_view __eq__ :: (self: *Self, data: *i8){
+    self.data = data
+    self.size = std.strlen(self.data)
+}
+
+
+impl String_view find_delim :: (self: *Self, delim: i64): i64{
+    offset: i64 = 0
+    while self.data[offset] and self.data[offset] != delim {
+        offset = offset + 1
+    }
+    return offset
+}
+impl String_view chop_delim :: (self: *Self, delim: i64): String_view {
+    offset: i64 = self.find_delim(delim) + 1
+    ret: String_view = self.data + offset
+    self.data = self.data + offset
+    self.size = self.size - offset
+    return ret
+}
+
+impl String_view starts_with :: (self: *Self, other: *i8){
+    other_sv: String_view = other
+    if self.size < other_sv.size return false 
+    return std.cstrncmp(self.data, other_sv.data, other_sv.size) == 0
+}
+

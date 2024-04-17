@@ -14,14 +14,12 @@ using namespace Pietra;
 using namespace Pietra::Ast;
 using namespace Pietra::Lexer;
 #define unimplemented() printf("[ERR]: the %s is unimplemented for: %s", __FUNCTION__, token.name); exit(1);
-
+TypeSpec* proc_params();
 
 
 namespace Pietra::Parser {
     PPackage* cpack;    
-Expr* literal_expr_assign(const char* name){
-    
-    
+Expr* literal_expr_assign(const char* name){        
     assert(is_kind(TK_DDOT));    
     next();
     TypeSpec*   ts   = nullptr;
@@ -298,8 +296,29 @@ Expr* assign_expr(){
     }
     return cast;
 }
+Expr* expr_lambda(){    
+    next();
+    SVec<ProcParam*>    params = proc_params();
+    TypeSpec*           ret    = nullptr;
+    if(is_kind(Lexer::TK_DDOT)){
+        next();
+        ret = typespec();
+    }
 
+    if(not is_kind(Lexer::TK_OPEN_CURLY_BRACES)){
+        printf("[ERROR]: lambda expressions expects syntax lambda (...): ret {body}\n");
+        printf("Got %s\n", stream);
+        exit(1);        
+    }
+
+    SVec<Stmt*> block = stmt_opt_curly_block();
+
+    return Utils::expr_lambda(params, ret, block);    
+}
 Expr* expr(){
+    if(token.name == Core::cstr("proc")){
+        return expr_lambda();
+    }
     return assign_expr();        
 }
 SVec<Expr*> expr_list(){
@@ -352,10 +371,8 @@ TypeSpec* proc_type(){
         }
         if(expects_kind(Lexer::TK_TRIPLE_DOT)){
             has_varags = true;
-            TypeSpec* va = Utils::proc_param_varargs()->type;
-            printf("Va test %s\n", va->name);
-
-            exit(1);
+            TypeSpec* va = Utils::proc_param_varargs()->type;            
+            params.push(va);
         }
         else {
             if(has_varags){
@@ -1074,7 +1091,8 @@ Decl* decl(){
         return decl_base(name, notes);        
     } else if(is_kind(Lexer::TK_DDOT)){
         next();
-        TypeSpec* type = typespec();
+        TypeSpec* type = Utils::typespec_name("any", token);
+        if(!is_kind(TK_EQ)) type = typespec();
         Expr* init = nullptr;
         if(is_kind(TK_EQ)){
             next();

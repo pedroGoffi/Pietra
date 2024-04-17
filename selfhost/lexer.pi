@@ -23,7 +23,8 @@ isspace :: (n: i64): i64 {
 
 }
 skip_empty      :: (){
-    while isspace(*stream) stream = stream + 1    
+    while isspace(*stream)     
+        stream = stream + 1    
 }
 at_comment_begin :: (){
     return std.cstrncmp(stream, "//", 2) == 0
@@ -39,6 +40,28 @@ skip_comment    :: (){
     
 }
 
+get_token_kind_from_char :: (c: i64): i64 {
+    switch c{
+        case '+': return TK_ADD
+        case ',': return TK_COMMA
+        case '.': return TK_DOT
+        case '=': return TK_EQ
+        case ';': return TK_DCOMMA
+        case ':': return TK_DDOT
+        case '{': return TK_OPEN_CURLY_BRACES
+        case '}': return TK_CLOSE_CURLY_BRACES
+        case '[': return TK_OPEN_SQUARED_BRACES
+        case ']': return TK_CLOSE_SQUARED_BRACES
+        case '(': return TK_OPEN_ROUND_BRACES
+        case ')': return TK_CLOSE_ROUND_BRACES
+        case '*': return TK_MULT
+        default:
+        {
+            std.puts("[ERROR]: unknown token.kind from char.\n")
+            exit(1)
+        }
+    }
+}
 next_token      :: (){    
     skip_empty();
     skip_comment();           
@@ -47,68 +70,41 @@ next_token      :: (){
 
     switch *stream {        
         case 'a'...'z', 'A'...'Z', '_': {                        
-            while is_keyword(*stream){                
-                stream = stream + 1;
-            }                           
-            token.end = stream;
             stream = stream + 1
+            while is_keyword(*stream) or is_numeric(*stream){                
+                stream = stream + 1
+            }                              
+            token.end = stream;            
             token.kind = TK_NAME
             token.name = intern_range(token.start, token.end)                                    
+            stream = stream + 1         
             
         }    
         case '0'...'9': {
             while is_numeric(*stream){
                 stream = stream + 1
             }
-            token.end = stream;
-            token.kind = TK_INT
-            token.name = intern_range(token.start, token.end);
+            token.end       = stream;
+            token.kind      = TK_INT
+            token.name      = intern_range(token.start, token.end)
+            token.as_int    = std.cstrtoi(token.name)
         }
 
 
-        case '+': {
-            std.puts("Got an token ADD == \n")            
-            stream = stream + 1;
-            token.kind = TK_ADD
-            token.end = stream;
-            token.name = intern_range(token.start, token.end);
-
-        }
-
-        case ',', '.': {
-            stream = stream + 1;
-            token.end = stream;
-            token.name = intern_range(token.start, token.end);
-            if *stream == ','{
-                token.kind = TK_COMMA
-            }
-            else {
-                token.kind = TK_DOT
-            }
-        }
-        case '=': {
-            token.kind = TK_EQ
-            stream = stream + 1
-            token.name = "="            
-        }
-        case ';': {
-            token.kind = TK_DCOMMA
-            stream = stream + 1
-            token.name = ";"            
-        }
-        case ':': {
-            token.kind = TK_DDOT
-            token.name = ":"            
-            stream = stream + 1            
-
-            if *stream == ':' {                                
-                token.name = "::"
-                token.kind = TK_PREP                
-                stream = stream + 1            
-                
-            }            
+        case '+', ',', '.', '=', ';', ':', '{', '}', '[', ']', '(', ')', '*': {
+            token.kind  = get_token_kind_from_char(*stream)            
+            stream      = stream + 1;            
+            token.end   = stream;
+            token.name  = intern_range(token.start, token.end);
+            if *stream == ':' {
+                // Got ::
+                token.name = intern_str("::")
+                token.kind = TK_PREP
+                stream = stream + 1
+            }                                     
         }
         
+        // NOTE: 39 == ' ascii
         case '"': {
             token.kind  = TK_STRING            
             token.start = stream
@@ -116,36 +112,7 @@ next_token      :: (){
             token.end   = stream
             
         }
-        case '{': {
-            token.name = "{"
-            stream = stream + 1
-            token.kind = TK_OPEN_CURLY_BRACES
-        }
-        case '}': {
-            token.name = "}"
-            stream = stream + 1
-            token.kind = TK_CLOSE_CURLY_BRACES
-        }
-        case '[': {
-            token.name = "["
-            stream = stream + 1
-            token.kind = TK_OPEN_SQUARED_BRACES
-        }
-        case ']': {
-            token.name = "]"
-            stream = stream + 1
-            token.kind = TK_CLOSE_SQUARED_BRACES
-        }
-        case '(': {
-            stream = stream + 1
-            token.kind = TK_OPEN_ROUND_BRACES
-            token.name = "("
-        }        
-        case ')': {
-            stream = stream + 1
-            token.kind = TK_CLOSE_ROUND_BRACES
-            token.name = ")"
-        }
+        
         case '\0': {
             token.kind = TK_EOF
             token.name = "EOF"

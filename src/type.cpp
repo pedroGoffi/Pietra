@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <cstring>
 #include "arena.cpp"
-
+#include "interns.cpp"
 using namespace Pietra;
 using namespace Pietra::Ast;
 using namespace Pietra::Core;
@@ -22,7 +22,7 @@ Type f32_ty         = {.kind = TYPE_F32,    .name = Core::cstr("f32"),  .size = 
 Type f64_ty         = {.kind = TYPE_F64,    .name = Core::cstr("f64"),  .size = sizeof(double)};
 Type str_ty         = {.kind = TYPE_PTR,    .name = Core::cstr("cstr"), .size = sizeof(void*), .base = &int8_ty};
 Type void_ty        = {.kind = TYPE_VOID,   .name = Core::cstr("null"), .size = 8, .ismut = false};
-Type unresolved_ty  = {.kind = TYPE_UNRESOLVED, .name = Core::cstr("auto")};
+Type unresolved_ty  = {.kind = TYPE_UNRESOLVED, .name = Core::cstr("unresolved")};
 Type any_ty         = {.kind = TYPE_ANY,    .name = Core::cstr("any"), .size = sizeof(void*), .ismut = true};
 Type self_ty        = {.kind = TYPE_SELF,   .name = Core::cstr("Self"), .ismut = true};
 
@@ -250,7 +250,7 @@ const char* Type::repr(){
             return strf("const %s", base);
         }
         case TYPE_PROC: {
-            const char* str = strf("%s(", this->name);
+            const char* str = strf("proc(");
             for(TypeField* tf: this->proc.params){
                 const char* str_param_t = tf->type->repr();
                 str = strf("%s%s:%s", str, tf->name, str_param_t);

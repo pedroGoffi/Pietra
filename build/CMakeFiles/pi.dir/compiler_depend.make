@@ -311,8 +311,20 @@ CMakeFiles/pi.dir/main.cpp.o: /home/robot/Dev/PLang/Pietra/main.cpp \
   /usr/include/c++/12/cstring \
   /usr/include/string.h \
   /usr/include/strings.h \
-  /home/robot/Dev/PLang/Pietra/src/file.cpp \
+  /home/robot/Dev/PLang/Pietra/src/resolve.cpp \
+  /home/robot/Dev/PLang/Pietra/src/bridge.cpp \
+  /home/robot/Dev/PLang/Pietra/src/preprocess.cpp \
   /home/robot/Dev/PLang/Pietra/include/preprocess.hpp \
+  /home/robot/Dev/PLang/Pietra/src/file.cpp \
+  /usr/include/c++/12/random \
+  /usr/include/c++/12/bits/random.h \
+  /usr/include/c++/12/bits/uniform_int_dist.h \
+  /usr/include/x86_64-linux-gnu/c++/12/bits/opt_random.h \
+  /usr/include/c++/12/bits/random.tcc \
+  /usr/include/c++/12/numeric \
+  /usr/include/c++/12/bits/stl_numeric.h \
+  /usr/include/c++/12/pstl/glue_numeric_defs.h \
+  /usr/include/c++/12/iostream \
   /usr/include/c++/12/iterator \
   /usr/include/c++/12/bits/stream_iterator.h \
   /home/robot/Dev/PLang/Pietra/src/smallVec.cpp \
@@ -320,21 +332,9 @@ CMakeFiles/pi.dir/main.cpp.o: /home/robot/Dev/PLang/Pietra/main.cpp \
   /usr/include/c++/12/bits/stl_algo.h \
   /usr/include/c++/12/bits/algorithmfwd.h \
   /usr/include/c++/12/bits/stl_heap.h \
-  /usr/include/c++/12/bits/uniform_int_dist.h \
   /usr/include/c++/12/bits/ranges_algo.h \
   /usr/include/c++/12/bits/ranges_util.h \
   /usr/include/c++/12/pstl/glue_algorithm_defs.h \
-  /home/robot/Dev/PLang/Pietra/src/resolve.cpp \
-  /home/robot/Dev/PLang/Pietra/src/bridge.cpp \
-  /home/robot/Dev/PLang/Pietra/src/preprocess.cpp \
-  /usr/include/c++/12/random \
-  /usr/include/c++/12/bits/random.h \
-  /usr/include/x86_64-linux-gnu/c++/12/bits/opt_random.h \
-  /usr/include/c++/12/bits/random.tcc \
-  /usr/include/c++/12/numeric \
-  /usr/include/c++/12/bits/stl_numeric.h \
-  /usr/include/c++/12/pstl/glue_numeric_defs.h \
-  /usr/include/c++/12/iostream \
   /home/robot/Dev/PLang/Pietra/src/type.cpp \
   /home/robot/Dev/PLang/Pietra/src/Asmx86_64.cpp \
   /home/robot/Dev/PLang/Pietra/include/Asmx86_64.hpp \
@@ -342,14 +342,6 @@ CMakeFiles/pi.dir/main.cpp.o: /home/robot/Dev/PLang/Pietra/main.cpp \
 
 
 /home/robot/Dev/PLang/Pietra/include/Asmx86_64.hpp:
-
-/usr/include/c++/12/pstl/glue_numeric_defs.h:
-
-/usr/include/c++/12/bits/stl_numeric.h:
-
-/usr/include/c++/12/numeric:
-
-/home/robot/Dev/PLang/Pietra/src/resolve.cpp:
 
 /usr/include/c++/12/bits/ranges_util.h:
 
@@ -359,11 +351,19 @@ CMakeFiles/pi.dir/main.cpp.o: /home/robot/Dev/PLang/Pietra/main.cpp \
 
 /usr/include/c++/12/bits/stl_algo.h:
 
-/usr/include/c++/12/bits/random.tcc:
+/usr/include/c++/12/pstl/glue_numeric_defs.h:
+
+/usr/include/c++/12/bits/stl_numeric.h:
+
+/usr/include/c++/12/numeric:
 
 /usr/include/c++/12/algorithm:
 
+/usr/include/c++/12/bits/random.tcc:
+
 /home/robot/Dev/PLang/Pietra/include/preprocess.hpp:
+
+/home/robot/Dev/PLang/Pietra/src/resolve.cpp:
 
 /usr/include/strings.h:
 

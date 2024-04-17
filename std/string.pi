@@ -64,6 +64,7 @@ impl std puts    :: (str: cstr){
     std.fdputs(__fd_stdout, str)
 }    
 
+
 impl std putc :: (c: i64){
     tmp: *i8 = " "; 
     tmp[0] = c;            
@@ -320,3 +321,7 @@ sized_string_buffer_t :: {
     cap:    mut i64     
 }
 
+String :: {
+    data: mut *i8
+    size: i64
+}

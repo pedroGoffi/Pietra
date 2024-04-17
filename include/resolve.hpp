@@ -92,7 +92,10 @@ namespace Pietra::Resolver {
     SVec<Decl*> resolve_package(PPackage* &package);
     Sym* sym_new(const char* name, Decl* decl);
     Sym* sym_var(const char* name, Type* type, Expr* expr);
+ 
     void resolve_impl(const char* target, SVec<Decl*> body);    
+    Operand create_lambda_callee(SVec<ProcParam*> params, TypeSpec* ret, SVec<Stmt*> block, std::string*);
+    Operand resolve_lambda(Expr*& expr, std::string*);
 }
 
 #endif /*RESOLVE_HPP*/

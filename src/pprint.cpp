@@ -62,6 +62,7 @@ namespace Pietra::pPrint{
                 typespec(ts->templated);
                 pprint(">)");
             )
+            
             default:
                 pp_undefined_kind(ts->kind);
         }
@@ -98,6 +99,9 @@ namespace Pietra::pPrint{
             )
             CASE(EXPR_NAME,
                 pprint("%s", e->name);                
+            )
+            CASE(EXPR_LAMBDA,
+                pprint("TODO print expr lambda\n");
             )
             CASE(EXPR_FIELD,                
                 pprint("(");

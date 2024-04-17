@@ -1,5 +1,5 @@
 #package "pietra.parser"
-use std{std, list}
+use std{std, list, varargs}
 use selfhost{token, lexer, ast}
 
 
@@ -21,7 +21,7 @@ literal_expr_assign :: (name: cstr): *Expr {
         rhs = asm("call expr")
     }
 
-    
+    std.puts("LITERAL EXPR ASSIGN\n")
     return expr_var(name, ts, rhs)
 }
 
@@ -41,7 +41,7 @@ literal_expr :: (): *Expr {
     }
 
     elif is_kind(TK_INT){
-        val = std.cstrtoi(token.name)
+        val = token.as_int
         next_token();                
         return expr_int(val)
     }
@@ -75,13 +75,35 @@ is_base_expr :: (): i64 {
     
     return false    
 }
-base_expr :: (): *Expr {    
-    base: *Expr = literal_expr()    
-    while is_base_expr() {
-        std.puts("base_expr is unimplemented")
-        exit(1)
+base_expr :: (): *Expr {            
+    args: mut *ll_list = ll_list.new()    
+    base: mut *Expr  = literal_expr()        
+
+    
+    while is_base_expr() {        
+        if is_kind(TK_OPEN_ROUND_BRACES){
+            //args = parse_expr_list()
+            std.puts("args.addr = ")
+            dump(base)
+            //base = expr_call()
+    
+            asm("mov rdi, qword [rbp - 8]",                
+                "mov rsi, qword [rbp - 16]",
+                "call expr_call",                        
+                "mov qword [rbp - 8], rax")
+            
+
+            dump(asm("mov rax, qword [rbp - 8]"))            
+            //base = expr_call(base, args)
+        }
+        else {
+            std.puts("base_expr is unimplemented")
+            exit(1)
+        }
     }
-    return base
+    asm("mov rax, qword [rbp - 8]",
+        "jmp .PE.base_expr")
+    //return base
 }
 is_unary_expr :: (): i64 {    
     if token.kind == TK_ADD         return true
@@ -194,6 +216,14 @@ is_assign :: (): i64 {
     return token.kind == TK_EQ
 }
 expr :: (): *Expr {    
+    if is_kind(TK_DCOMMA) {
+        next_token()
+        return null
+    }
+
+
+    puts_va("@@@@@@@@@@@@@@@@@@ Parsing expr: ", token.name, "\n")
+
     cast: *Expr = cast_expr()     
     if is_assign() {
         kind: i64 = token.kind;
@@ -203,7 +233,37 @@ expr :: (): *Expr {
     }
     return cast
 }
+parse_expr_list :: (){
+    if not is_kind(TK_OPEN_ROUND_BRACES){
+        std.puts("[ERROR]: expected '('\n")
+        exit(1)
+    }
+    next_token()
+    args: *ll_list = ll_list.new()
+    while not is_kind(TK_CLOSE_ROUND_BRACES){
+        if args.size != 0 {
+            if not is_kind(TK_DCOMMA){
+                std.puts("[ERROR]: expected ','\n")
+                exit(1)
+            }
+            next_token()
+        }
 
+        
+        asm("call expr",
+            "mov rsi, rax",            
+            "mov rdi, qword [rbp - 8]",
+            "call ll_list_impl_push"
+        )
+        //args.push(expr())
+    }
+    if not is_kind(TK_CLOSE_ROUND_BRACES){
+        std.puts("[ERROR]: expected ')'\n")
+        exit(1)
+    }
+    next_token()
+    return args
+}
 stmt_if_clause :: (): *IfClause {
     cond: *Expr     = expr()
     block: *ll_list   = asm("call stmt_opt_curly_block")        
@@ -243,10 +303,15 @@ expr_stmt :: (): *Stmt {
 return_stmt :: (): *Stmt 
 {    
     next_token()
-    e: *Expr = expr()
-    return stmt_return(e)
+    dump(token.kind == TK_DCOMMA)
+    //e: *Expr = expr()
+    return stmt_return(expr())
 }
 stmt :: (): *Stmt {
+    std.puts("Parsing: ")
+    std.puts(token.name)
+    std.puts("\n")
+
     if is_kind(TK_DCOMMA) return nullptr
 
     if token.name == keyword_if         return if_stmt()
@@ -272,10 +337,45 @@ stmt_opt_curly_block :: (): *ll_list{
         return block
     }
 }
+is_name_type_int :: (name: *i8): *TypeSpec {    
+    if std.streq(name, "i8")    return TypeSpec.new_name("i8")
+    if std.streq(name, "i16")   return TypeSpec.new_name("i16")
+    if std.streq(name, "i32")   return TypeSpec.new_name("i32")
+    if std.streq(name, "i64")   return TypeSpec.new_name("i64")
+    return null
+}
+// *type        -> ptr(type)
+// *type[foo]   -> ptr(type[foo])
+// (*type)[foo] -> (ptr(type))[foo]
 @todo("Implemend")
-parse_typespec :: (): *TypeSpec {
-    next_token()
-    return TypeSpec.new_name("i64")
+parse_typespec :: (): *TypeSpec {    
+    ts: mut *TypeSpec = 0
+    isMut: i64 = std.streq(token.name, "mut");
+    if isMut next_token()
+
+    if isMut or std.streq(token.name, "imut"){        
+        next_token()
+        ts              = parse_typespec()
+        ts.isMut        = isMut
+        return ts
+    }
+    elif is_kind(TK_MULT){
+        next_token()
+        ts = parse_typespec()
+        return TypeSpec.pointer_to(ts, isMut)
+    }
+
+    ts = is_name_type_int(token.name)
+    if ts {
+        next_token()
+        return ts        
+    }
+    
+
+    puts_va("[ERROR]: expected typespec, got: '", token.name, "'\n")
+    exit(1)
+
+
 }
 parse :: (): *Stmt 
     return is_kind(TK_EOF)? 0: stmt()   

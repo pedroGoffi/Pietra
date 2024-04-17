@@ -12,6 +12,7 @@ namespace Pietra::Ast {
     using namespace Pietra::Core; 
 
     struct Expr;
+    struct ProcParam;
     struct Stmt;
     struct TypeSpec;
     struct SwitchCase;
@@ -41,6 +42,7 @@ namespace Pietra::Ast {
         EXPR_ARRAY_INDEX,
         EXPR_CALL,   
         EXPR_SWITCH,                    // Implemented 25/3/2023
+        EXPR_LAMBDA,
     };
     
     struct Expr{
@@ -103,6 +105,11 @@ namespace Pietra::Ast {
                 bool                has_default;
                 SVec<Stmt*>         default_case;            
             } expr_switch;
+            struct {
+                SVec<ProcParam*>    params;
+                TypeSpec*           ret;
+                SVec<Stmt*>         block;
+            } lambda;
         };
     };
     enum StmtKind{

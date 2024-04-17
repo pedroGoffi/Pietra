@@ -2,8 +2,15 @@
 use std{std}
 // TODO: impl more procedures in functional module
 
-impl std {    
-    value_or :: (v1: any, v2: any){
-        return v1 ?? v2;
-    }    
+impl std value_or :: (v1: any, v2: any){
+    return v1 ?? v2;
+}    
+
+
+
+impl std value_or_call :: (v1: any, call: proc(...): any){
+    if v1 return v1
+
+    
+    return call()
 }

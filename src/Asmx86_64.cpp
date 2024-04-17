@@ -65,6 +65,7 @@ const char *argreg64[] = {"rdi", "rsi", "rdx", "r10",  "r8",  "r9"};
 X86Context ctx;
 Decl* cp;
 int buffer_size = 0;
+SVec<Sym*> post_declared_compile;
 
 const char* BUILTIN_DUMP = 
     "dump:\n"
@@ -284,7 +285,7 @@ void makeLabel() {
                 println("mul rbx");
                 return lhs_t;
             }
-
+            case Lexer::TK_NEQ:
             case Lexer::TK_CMPEQ:   {
                 Type* lhs_t = compile_expr(lhs, state);
                 push("rax", lhs_t);
@@ -295,7 +296,12 @@ void makeLabel() {
                 println("mov rdx, 1");       // rdx = 1
                 println("xor rax, rax");     // rax = 0
                 println("cmp rbx, rcx");     // rbx == rcx?                
-                println("cmove rax, rdx")    // if true then rax = rdx, wich is 1.
+                if(kind == Lexer::TK_NEQ){
+                    println("cmovne rax, rdx");
+                }
+                else {
+                    println("cmove rax, rdx");    // if true then rax = rdx, wich is 1.
+                }
                 return type_int(8, lhs_t->ismut);
             }
             case Lexer::TK_ADD: {
@@ -386,8 +392,10 @@ void makeLabel() {
                 println("mov rax, rcx");
 	        
                 return lhs_t;
-            }            
+            }                    
         }        
+
+        err("[ERROR]: Couldn't compile the following expression.\n");
         pPrint::expr(Utils::expr_binary(kind, lhs, rhs));
         exit(1);
     }
@@ -628,7 +636,7 @@ void makeLabel() {
         println("call rax");        
     }
 
-    Type* compile_init_var(const char* name, Type* type, Expr *init, bool isGlobal, CState state){                        
+    Type* compile_init_var(const char* name, Type* type, Expr *init, bool isGlobal, CState &state){
         assert(!isGlobal && "global variables should be preprocessed in the resolver");
         if(state != state_none){
             err("[ERR]: init var with state != state_none.\n");
@@ -656,7 +664,7 @@ void makeLabel() {
             for(CVar* v: *proc->params){
                 err("inside %s got params = %s\n", proc->name, v->name);
             }
-            
+                        
             err("[EROR]: could not find the variable: '%s'\n", name);
             exit(1);            
         }        
@@ -791,10 +799,7 @@ void makeLabel() {
 
                 if(isVa and (argPos >= vaPos)) {                        
                     for(int i = vaPos - 1; i < args.len(); i++){
-                        Expr* va_arg = args.at(i);
-                        err("VAR %i: ", i);
-                        pPrint::expr(va_arg);
-                        err("\n");
+                        Expr* va_arg = args.at(i);                        
                         compile_expr(va_arg, state_none);
                         println("mov qword [INTERNAL__va_stack + %i], rax", va_offset);
                         va_offset += sizeof(void*);
@@ -1066,6 +1071,22 @@ void makeLabel() {
         }
 
         return cond_t;
+    }    
+    Type* compile_lambda(Expr*& e){                
+        Operand f = resolve_lambda(e);
+        Sym* lambda = Declared_lambdas.back();
+        assert(lambda);
+        post_declared_compile.push(lambda);
+        
+        SVec<Expr*> args;
+            args.push(Utils::expr_name(lambda->name));
+
+        Expr* call = Utils::expr_call(
+            Utils::expr_name(lambda->name),
+            args
+        );
+        
+        return compile_expr(Utils::expr_name(lambda->name), state_none);
     }
     Type* compile_expr(Expr* e, CState& state){                
         static int i = 0;
@@ -1099,6 +1120,7 @@ void makeLabel() {
             case EXPR_ARRAY_INDEX:  return compile_index(e->array.base, e->array.index, state);
             case EXPR_FIELD:        return compile_field(e->field_acc.parent, e->field_acc.children, state);
             case EXPR_TERNARY:      return compile_ternary(e->ternary.cond, e->ternary.if_case, e->ternary.else_case);
+            case EXPR_LAMBDA:       return compile_lambda(e);
             default:                 
                 fprintf(stderr, "========================\n");
                 pPrint::expr(e);
@@ -1539,8 +1561,7 @@ void makeLabel() {
     }
     void compile_segment_bss(){
         printf("segment .bss\n");
-        println("__heap_end__: resq 1");
-        println("__va_offset__: resq 1");
+        println("__heap_end__: resq 1");        
         if(buffer_size > 0 or globals.len() > 0){                        
             for(CVar* global: globals){
                     printc("G%s: resb %i\n", global->name, global->type->calcSize());
@@ -1568,7 +1589,11 @@ void makeLabel() {
         for(Decl* decl: ast){
             compile_decl(decl);
         }
-
+        for(Sym* post: post_declared_compile){
+            Decl* decl = post->decl;
+            assert(decl);            
+            compile_decl(decl);
+        }
 
         printlb("_start");
         CProc* pmain = GetProc(keyword_main);

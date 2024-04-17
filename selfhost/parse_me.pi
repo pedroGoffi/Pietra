@@ -1,26 +1,6 @@
-s       :: 1
-myMacro :: "hello, world"
-
-
-
 myF :: (){    
-    x : i64 = 10 + 1
-    y : i64 = 10 + 1        
-}
+    myVar1 : i64 = 420
+    myVar2 : i64 = myVar1    
 
-// This should be compiled to
-my_f:
-// Parameters + local variable allocation + parameters setup
-    PROC_ENTRY
-    ACCEPT_N_PARAMS 4
-    mov [rsp - PTR_SIZE*1], ARGREG_1
-    mov [rsp - PTR_SIZE*2], ARGREG_2
-    mov [rsp - PTR_SIZE*3], ARGREG_3
-    mov [rsp - PTR_SIZE*4], ARGREG_4    
-.PB.myF:
-// proc body
-    xor eax, eax
-.PE.myF
-    leave
-    ret 
-// proc return
+    dump ( myVar1 )
+}

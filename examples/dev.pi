@@ -1,37 +1,16 @@
 use std{std}
 
-String :: {
-    data: mut *i8
-    size: i64
 
-    test: mut *i8
+call_me :: (f: proc(i64)){
+    f(1)
 }
-
-
 main :: (){
-    dst: String
-    src: String    
-    src.test = "hello, world\n"
-
-
     
-    dst = src
-    
-    std.puts("TEST:\n")
-    // dst.data must be src.data
-    dump(src.test == dst.test)
-
-    
-
-    switch dst.test {
-        case "hello, world\n": {
-            std.puts("[TEST PASSED]\n")
-            
-        }
-        default: {
-            std.puts("TEST FAILED:\n");
-            exit(1)
-        }
+    myLambda := proc(){
+        std.puts("I am a lambda\n")
+        return 1
     }
-    
+
+    dump(myLambda())
+    std.puts("ok\n")
 }

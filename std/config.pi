@@ -1,6 +1,6 @@
-
 #package "pietra.config"
 use std{std}
+use std{list}
 
 
 @string_comparator  
@@ -22,3 +22,29 @@ struct_reassign :: (dst: *i8, src: *i8, size: i64){
     }
     return dst    
 }
+
+// The idea for intern_range is only for ptr comparasion
+intern_strings: mut *ll_list = ll_list.new()
+intern_range :: (begin: cstr, end: cstr): *i8
+{
+    node: mut *ll_node = intern_strings.head
+    while node.value 
+    {
+        if std.cstrncmp(begin, node.value, end - begin) == 0
+        {
+            return node.value
+        }
+        node = node.next
+    }        
+    string: *i8 = std.allocate(end - begin + 1)
+    std.memcpy(string, begin, end - begin)
+    string[end - begin + 1] = 0
+    intern_strings.push(string)
+    return string
+}
+
+intern_str :: (str: *i8): *i8 
+{
+    return intern_range(str, str + std.strlen(str))
+}
+

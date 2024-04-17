@@ -40,8 +40,11 @@ main :: (argc: i64, argv: *cstr){
     ast: *ll_list = parse_ast()
     std.puts("---- Printing the Expr:\n")    
 
+    declare_builtin()
     resolve_ast(ast)   
-    compile_ast(ast)    
+    compile_ast(final_ast)    
 
-    write_code_to_filename("selfhost/out_selfhost.asm", code)   
+    write_code_to_filename(
+        "selfhost/out_selfhost.asm", 
+        code)   
 }

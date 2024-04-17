@@ -1,5 +1,5 @@
 #package "pietra.ast"
-use std{list}
+use std{list, varargs}
 type ExprKind :: i64
 
 TYPE_NONE                   ::  0
@@ -44,7 +44,7 @@ TypeAggregate :: {
 }
 Type :: {
     kind:       i64
-    name:       *i8
+    name:       mut *i8
     size:       i64
     isSelf:     i64
     isMut:      i64
@@ -70,14 +70,29 @@ get_type_int_kind :: (sz: i64): i64
         case 64:    return TYPE_I64
         default:    
         {
-            std.puts("Type int wrong size in get_type_int_kind.\n")
+            puts_va(
+                "Type int wrong size in get_type_int_kind, got: '",
+                std.itocstr(sz),
+                "'\n")
             exit(1)
         }
     }
 }
+impl Type repr :: (type: *Type): *i8 {
+    switch type.kind {
+        case TYPE_I8:  return intern_str("i8")
+        case TYPE_I16: return intern_str("i16")
+        case TYPE_I32: return intern_str("i32")
+        case TYPE_I64: return intern_str("i64")
+    }
+
+    std.puts("[ERROR]: type repr unknown\n")
+    exit(1)
+}
 type_int :: (sz: i64, is_mut: i64): *Type
 {
-    t: *Type = Type.new(get_type_int_kind(sz), is_mut)
+    t: *Type = Type.new(get_type_int_kind(sz), is_mut)    
+    t.name   = Type.repr(t)
     t.size = sizeof(i64)
     return t
 }
@@ -106,7 +121,9 @@ NULL_T_NAME :: "null"
 TypeSpec :: {    
     kind:           i64
     name:           mut *i8
-    base:           *any
+    base:           mut *any
+    isMut:          i64
+    size:           i64
     resolved_type:  mut *any // *Type   
 }
 impl TypeSpec new        :: (kind: i64): *Self 
@@ -121,7 +138,15 @@ impl TypeSpec new_name   :: (name: *i8): *Self
     ts.name = name    
     return ts
 }
-
+impl TypeSpec pointer_to :: (base: *TypeSpec, isMut: i64): *TypeSpec 
+{
+    ptr: *TypeSpec = TypeSpec.new(TYPESPEC_POINTER)
+    ptr.name  = "Pointer"
+    ptr.base  = base
+    ptr.size  = sizeof(i64)
+    ptr.isMut = isMut
+    return ptr
+}
 
 EXPR_NONE                   :: 0
 EXPR_INT                    :: 1
@@ -151,6 +176,7 @@ Expr :: {
     name_lit:   cstr    
     lhs:        mut *i64 // Expr
     rhs:        mut *i64 // Expr
+    list:       mut *ll_list
     type:       mut *TypeSpec
 }
 expr_init :: (kind: i64): *Expr {
@@ -177,8 +203,7 @@ expr_string :: (str: cstr): *Expr {
     return e
 }
 
-expr_binary :: (kind: TokenKind, lhs: *Expr, rhs: *Expr){
-    dump(kind)
+expr_binary :: (kind: TokenKind, lhs: *Expr, rhs: *Expr){    
     e: *Expr            = expr_init(EXPR_BINARY)
     e.tkKind            = kind
     // BUG: casting to avoid crashing
@@ -192,10 +217,16 @@ expr_var :: (name: *i8, ts: *TypeSpec, rhs: *Expr): *Expr {
     e.name_lit  = name
     e.type      = ts
     // To avoid segfault in the compiler
-    e.rhs  as any = rhs
+    e.rhs as any = rhs
     return e
 }
-
+expr_call :: (base: *Expr, args: *ll_list): *Expr 
+{
+    e: *Expr    = expr_init(EXPR_CALL)
+    e.lhs as any = base
+    e.list as any = args
+    return e
+}
 STMT_NONE   :: 0
 STMT_EXPR   :: 1
 STMT_IF     :: 2
@@ -312,3 +343,38 @@ impl Decl decl_constexpr :: (name: imut *i8, constexpr: *any): *Decl
 }
 
 
+print_expr :: (e: *Expr)
+{
+    switch e.kind {
+        case EXPR_NAME: puts_va("<Expr_name: ", e.name_lit,">\n")
+        case EXPR_INT:  puts_va("<Expr_int: ", std.itocstr(e.int_lit), ">\n")
+        case EXPR_CALL: 
+        {
+            std.puts("<Expr_call: ")
+            list: *ll_list = e.list
+            node: mut *ll_node = list.head
+            dump(e.list)
+            exit(1)
+            while node.value 
+            {                
+                print_expr(node.value)
+                node = node.next
+            }            
+            std.puts(">\n")
+        }
+        case EXPR_INIT_VAR:
+        {
+            puts_va("<Expr_init_var: ", e.name_lit, e.rhs? (""): ">")
+            if e.rhs {
+                print_expr(e.rhs)
+                std.puts(">\n")
+            }
+            
+        }
+        default:
+        {
+            puts_va("[ERROR]: Idk how to print this kind: (", std.itocstr(e.kind), ").\n")
+            exit(1)
+        }
+    }
+}

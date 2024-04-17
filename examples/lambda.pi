@@ -1,0 +1,23 @@
+use std{std, varargs, functional}
+
+call_me :: (fn: proc(): cstr){
+    std.puts("I will call a callback.\n")
+    callback_data := fn()
+    puts_va("Callback data = '", callback_data, "'.\n")
+    std.puts("I Already called a callback\n")    
+}
+
+main :: (){
+    
+    call_me(proc(){        
+        data: mut *i8 = "i am a callback"           
+        return data
+    })    
+
+    data := 0
+    res := std.value_or_call(data, proc(){
+        std.puts("i am otherwise call\n")
+    })
+
+    dump(res)
+}

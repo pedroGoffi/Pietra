@@ -230,5 +230,54 @@ namespace Pietra::CBridge{
         constexprs.push(ce);
         DefinedNames.push(name);
     }
+    std::vector<CBridge::CProc*> cproc_save;
+    void save_cp(){
+        cproc_save.push_back(CBridge::ctx.Cp);
+    }    
+    void cp_rewind(){
+        if(cproc_save.size() > 0){
+            CBridge::ctx.Cp = cproc_save.back();
+            cproc_save.pop_back();
+        }
+    }
+
+    struct Flag {
+        const char*     name;
+        bool            state;        
+    };
+    #define IF_FLAG(__flag_str__, ...) if(CBridge::get_flag(__flag_str__)->state != false) {__VA_ARGS__}
+    // FLAGS
+    #define FLAG_NAME_IMPLICIT_CAST Core::cstr("-wImplictCast")    
+    ///
+    SVec<Flag*> flags;    
+    Flag* get_flag(const char* name){
+        name = Core::cstr(name);
+        for(Flag* flag: flags){            
+            if(flag->name == name) return flag;
+        }
+
+        return nullptr;
+    }
+
+    Flag* init_or_get_flag(const char* name, bool init_as = false){
+        name = Core::cstr(name);
+        Flag* f = get_flag(name);
+        if(f) return f;
+
+
+        f = arena_alloc<Flag>();
+        f->name  = name;
+        f->state = init_as;
+        flags.push(f);
+        return f;
+    }
+
+    void set_flag(const char* name, bool state){
+        name = Core::cstr(name);
+        Flag* flag = get_flag(name);        
+        flag->state = state;        
+    }
+
+    
 }
 #endif /*CPP_BRIDGE*/

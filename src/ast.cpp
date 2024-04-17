@@ -134,6 +134,13 @@ Expr* expr_switch(Expr* cond, SVec<SwitchCase*>   cases, bool has_default, SVec<
     e->expr_switch.default_case = default_case;            
     return e;
 }
+Expr* expr_lambda(SVec<ProcParam*> params, TypeSpec* ret, SVec<Stmt*> block){
+    Expr* e = init_expr(Ast::EXPR_LAMBDA);
+    e->lambda.params    = params;
+    e->lambda.ret       = ret;
+    e->lambda.block     = block;
+    return e;
+}
 TypeSpec* init_typespec(TypeSpecKind kind, Lexer::Token token){
     TypeSpec* ts = arena_alloc<TypeSpec>();    
     ts->kind = kind;        
@@ -261,6 +268,7 @@ ProcParam* proc_param_varargs(){
     ProcParam* p    = arena_alloc<ProcParam>();
     p->name         = Core::cstr("<variadic argument>");
     p->isVararg     = true;
+    p->type         = typespec_name("any", {});
     return p;
 }
 Decl* decl_proc(const char* name, SVec<ProcParam*> params, TypeSpec* ret, SVec<Stmt*> block, bool is_complete, bool is_vararg = false, SVec<Note*> notes = {}, bool is_internal = false){
@@ -330,6 +338,7 @@ Decl* decl_impl(const char* target, SVec<Decl*> body){
     d->impl.body = body;
     return d;
 }
+
 }
 
 void tok_err(Pietra::Lexer::Token token, const char* fmt, ...){

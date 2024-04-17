@@ -24,7 +24,11 @@ makeLabelAt :: (addr: i64): null
     commit(repr)    
 }
 
-
+get_cp_label_end :: (){    
+    end_label: mut *i8 = ".PE."
+    end_label = std.cstrcat(end_label, current_proc.name)    
+    return end_label
+}
 makeLabel   :: (): null
 {
     addr: i64 = addr_count()
@@ -73,7 +77,7 @@ get_addr_str :: (addr: addr_t): imut *i8
     addr_str = std.cstrcat(addr_str, std.itocstr(addr))
     return addr_str
 }
-jmp_inst :: (j_inst: imut *i8, addr: addr_t)
+jmp_inst_addr :: (j_inst: imut *i8, addr: addr_t)
 {
     inst: mut *i8 = "\t"
     inst = std.cstrcat(inst, j_inst)
@@ -81,6 +85,16 @@ jmp_inst :: (j_inst: imut *i8, addr: addr_t)
     inst = std.cstrcat(inst, get_addr_str(addr))
     inst = std.cstrcat(inst, "\n")
     commit(inst)
+}
+jmp_inst_label :: (jmp_kind:*i8, label: *i8){
+    inst: mut *i8 = "\t"
+    inst = std.cstrcat(inst, jmp_kind)
+    inst = std.cstrcat(inst, " ")
+    
+    inst = std.cstrcat(inst, label)    
+    inst = std.cstrcat(inst, "\n")
+    commit(inst)
+    
 }
 ////////////////////
 push :: (reg: *i8) 
@@ -97,38 +111,93 @@ pop :: (reg: *i8)
     inst = std.cstrcat(inst, "\n")    
     commit(inst)
 }
+get_word_size :: (size: i64){
+    switch(size){            
+        case 1:     return "BYTE"
+        case 2:     return "WORD"
+        case 4:     return "DWORD"
+        default:    return "QWORD"
+    }
+}
+lea :: (var: *Var){
+    if var.is_global 
+    {
+        std.puts("[ERROR]: lea for global is unimplemented.\n")
+        exit(1)
+    }
+    // Local variables
+    var_type: *Type = var.type
+    stack_offset: i64 = var_type.size
+    inst: mut *i8 = "\tlea rax, "
+    inst = std.cstrcat(inst, get_word_size(var_type.size))
+    inst = std.cstrcat(inst, " [rbp - ")
+    inst = std.cstrcat(inst, std.itocstr(stack_offset))
+    inst = std.cstrcat(inst, "]\n")
+
+    commit(inst)            
+}
 compile_name    :: (name: *i8): *Type 
 {
+    if local: *Var = current_proc.find_its_local(name){
+        lea(local)
+
+        return local.type        
+    }
+    if type: *Type = type_get(name)
+        return type
+    
     if ce: *Constexpr = Constexpr.find(name) return compile_expr(ce.expr)
 
-    std.puts("Idk this name bruh\n")
+    
+    puts_va("[ERROR]: the name '", name, "' not found in this scope\n")
     exit(1)
 }
-compile_local_var :: (name: *i8, ty: *Type, init: *Expr): *Type {    
-    commit(";; TODO: get current_proc and variable\n")
+compile_local_var :: (name: *i8, ty: *Type, init: *Expr): *Type {        
+    var: *Var = current_proc.find_its_local(name)
+    if not var{
+        puts_va("[ERROR]: Couldn't find the local variable '", name, "'\n")
+        exit(1)
+    }
 
     if init {
-        compile_expr(init)
+        eq: *Expr = expr_binary(TK_EQ, expr_name(name), init)
+        compile_expr(eq)
     }
     return ty
 }
-compile_expr :: (e: *Expr): *Type
+is_expr_assign :: (kind: i64){
+    switch kind {
+        case TK_EQ: return true
+        default: return false
+    }
+}
+store    :: (){
+    pop("rdi")
+    commit("\tmov [rdi], rax\n")   
+}
+store_ds :: (dst: *Type, src: *Type): null 
 {
+    return store()
+}
+compile_assign :: (kind: i64, base: *Expr, rhs: *Expr): *Type 
+{
+    lhs_t: *Type = compile_expr(base)
+    push("rax")
+    rhs_t: *Type compile_expr(rhs)
+    store_ds(lhs_t, rhs_t)
+}
+compile_expr :: (e: *Expr): *Type
+{    
     inst: mut *i8
     switch e.kind 
     {
-        case EXPR_INT: 
-        {                
-            mov_rax_to_i64(e.int_lit)
-            
-        }
-        case EXPR_STRING: 
-        {                                    
-            str_id: i64 = create_global_string(e.name_lit)
-            mov_rax_to_string_addr(str_id)            
-        }
+        case EXPR_INT:      return mov_rax_to_i64(e.int_lit)                    
+        case EXPR_STRING:   return mov_rax_to_string_addr(create_global_string(e.name_lit))            
+        
         case EXPR_BINARY:
         {         
+            if is_expr_assign(e.tkKind)
+                return compile_assign(e.tkKind, e.lhs, e.rhs)
             compile_expr(e.lhs)
             push("rax")
             compile_expr(e.rhs)
@@ -155,19 +224,19 @@ compile_if :: (If: *STStmt_if){
     ifClause: *IfClause = If.ifClause    
     cond: *Type = compile_expr(ifClause.cond)
     commit("\tcmp rax, 0\n")
-    jmp_inst("je", end_addr)
+    jmp_inst_addr("je", end_addr)
 
 
 }
 @todo("CBridge in .pi files")
-compile_stmt :: (s: *Stmt): null {    
+compile_stmt :: (s: *Stmt): null {        
     switch s.kind 
     {        
         case STMT_EXPR: compile_expr(s.expr)
         case STMT_IF:   compile_if(s.if)
-        case STMT_RETURN: {
+        case STMT_RETURN: {                        
             compile_expr(s.expr)            
-            jmp_inst("jmp", 69)
+            jmp_inst_label("jmp", get_cp_label_end())
         }
         default:
         {
@@ -228,10 +297,13 @@ compile_decl_proc :: (name: *i8, proc: *DeclProc){
         sub_reg_by_i64("rsp", current_proc.stack_allocation)
     }
     compile_block(proc.block)
+    commit("\tmov rax, 0\n")
     commit(".PE.")  commit(name) commit(":\n")
 
     commit("\tleave\n")
     commit("\tret\n")
+
+    current_proc = null
 }
 compile_decl :: (d: *Decl) 
 {
@@ -257,11 +329,63 @@ compile_decl :: (d: *Decl)
         }            
     }
 }
+compile_builtin_dump :: (){
+    commit("dump:\n")
+    commit("\tpush  rbp\n")
+    commit("\tmov   rbp, rsp\n")
+    commit("\tsub   rsp, 64\n")
+    commit("\tmov   QWORD  [rbp-56], rdi\n")
+    commit("\tmov   QWORD  [rbp-8], 1\n")
+    commit("\tmov   eax, 32\n")
+    commit("\tsub   rax, QWORD  [rbp-8]\n")
+    commit("\tmov   BYTE  [rbp-48+rax], 10\n")
+    commit(".L2:\n")
+    commit("\tmov   rcx, QWORD  [rbp-56]\n")
+    commit("\tmov   rdx, -3689348814741910323\n")
+    commit("\tmov   rax, rcx\n")
+    commit("\tmul   rdx\n")
+    commit("\tshr   rdx, 3\n")
+    commit("\tmov   rax, rdx\n")
+    commit("\tsal   rax, 2\n")
+    commit("\tadd   rax, rdx\n")
+    commit("\tadd   rax, rax\n")
+    commit("\tsub   rcx, rax\n")
+    commit("\tmov   rdx, rcx\n")
+    commit("\tmov   eax, edx\n")
+    commit("\tlea   edx, [rax+48]\n")
+    commit("\tmov   eax, 31\n")
+    commit("\tsub   rax, QWORD  [rbp-8]\n")
+    commit("\tmov   BYTE  [rbp-48+rax], dl\n")
+    commit("\tadd   QWORD  [rbp-8], 1\n")
+    commit("\tmov   rax, QWORD  [rbp-56]\n")
+    commit("\tmov   rdx, -3689348814741910323\n")
+    commit("\tmul   rdx\n")
+    commit("\tmov   rax, rdx\n")
+    commit("\tshr   rax, 3\n")
+    commit("\tmov   QWORD  [rbp-56], rax\n")
+    commit("\tcmp   QWORD  [rbp-56], 0\n")
+    commit("\tjne   .L2\n")
+    commit("\tmov   eax, 32\n")
+    commit("\tsub   rax, QWORD  [rbp-8]\n")
+    commit("\tlea   rdx, [rbp-48]\n")
+    commit("\tlea   rcx, [rdx+rax]\n")
+    commit("\tmov   rax, QWORD  [rbp-8]\n")
+    commit("\tmov   rdx, rax\n")
+    commit("\tmov   rsi, rcx\n")
+    commit("\tmov   edi, 1\n")
+    commit("\tmov   rax, 1\n")
+    commit("\tsyscall\n")
+    commit("\tnop\n")
+    commit("\tleave\n")
+    commit("\tret\n")
+}
 compile_ast :: (ast: *ll_list){
     commit("BITS 64\n")
     commit("segment .text\n")
     commit("global _start:\n")
     
+
+    compile_builtin_dump()
     decl: mut *ll_node = ast.head    
     while decl.value
     {

@@ -32,3 +32,15 @@ impl Va_list value :: (self: *Self): *any
 
 impl Va_list end :: (self: *Self): *any 
     return self.__va_end
+
+
+
+puts_va :: (...){    
+    va: Va_list
+    while va.has_value()
+    {                
+        std.puts(va.value())
+        va.next()
+    }
+}
+

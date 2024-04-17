@@ -14,7 +14,7 @@ namespace Pietra::cGen{
     void gen_stmt(Stmt* stmt);
     void gen_stmt_block(SVec<Stmt*> block);
     void gen_decl(Decl* decl);
-    void gen_all(SVec<Sym*> ast, const char* out_fp);
+    void gen_all(SVec<Decl*> ast, const char* out_fp);
 }
 
 #endif /*CGEN_HPP*/

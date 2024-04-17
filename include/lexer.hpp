@@ -30,6 +30,7 @@ namespace Pietra::Lexer{
         TK_INC,
         TK_NEQ,        
         TK_MULT,
+        TK_ARROW,
         TK_NOTE,
         TK_TRIPLE_DOT,
         TK_OPEN_ROUND_BRACES, 

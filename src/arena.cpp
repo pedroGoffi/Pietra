@@ -1,13 +1,13 @@
 #ifndef ARENA_CPP
 #define ARENA_CPP
 #include "../include/arena.hpp"
-#include "cGen.cpp"
 #include <cstddef>
 #include <cstdlib>
+#include <stdio.h>
 
 using namespace Pietra;
 
-SVec<Arena<void*>*> __arenas;
+Core::SVec<Core::Arena<void*>*> __arenas;
 Core::Arena<void*>  main_arena;
 
 

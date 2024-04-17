@@ -219,7 +219,22 @@ void Lexer::next(){
                 token.str_end = stream;\
                 token.name  = Core::cstr_range(token.str_start, token.str_end); \
                 break;
-
+        #define CASE3(C1, K1, C2, K2, C3, K3)               \
+            case C1:                                        \
+                stream++;                                   \
+                if(*stream == C2){                          \
+                    stream++;                               \
+                    token.kind = K2;                        \
+                }                                           \
+                else if (*stream == C3){                    \
+                    stream++;                               \
+                    token.kind = K3;                        \
+                }                                           \
+                else {                                      \
+                    token.kind = K1;                        \
+                }                                           \
+                token.str_end = stream;                     \
+                token.name = Core::cstr_range(token.str_start, token.str_end);
         CASE1('#', TK_HASH)
         CASE1('(', TK_OPEN_ROUND_BRACES)
         CASE1(')', TK_CLOSE_ROUND_BRACES)
@@ -239,7 +254,8 @@ void Lexer::next(){
         CASE2('=', TK_EQ, '=', TK_CMPEQ)
         
         CASE2('+', TK_ADD, '+', TK_INC)
-        CASE2('-', TK_SUB, '-', TK_DEC)
+        CASE2('-', TK_SUB, '-', TK_DEC);
+          
         CASE2('<', TK_LT, '=', TK_LTE)       
         CASE2('!', TK_NOT, '=', TK_NEQ)
         CASE1('|', TK_PIPE)
@@ -337,7 +353,7 @@ void Lexer::Scanners::scan_string(){
             stream++;
             char escape = Scanners::scape_to_char(*stream);
             if(*stream != '0' and escape == 0){
-                printf("[SYNTAX-ERROR]: Invalid escape literal: %c\n", *stream);
+                printf("[SYNTAX-ERROR]: Invalid escape literal: \\%c\n", *stream);
                 exit(1);
             }
             
@@ -581,8 +597,12 @@ const char* Lexer::tokenKind_repr(tokenKind k){
         case TK_LAND:                   return "and";
         case TK_LOR:                    return "or";
         case TK_NOT:                    return "not";
+        case TK_AMPERSAND:              return "&";
+        case TK_NEQ:                    return "!=";
 
-        default: return "<unknown>";
+        default: 
+            printf("repr_TK_KIND: %i\n", k);
+            exit(1);            
     }      
 }
 SVec<const char*> included_packages;

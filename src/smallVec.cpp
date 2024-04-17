@@ -61,10 +61,10 @@ void SVec<T>::reset(){
 }
 template<typename T>
 void SVec<T>::__grow_buffer__(int new_len) {
-    assert(this->cap() <= (SIZE_MAX - 1)/2);
+    assert((double)this->cap() <= (double)(SIZE_MAX - 1)/2);
     
     size_t new_cap = CLAMP_MIN(2*this->cap(), MAX(new_len, 16));
-    assert(new_len <= new_cap);
+    assert((int)new_len <= (int)new_cap);
     assert(new_cap <= (SIZE_MAX - offsetof(SVecHdr, buff))/sizeof(T));
     size_t new_size = MAX(offsetof(SVecHdr, buff) + new_cap*sizeof(T), 1);
     SVecHdr *new_hdr;

@@ -73,21 +73,16 @@ impl ll_list sort_by :: (self: *Self, sort_func: proc(i64, i64)){
         }
         i = i + 1
     }
-    //n1: mut *ll_node = self.head 
-    //while n1.value {
-    //    n2: mut *ll_node = self.head 
-    //
-    //    while n2.value {
-    //        if sort_func(n1.value, n2.value){                
-    //            
-    //            //n1_v: *any = n1.value;
-    //            //n1.value = n2.value;
-    //            //n2.value = n1_v                
-    //        }
-    //        n2 = n2.next
-    //    }
-    //
-    //    n1 = n1.next
-    //}
+}
 
+impl ll_list map :: (self: *Self, func: proc(any): any): *ll_list{
+    ret: *ll_list = ll_list.new()
+    node: mut *ll_node = self.head
+    while node.value 
+    {
+        got_v := func(node.value)
+        ret.push(got_v)
+        node = node.next
+    }
+    return ret
 }

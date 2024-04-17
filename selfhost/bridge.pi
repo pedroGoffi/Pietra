@@ -85,54 +85,71 @@ Var :: {
     is_global:      mut i64
     stack_offset:   mut i64 // if is local
 }
+global_vars: *ll_list = ll_list.new()
 impl Var __new__       :: (is_global: i64, name: *i8, type: *Type, init: *Expr){
     v: *Var = std.allocate(sizeof(Var))
     v.name = name
     v.type = type 
     v.opt_init = init
     v.is_global = is_global    
+
+    if is_global
+        global_vars.push(v)
+
     return v
 }
 
-__VAR_STACKA_ALLOCATION: i64 = 0
+__VAR_STACK_ALLOCATION: i64 = 0
 impl Var allocate_on_stack :: (size: i64): addr_t {
-    __VAR_STACKA_ALLOCATION = __VAR_STACKA_ALLOCATION + size
-    return __VAR_STACKA_ALLOCATION - size
+    __VAR_STACK_ALLOCATION = __VAR_STACK_ALLOCATION + size
+    return __VAR_STACK_ALLOCATION - size
 }
-impl Var new_local  :: (name: *i8, type: *Type, init: *Expr, stack_offset: i64){
-    v: *Var = Var.__new__(false, name, type, init)
-    v.stack_offset = stack_offset
-    return v
-}
+
 impl Var new_global :: (name: *i8, type: *Type, init: *Expr){
-    v: *Var = Var.__new__(true, name, type, init)
-    return v
+    return Var.__new__(true, name, type, init)    
 }
 
 Proc :: {
     name:               mut *i8
     is_recursive:       mut i64
     stack_allocation:   mut i64
-    ret_type:           mut *Type
-    params:             mut *ll_list // *Var
+    ret_type:           mut *Type    
     locals:             mut *ll_list // *Var
 }
 current_proc: mut *Proc = std.allocate(sizeof(Proc))
+
+impl Var new_local  :: (name: *i8, type: *Type, init: *Expr, stack_offset: i64){
+    v: *Var = Var.__new__(false, name, type, init)
+    v.stack_offset = stack_offset
+
+
+    return v
+}
+impl Proc find_its_local :: (self: *Self, name: *i8): *Var {    
+    list: *ll_list = self.locals
+    node: mut *ll_node = list.head    
+    
+    while node.value 
+    {        
+        var: *Var = node.value
+                
+        if std.streq(name, var.name) return var
+        node = node.next
+    }
+    return null
+}
+
+
+
 Proc_list: *ll_list = ll_list.new()
 
-
-cp_allocate_var_on_list :: (list: *ll_list, var: *Var): addr_t{
-    dump(list)
-    if not list {
-        list.constructor()
-    }
-    list.push(var)
-    return var.stack_offset
-}
-cp_allocate_var_on_cp :: (var: *Var): addr_t
-{
+cp_allocate_var :: (var: *Var): addr_t
+{    
+    puts_va("Allocating '", var.name, "' on the procedure: ", current_proc.name, "\n")
     t: *Type = var.type    
     current_proc.stack_allocation = current_proc.stack_allocation + t.size
+    list: *ll_list = current_proc.locals
+    list.push(var)    
     return current_proc.stack_allocation - t.size
     
 }
@@ -142,12 +159,13 @@ impl Proc new :: (name: *i8, ret_type: *Type, params: *ll_list): *Proc
     proc.name = name
     proc.stack_allocation = 0
     proc.ret_type = ret_type
-    proc.params = params    
+    proc.locals = params    
     
     current_proc = proc
     Proc_list.push(proc)
     return proc
 }
+
 impl Proc find :: (name: i64): *Proc 
 {
     node: mut *ll_node = Proc_list.head
@@ -189,4 +207,27 @@ create_global_string :: (str: *i8): addr_t {
     addr: addr_t = Global_strings.size
     Global_strings.push(str)    
     return addr
+}
+
+
+type_alias: *ll_list = init_ll_list_ptr()
+type_get :: (name: *i8): *Type
+{    
+    node: mut *ll_node = type_alias.head
+    while node.value 
+    {
+        t_node: *Type = node.value
+        if std.streq(name, t_node.name) {
+            return node.value
+        }
+        node = node.next
+    }
+    return null
+}
+type_set :: (type: *Type){
+    if type_get(type.name) {
+        puts_va("[ERROR]: the type '", type.name, "' is already declared.\n")
+        exit(1)
+    }    
+    type_alias.push(type)    
 }

@@ -46,6 +46,13 @@ impl Sym new :: (kind: i64): *Self
     s.kind = kind
     return s
 }
+impl Sym new_var :: (name: *i8, t: *Type, rhs: *Expr){    
+    s: *Sym = Sym.new(SYM_VAR)
+    s.name = name
+    s.type = t
+    s.expr = rhs
+    return s
+}
 Operand :: {
     type:       mut *Type
     is_lvalue:  mut i64
@@ -66,7 +73,27 @@ impl Operand new :: (type: *Type, is_lvalue: i64, is_const: i64, val: Val)
 
 operand_lvalue :: (type: *Type, val: Val): *Operand 
 {
-    //return Operand.new(type, true, false, val)
+    return Operand.new(type, true, false, val)
+}
+init_builtin_sym_int_from_size :: (name: *i8, size: i64): *Sym {
+    s: *Sym = Sym.new(SYM_TYPE)
+    s.state = SYM_RESOLVED
+    s.name  = intern_str(name)
+    s.type  = type_int(size, false)
+    type_set(s.type) // Save the type to further use        
+    Syms.push(s)
+    return s
+}
+declare_builtin_types :: (){
+    init_builtin_sym_int_from_size("i8",  8)
+    init_builtin_sym_int_from_size("i16", 16)
+    init_builtin_sym_int_from_size("i32", 32)
+    init_builtin_sym_int_from_size("i64", 64)
+    
+}
+
+declare_builtin :: (){
+    declare_builtin_types()
 }
 ////////////////////////////////////////////////////////////
 //  The resolver will
@@ -88,9 +115,10 @@ packages:   *ll_list = init_ll_list_ptr() // SVec<PPackage*>
 sym_get :: (name: imut *i8): *Sym 
 {
     node: mut *ll_node = Syms.head
+    sym: mut *Sym
     while node.value
     {
-        sym: *Sym = node.value                
+        sym = node.value    
         if name == sym.name 
         {
             return sym
@@ -98,7 +126,17 @@ sym_get :: (name: imut *i8): *Sym
         
         node = node.next
     }
-
+    node = localSyms.head
+    while node.value
+    {
+        sym = node.value
+        if name == sym.name 
+        {
+            return sym
+        }                    
+        
+        node = node.next
+    }
     return null
 }
 sym_from_decl :: (name: imut *i8, decl: imut *Decl): *Sym
@@ -143,9 +181,7 @@ resolve_name :: (name: *i8): *Operand
 {
     sym: *Sym = sym_get(name)
     if not sym {
-        std.puts("[ERROR]: the name '")
-        std.puts(name)
-        std.puts("' is not declared in this scope.\n")
+        puts_va("[ERROR]: the name '", name, "' is not declared in this scope.\n")        
         exit(1)                
     }
 
@@ -155,24 +191,32 @@ resolve_name :: (name: *i8): *Operand
     {
         return resolve_expr(ce.expr)
     }
+
+    std.puts("Idk this resolve_name\n")
+    exit(1)
 }
 @todo("typechecker")
 resolve_init_var :: (name: *i8, ts: *TypeSpec, rhs: *Expr, is_local: i64, is_param: i64): *Operand {
+    std.puts("RERSOASDKAOSP INIT VAR \n")
         ts
         asm("mov rdi, rax")
+
     t: *Type = asm("call resolve_typespec")
 
+    std.puts("RESOLVING INIT VAR\n")
     if is_local or is_param {
-        s: *Sym //= sym_var(name, t, rhs)
+        s: *Sym = Sym.new_var(name, t, rhs)
         localSyms.push(s)
+
         var: *Var = Var.new_local(s.name, s.type, s.expr, Var.allocate_on_stack(t.size))
-        cp_allocate_var_on_cp(var)
+        cp_allocate_var(var)
     }
 
     else {
         std.puts("Global variables are not implemented yet\n")
         exit(1)
     }
+
     return null
 }
 resolve_binary :: (e: *Expr): *Operand {
@@ -184,6 +228,7 @@ resolve_binary :: (e: *Expr): *Operand {
 }
 resolve_expr    :: (e: *Expr): *Operand
 {
+    print_expr(e)
     switch e.kind 
     {
         case EXPR_INT:      return operand_lvalue(type_int(64), e.int_lit)
@@ -203,6 +248,10 @@ resolve_stmt    :: (s: *Stmt)
     switch s.kind 
     {
         case STMT_EXPR: resolve_expr(s.expr)
+        case STMT_RETURN: {
+            // TODO: typecheck return 
+            resolve_expr(s.expr)        
+        }
         default:
         {
             std.puts("Idk how to resolve this stmt.\n")
@@ -362,7 +411,7 @@ resolve_ast     :: (ast: *ll_list)
 
     node: mut *ll_node = Syms.head
     while node.value {
-        resolve_sym(node.value)
+        resolve_sym(node.value)        
         node = node.next
     }
 }

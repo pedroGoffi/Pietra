@@ -2,6 +2,7 @@
 #define CGEN_CPP
 #include "../include/cGen.hpp"
 #include <cstring>
+#include "resolve.cpp"
 using namespace Pietra::cGen;
 
 #define DEBUG               true
@@ -109,8 +110,19 @@ void cGen::gen_expr(Expr* e){
             );
             break;
         
-
-        default: assert(0);
+        case EXPR_UNARY:
+            if(e->unary.unary_kind == Lexer::TK_SUB){
+                printf("-");
+            }
+            else {
+                printf("[ERROR EXPR UNARY.\n]");
+            }
+            gen_expr(e->unary.expr);
+            break;
+        default: 
+            pPrint::expr(e);
+            printf("Idk this expr.\n");
+            exit(1);
     }
 }
 void cGen::gen_stmt(Stmt* stmt){
@@ -125,7 +137,7 @@ void cGen::gen_stmt(Stmt* stmt){
             printf("return ");
             gen_expr(stmt->expr);
             printf(";\n");
-
+            break;
         case STMT_FOR:
         {
             Expr* init  = stmt->stmt_for.init;
@@ -243,6 +255,15 @@ void cGen::gen_decl(Decl* decl){
                     default: assert(0);
                 }
             }
+
+            Sym* s = sym_get(decl->name);
+            assert(s);
+            if(s->impls.body.len() != 0){
+                SVec<Sym*> body = s->impls.body;
+                for(Sym* node: body){
+                    gen_decl(node->decl);
+                }
+            }
             printf("} %s;\n", decl->name);
 
         } break;
@@ -281,12 +302,14 @@ void cGen::gen_decl(Decl* decl){
                 printf(")");
             }
             gen_stmt_block(decl->proc.block);
-            break;
-        default: assert(0);
+            break;        
+        default:             
+            printf("Unknown declaration %s\n", decl->name);
+            exit(1);
     }
 }
 
-void cGen::gen_all(SVec<Sym*> ast, const char* out_fp){
+void cGen::gen_all(SVec<Decl*> ast, const char* out_fp){
     #if not DEBUG
     cGen::out_file = fopen(out_fp, "w");
     assert(cGen::out_file);
@@ -298,8 +321,8 @@ void cGen::gen_all(SVec<Sym*> ast, const char* out_fp){
     };
 
     for(const char* lib: stdlibs) printf("#include %s\n", lib);
-    for(Sym* sym: ast){
-        gen_decl(sym->decl);
+    for(Decl* decl: ast){
+        gen_decl(decl);
     }        
 }
 #undef printf

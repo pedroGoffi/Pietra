@@ -17,9 +17,14 @@ The resolver will
 #include <memory>
 #include <string>
 #define STRUCT_REASSIGN_FLAG "struct_reassign"
+
 bool impl_ctx = false;
 Decl* string_comparator = nullptr;
 Decl* struct_reassigner = nullptr;
+SVec<Sym*> Declared_lambdas;
+void allocate_lambda(Sym* lambda){
+    Declared_lambdas.push(lambda);
+}
 Note* find_note(SVec<Note*> notes, const char* name){    
     name = Core::cstr(name);    
     for(Note* note: notes){
@@ -42,7 +47,7 @@ void show_all_decorators(){
     #define LIST_LAST_ELEM(__list)  (__list)[LIST_SIZEOF(__list) - 1]
     #define SAD_printf_cond(item, __list) ((item) == LIST_LAST_ELEM(__list))? "": ", " 
     static const char* decorators_name[] = {
-        "todo", "inline", "error", "warn", "string_comparator", "flag"
+        "todo", "inline", "error", "warn", "string_comparator", "flag", "method_of"
     };
             
     printf("Decorators = [");
@@ -111,6 +116,9 @@ namespace Pietra::Resolver{
         }
         return nullptr;
     }
+    Sym* sym_getlval(const char* name){
+        return sym_get(name);
+    }
     Sym* sym_init(SymKind kind){
         Sym* s  = arena_alloc<Sym>();        
         s->type = Utils::type_unresolved();
@@ -121,6 +129,11 @@ namespace Pietra::Resolver{
     }
     Sym* sym_var(const char* name, Type* type, Expr* expr){
         Sym* s = sym_init(SYM_VAR);
+        if(expr){
+            if(expr->kind == Ast::EXPR_LAMBDA){
+                resolve_lambda(expr, nullptr);
+            }
+        }
         s->name = name;
         s->type = type;
         s->expr = expr;
@@ -344,6 +357,8 @@ namespace Pietra::Resolver{
             return resolve_typespec(ts);
         }
 
+       
+
         switch(ts->kind){
             case TYPESPEC_NAME:
             #define TS_CHECK_TYPE(__ty, ...)                        \
@@ -439,9 +454,35 @@ namespace Pietra::Resolver{
     }
     Operand resolve_var_init(const char* &name, TypeSpec* &type, Expr* &init, bool isLocal, bool isParam){                        
         Type* ty = resolve_typespec(type);                         
+        
+        if(type->name == Core::cstr("any") and not isParam){
+            if(not init){
+                printf("[ERROR]: Trying to initialize the variable `%s` with no initial value.\n", name);
+                exit(1);
+            }
+
+
+            Operand init_op = resolve_expr(init);
+            Type* init_t = init_op.type;
+            type->name = init_t->name;
+            type->resolvedTy = init_t;
+            // TODO: If debug info                    
+            IF_FLAG(FLAG_NAME_IMPLICIT_CAST, {
+                printf("[INFO]: Implicit cast in variable `%s` -> `%s`.\n", name, init_t->repr());                
+            })
+        }
+
         if(init){                        
             //*init = *PreprocessExpr::expr(init);
             Operand rhs = resolve_expr(init);            
+            if(type->name == Core::cstr("auto")){
+                *type->resolvedTy = *rhs.type;                
+                ty = type->resolvedTy;
+                type->name = ty->name;                
+                printf("auto got %s\n", type->resolvedTy->repr());                
+            }            
+
+            assert(ty);
             if(!ty->typeCheck(rhs.type)){                 
                 if(ty->name){                    
                     if(Sym* sym = sym_get(ty->name)){                        
@@ -464,8 +505,8 @@ namespace Pietra::Resolver{
         }                
         typeCheckOk:
         
-        if(isLocal or isParam){            
-            Sym* s = sym_var(name, type->resolvedTy, init);                        
+        if(isLocal or isParam){                        
+            Sym* s = sym_var(name, type->resolvedTy, init);                                    
             assert(s);
             localSyms.push(s);
             CBridge::CreateVar(
@@ -508,7 +549,8 @@ namespace Pietra::Resolver{
         return operand_rvalue(sym->type);        
     }
     Operand resolve_call(Expr* base, SVec<Expr*> &args){                        
-        Operand bop = resolve_expr(base);        
+        Operand bop = resolve_expr(base);                
+        
         assert(bop.type);
         if(!bop.type->isCallable()){
             printf("[ERROR]: trying to call a non-callable object %s\n", bop.type->repr());
@@ -532,7 +574,7 @@ namespace Pietra::Resolver{
                         }
                         assert(self);
                         new_args.push(self);
-                        for(Expr* arg: args) {
+                        for(Expr* &arg: args) {
                             resolve_expr(arg);
                             new_args.push(arg);
                         }
@@ -762,6 +804,21 @@ namespace Pietra::Resolver{
             }            
         }                   
         
+        // Check for methods like "my String".MyMethod()
+        if(op.type->kind == TYPE_PTR and op.type->base->kind == TYPE_I8){
+            Sym* StrMethods = sym_getlval("cstr::methods");            
+            int f = 0;
+            printf("at = %i\n", f++);
+            SymImpl& symImpl = StrMethods->impls;
+            printf("at = %i\n", f++);
+            if(Sym* impl = symImpl.find("intern_str")){
+                //printf("found it.\n");
+                //assert(impl->type->kind == TYPE_PROC);
+                //return operand_rvalue(impl->type);
+            }
+            printf("at = %i\n", f++);
+            printf("not found\n");
+        }
         
         printf("[ERROR]: field not found: '%s'in type %s\n", children->name, op.type->repr());
         exit(1);
@@ -771,7 +828,40 @@ namespace Pietra::Resolver{
         // NOTE: ternary will never be mutable
         return operand_lvalue(type_int(64, false), {0});
     }
+    Operand create_lambda_callee(SVec<ProcParam*> params, TypeSpec* ret, SVec<Stmt*> block, std::string* dst = nullptr){
+        for(ProcParam* param: params){
+            resolve_typespec(param->type);            
+        }
+        resolve_typespec(ret);        
 
+        static int lambda_count = 1;
+        std::string callee = "__lambda_" + std::to_string(lambda_count++) + "__";
+        if(dst) *dst = callee;
+
+        Decl* d = Utils::decl_proc(callee.c_str(), params, ret, block, true);
+        Sym* lambda = sym_new(d->name, d);
+        assert(lambda);        
+        resolve_sym(lambda);                
+        allocate_lambda(lambda);
+        resolve_sym(lambda);
+
+        pPrint::decl(d);
+        return ret->kind == Ast::TYPESPEC_POINTER
+            ? operand_rvalue(ret->resolvedTy)
+            : operand_lvalue(ret->resolvedTy, {0});
+    }
+    Operand resolve_lambda(Expr*& expr, std::string* dst = nullptr){        
+        create_lambda_callee(expr->lambda.params, expr->lambda.ret, expr->lambda.block, dst);                
+        Sym* declared_lambda = Declared_lambdas.back();        
+
+        SVec<Expr*> args; args.push(Utils::expr_name(declared_lambda->name));
+
+        *expr = *Utils::expr_call(
+            Utils::expr_name("asm"),
+            args
+        );
+        return operand_lvalue(declared_lambda->type, {0});
+    }
     Operand resolve_expr(Expr* &expr){        
         if(!expr){
             return operand_lvalue(type_void(), {0});
@@ -806,24 +896,17 @@ namespace Pietra::Resolver{
                     Expr* base_gt = Utils::expr_binary(Lexer::TK_GT, lhs, rhs);
                     expr = Utils::expr_unary(Lexer::TK_NOT, base_gt);
                     return resolve_expr(expr);                    
-                }
-                else if (expr->binary.binary_kind == Lexer::TK_NEQ){
-                    // T: lhs != rhs --> not(lhs == rhs);                    
-                    Expr* lhs = expr->binary.left;
-                    Expr* rhs = expr->binary.right;
-                    Expr* base_eq = Utils::expr_binary(Lexer::TK_CMPEQ, lhs, rhs);                    
-                    expr = Utils::expr_unary(Lexer::TK_NOT, base_eq);                    
-                    return resolve_expr(expr);                    
-                }
-                else {
-                    return resolve_binary(expr->binary.binary_kind, expr->binary.left, expr->binary.right);
-                }
+                }          
+                return resolve_binary(expr->binary.binary_kind, expr->binary.left, expr->binary.right);                
             }            
             case EXPR_ARRAY_INDEX:  return resolve_index(expr);
             case EXPR_CAST:         return resolve_cast(expr->cast.typespec, expr->cast.expr);
             case EXPR_FIELD:        return resolve_field(expr->field_acc.parent, expr->field_acc.children);
             case EXPR_TERNARY:      return resolve_ternary(expr->ternary.cond, expr->ternary.if_case, expr->ternary.else_case);
-        }        
+            case EXPR_LAMBDA:       return resolve_lambda(expr);
+        
+        }
+        printf("[ERROR]: Couldn't resolve the following expression:\n");
         pPrint::expr(expr);
         exit(1);
     }
@@ -835,7 +918,7 @@ namespace Pietra::Resolver{
                 break;
             case Ast::STMT_IF:
                 resolve_expr(stmt->stmt_if.if_clause->cond);
-                resolve_stmt_block(stmt->stmt_if.if_clause->block);
+                resolve_stmt_block(stmt->stmt_if.if_clause->block);                                
                 break;
             case Ast::STMT_WHILE:   {
                 resolve_expr(stmt->stmt_while->cond);
@@ -848,17 +931,18 @@ namespace Pietra::Resolver{
                     exit(1);                
                 }
                 Operand got         = resolve_expr(stmt->expr);                
-                Type*   expected    = CBridge::ctx.Cp->type->proc.ret_type;                
-
+                Type*   expected    = CBridge::ctx.Cp->type->proc.ret_type;                                
                 if(!expected->typeCheck(got.type)){
+                    printf("ERROR AT: "); 
+                    pPrint::expr(stmt->expr);
+                    printf("\nin cp = %s\n", CBridge::ctx.Cp->name);
                     printf("[ERROR]: expected %s in the return of the procedure %s, but got: %s\n",
                         expected->repr(),
                         CBridge::ctx.Cp->name,
                         got.type->repr()
                     );
                     exit(1);
-                }
-                
+                }                
                 break;
             }
             case Ast::STMT_SWITCH: {
@@ -879,8 +963,10 @@ namespace Pietra::Resolver{
         for(Stmt* stmt: block) 
             resolve_stmt(stmt);
     }
+    
     void resolve_sym_proc_impl(Sym* self, Sym* sym){
         assert(sym->kind == SYM_PROC);        
+        
         self->impls.self = self;                
         for(ProcParam* pp: sym->decl->proc.params){
             if(pp->name == Core::cstr("self")){
@@ -972,7 +1058,16 @@ namespace Pietra::Resolver{
             }
         }
     }
+    void eval_decorator_method_of(const char* id, Decl *& decl){        
+        (void)  id;
+        (void)  decl;
+        
+        printf("[WARN]: Flag method_of is not implemented yet.\n");        
+        exit(1);
+    }
+
     void resolve_decl_proc(Decl* &d, Type* type){                
+        CBridge::save_cp();
         if(d->notes.len() > 0){
             SVec<Note*>& notes = d->notes;
             for(Note* note: notes){                
@@ -1002,6 +1097,11 @@ namespace Pietra::Resolver{
                 else if(note->name == Core::cstr("flag")){                    
                     resolve_decl_flags(note->args, d);
                 }
+                else if(note->name == Core::cstr("method_of")){
+                    assert(note->args.at(0)->kind == EXPR_STRING);
+                    const char* id = note->args.at(0)->string_lit;
+                    eval_decorator_method_of(id, d);
+                }
                 else {
                     show_all_decorators();
                     printf("[ERROR]: compiler doesn't understand the decl note %s\n", note->name);
@@ -1011,14 +1111,14 @@ namespace Pietra::Resolver{
         }
         assert(d->kind == DECL_PROC);
         localSyms.free();        
-        CBridge::CProc* proc = CBridge::CreateProc(d->name, type);
+        CBridge::CreateProc(d->name, type);
                 
         for(ProcParam* pp: d->proc.params){            
             resolve_var_init(pp->name, pp->type, pp->init, false, true);
         }        
 
         resolve_stmt_block(d->proc.block);
-
+        CBridge::cp_rewind();
         
     }
     void resolve_decl_use(Decl* &decl){        

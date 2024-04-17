@@ -42,15 +42,13 @@ TK_STAR                    :: 36
 TK_FLOAT                   :: 37
 TK_STRING                  :: 38
 
-TokenVal :: union {
-    I64: i64    
-}
+
 
 Token :: {
     kind:       TokenKind
     start, end: cstr
     name:       cstr
-    as:         TokenVal
+    as_int:     i64
 }
 
 impl Token set_kind :: (self: *Self, kind: TokenKind) 
