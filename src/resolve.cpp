@@ -356,7 +356,11 @@ namespace Pietra::Resolver{
     Type* resolve_typespec(TypeSpec* &ts){    
         if(!ts){
             ts = Utils::typespec_name("any", {});
-            return resolve_typespec(ts);
+
+            Type* resolved_t = resolve_typespec(ts);
+            resolved_t->ismut = true;
+            return resolved_t;
+
         }
 
        
@@ -468,7 +472,7 @@ namespace Pietra::Resolver{
             Type* init_t = init_op.type;
             type->name = init_t->name;
             type->resolvedTy = init_t;
-            // TODO: If debug info                    
+            
             IF_FLAG(FLAG_NAME_IMPLICIT_CAST, {
                 printf("[INFO]: Implicit cast in variable `%s` -> `%s`.\n", name, init_t->repr());                
             })
@@ -545,9 +549,8 @@ namespace Pietra::Resolver{
         if(CBridge::CConstexpr* ce = CBridge::find_constexpr(sym->name)){
             return resolve_expr(ce->expr);
         }        
-        else {
-            resolve_sym(sym);                
-        }
+        
+        resolve_sym(sym);                        
         return operand_rvalue(sym->type);        
     }
     Operand resolve_call(Expr* base, SVec<Expr*> &args){                        
@@ -869,6 +872,7 @@ namespace Pietra::Resolver{
         Expr*&          size = e->new_expr.size;
         TypeSpec*&      type = e->new_expr.type;
         resolve_typespec(type);
+        type->resolvedTy->ismut = true;
         Operand list_size = resolve_expr(size);
 
         if(not list_size.type->isInteger()){
@@ -889,6 +893,7 @@ namespace Pietra::Resolver{
 
         TypeSpec* type_allocated = Utils::typespec_pointer(type, type->token);
         resolve_typespec(type_allocated);
+        type_allocated->resolvedTy->ismut = true;        
         return operand_rvalue(type_allocated->resolvedTy);        
     }
 
@@ -1175,8 +1180,7 @@ namespace Pietra::Resolver{
             PPackage* package = arena_alloc<PPackage>();
             package->ast    = decl->use.module;
             package->name   = decl->use.rename;            
-            packages.push(package);
-
+            packages.push(package);            
             for(auto& f: package->ast){
                 printf("IN PACKAGE %s got %s\n", package->name, f->name);
             }

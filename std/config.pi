@@ -49,11 +49,6 @@ intern_str :: (str: *i8): *i8
 }
 
 @flag("new_allocator")
-new_allocator :: (item_nbytes: i64, list_items: i64): *any {
-    std.puts("Using NEW < [")
-    std.puts(std.itocstr(list_items))
-    std.puts("] size = ")
-    std.puts(std.itocstr(item_nbytes))
-    std.puts(" >\n")
+new_allocator :: (item_nbytes: i64, list_items: i64): *any {    
     return std.allocate(list_items * item_nbytes)
 }

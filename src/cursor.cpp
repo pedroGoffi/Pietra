@@ -10,6 +10,7 @@ using namespace Pietra;
 PStreamCursor* PStreamCursor::from(const char *filename){    
     std::FILE* fd = fopen(filename, "r");
     if(!fd){
+        printf("[ERROR]: Couldn't open the file: '%s'\n", filename);
         return nullptr;
     }
     

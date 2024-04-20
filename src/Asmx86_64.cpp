@@ -1728,8 +1728,8 @@ void makeLabel() {
             
         }
         println("call main");
-        println("mov rax, 60");
-        println("mov rdi, 0");
+        println("mov rdi, rax");
+        println("mov rax, 60");        
         println("syscall");
         compile_segment_data();
         compile_segment_bss();                

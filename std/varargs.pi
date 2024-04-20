@@ -1,5 +1,4 @@
 #package "pietra.std.variadic_args"
-
 Va_list :: {
     __va_index: mut i64
     __va_ptr:      mut *i64
@@ -33,8 +32,11 @@ impl Va_list value :: (self: *Self): *any
 impl Va_list end :: (self: *Self): *any 
     return self.__va_end
 
-
-
+impl Va_list consume :: (self: *Self): *any {
+    ret := *self.__va_ptr
+    self.next()
+    return ret
+}
 puts_va :: (...){    
     va: Va_list
     while va.has_value()
@@ -44,3 +46,76 @@ puts_va :: (...){
     }
 }
 
+__printf_tmp_buffer: mut *i8 = new [2] i8
+__parse_printf_param :: (dst: mut*mut*i8, fmt: mut *i8, va_ptr: *Va_list){
+    if *fmt == '%'{        
+        __printf_tmp_buffer[0] = *fmt   as any
+        __printf_tmp_buffer[1] = 0      as any
+        *dst = std.cstrcat(*dst, __printf_tmp_buffer)
+        return 1
+    }
+
+    if !va_ptr.has_value(){
+        std.puts("[ERROR]: __parse_printf_param reach end of parameters.\n")
+        exit(1)
+    }
+
+    val: *any = *va_ptr.__va_ptr        
+    va_ptr.next()
+    switch *fmt {
+        case 's': {        
+            *dst = std.cstrcat(*dst, val)
+            return 1
+        }
+        case 'i': {
+            *dst = std.cstrcat(*dst, std.itocstr(val))            
+            return 1
+        }
+    }
+
+    std.puts("[ERRR]: unknown flag in printf: ");
+    std.putc(*fmt)
+    std.puts("\n")
+    exit(1)
+    
+}
+__parse_printf_format :: (fmt: mut *i8, va: *Va_list): *i8{
+    stream := new [1] i8
+    tmp_buffer := new [2] i8
+    while *fmt 
+    {
+        asm(".LoopBegin:")
+        if *fmt == '%'{
+            fmt = fmt + 1
+            fmt = fmt + __parse_printf_param(&stream, fmt, va)
+            asm("jmp .LoopBegin")
+        }
+                
+        __printf_tmp_buffer[0] = *fmt   as any
+        __printf_tmp_buffer[1] = 0      as any
+        stream = std.cstrcat(stream, __printf_tmp_buffer)
+        fmt = fmt + 1        
+    }
+
+    return stream
+}
+
+fprintf :: (file: *FILE, fmt: *i8, va_ptr: *Va_list){
+    va: Va_list
+    std.fputs(file, __parse_printf_format(fmt, va_ptr))
+}
+__printf_out_file: mut *FILE = stdout 
+__printf__set_out_file :: (f: *FILE)    
+    __printf_out_file = f
+
+printf :: (fmt: *i8, ...){
+    va: Va_list
+    fprintf(__printf_out_file, fmt, &va) 
+}
+
+// int sprintf(char *restrict str, const char *restrict format, ...);
+sprintf :: (str: mut*mut*i8, fmt: *i8, ...){
+    va: Va_list;
+    *str = __parse_printf_format(fmt, &va)    
+    return str
+}
