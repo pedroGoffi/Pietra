@@ -54,12 +54,9 @@ Type :: {
     proc:       *TypeProc
     aggregate:  *TypeAggregate
 }
-impl Type new :: (kind: i64, is_mut: i64): *Type 
-{
-    t: *Type = std.allocate(sizeof(Type))
-    t.kind = kind
-    t.isMut = is_mut    
-    return t
+impl Type constructor :: (self: *Self, kind: i64, is_mut: i64): *Type {    
+    self.kind = kind
+    self.isMut = is_mut        
 }
 get_type_int_kind :: (sz: i64): i64
 {
@@ -91,14 +88,14 @@ impl Type repr :: (type: *Type): *i8 {
 }
 type_int :: (sz: i64, is_mut: i64): *Type
 {
-    t: *Type = Type.new(get_type_int_kind(sz), is_mut)    
+    t: *Type = new Type(get_type_int_kind(sz), is_mut)    
     t.name   = Type.repr(t)
     t.size = sizeof(i64)
     return t
 }
 type_ptr :: (base: *Type, is_mut: i64): *Type 
 {
-    t: *Type = Type.new(TYPE_PTR, is_mut)
+    t: *Type = new Type(TYPE_PTR, is_mut)
     t.size = sizeof(i64)
     t.base as any = base
     return t
@@ -126,21 +123,18 @@ TypeSpec :: {
     size:           i64
     resolved_type:  mut *any // *Type   
 }
-impl TypeSpec new        :: (kind: i64): *Self 
-{
-    ts: *TypeSpec = std.allocate(sizeof(TypeSpec))
-    ts.kind = kind
-    return ts
+impl TypeSpec constructor        :: (self: *Self, kind: i64): *Self {    
+    self.kind = kind    
 }
-impl TypeSpec new_name   :: (name: *i8): *Self 
-{
-    ts: *TypeSpec = TypeSpec.new(TYPESPEC_NAME)
-    ts.name = name    
-    return ts
-}
+//impl TypeSpec new_name   :: (name: *i8): *Self 
+//{
+//    ts: *TypeSpec = new TypeSpec(TYPESPEC_NAME)
+//    ts.name = name    
+//    return ts
+//}
 impl TypeSpec pointer_to :: (base: *TypeSpec, isMut: i64): *TypeSpec 
 {
-    ptr: *TypeSpec = TypeSpec.new(TYPESPEC_POINTER)
+    ptr: *TypeSpec = new TypeSpec(TYPESPEC_POINTER)
     ptr.name  = "Pointer"
     ptr.base  = base
     ptr.size  = sizeof(i64)
@@ -303,13 +297,10 @@ DeclProc :: {
     block:  mut *ll_list
     ret:    mut *TypeSpec  
 }
-impl DeclProc new :: (params: *ll_list, block: *ll_list, ret: *TypeSpec): *Self 
-{
-    d: *DeclProc = std.allocate(sizeof(DeclProc))
-    d.params    = params
-    d.block     = block
-    d.ret       = ret
-    return d
+impl DeclProc constructor :: (self: *Self, params: *ll_list, block: *ll_list, ret: *TypeSpec): *Self {    
+    self.params    = params
+    self.block     = block
+    self.ret       = ret
 }
 
 Decl :: {
@@ -320,24 +311,21 @@ Decl :: {
     expr:  mut *any
 }
 
-impl Decl new :: (kind: i64, name: *i8)
-{
-    d: *Decl = std.allocate(sizeof(Decl))
-    d.name = name
-    d.kind = kind
-    return d
+impl Decl constructor :: (self: *Self, kind: i64, name: *i8){    
+    self.name = name
+    self.kind = kind    
 }
 
 decl_proc :: (name: imut *i8, params: *ll_list, ret: *Type, block: *ll_list, is_internal: i64): *Decl
 {
-    d: *Decl = Decl.new(DECL_PROC, name);
-    d.proc = DeclProc.new(params, block, ret)    
+    d: *Decl = new Decl(DECL_PROC, name);
+    //d.proc = new DeclProc(params, block, ret)    
     return d
 }
 
 impl Decl decl_constexpr :: (name: imut *i8, constexpr: *any): *Decl 
 {
-    d: *Decl = Decl.new(DECL_CONSTEXPR, name);
+    d: *Decl = new Decl(DECL_CONSTEXPR, name);
     d.expr = constexpr
     return d
 }

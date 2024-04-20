@@ -76,7 +76,7 @@ is_base_expr :: (): i64 {
     return false    
 }
 base_expr :: (): *Expr {            
-    args: mut *ll_list = ll_list.new()    
+    args: mut *ll_list = new ll_list
     base: mut *Expr  = literal_expr()        
 
     
@@ -239,7 +239,7 @@ parse_expr_list :: (){
         exit(1)
     }
     next_token()
-    args: *ll_list = ll_list.new()
+    args: *ll_list = new ll_list
     while not is_kind(TK_CLOSE_ROUND_BRACES){
         if args.size != 0 {
             if not is_kind(TK_DCOMMA){
@@ -338,10 +338,27 @@ stmt_opt_curly_block :: (): *ll_list{
     }
 }
 is_name_type_int :: (name: *i8): *TypeSpec {    
-    if std.streq(name, "i8")    return TypeSpec.new_name("i8")
-    if std.streq(name, "i16")   return TypeSpec.new_name("i16")
-    if std.streq(name, "i32")   return TypeSpec.new_name("i32")
-    if std.streq(name, "i64")   return TypeSpec.new_name("i64")
+    t := new TypeSpec
+    if std.streq(name, "i8"){
+        t = set_name("i8")
+        t.size = 8
+        return t
+    }
+    if std.streq(name, "i16"){
+        t = set_name("i16")
+        t.size = 16
+        return t
+    }
+    if std.streq(name, "i32"){
+        t = set_name("i32")
+        t.size = 32
+        return t
+    }
+    if std.streq(name, "i64"){
+        t = set_name("i64")
+        t.size = 64
+        return t
+    }
     return null
 }
 // *type        -> ptr(type)
@@ -400,7 +417,7 @@ parse_opt_proc_ret :: (): *TypeSpec
 }
 parse_opt_block :: (): *ll_list 
 {
-    block: *ll_list = ll_list.new()
+    block: *ll_list = new ll_list
     if is_kind(TK_DCOMMA) {
         next_token()
         return block

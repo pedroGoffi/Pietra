@@ -42,7 +42,7 @@ HTTP_SERVER ::
     connfd:         mut i32
 }
 SERVER_ERROR :: -1
-impl HTTP_SERVER new :: (ip: i64, port: i64): *Self {
+impl HTTP_SERVER constructor :: (ip: i64, port: i64): *Self {
     serv: *HTTP_SERVER      = std.allocate(sizeof(HTTP_SERVER))
     serv.addrlen            = sizeof(SocketAddr_in)
     serv.clilen             = sizeof(SocketAddr_in)

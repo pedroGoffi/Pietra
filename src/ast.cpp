@@ -141,6 +141,13 @@ Expr* expr_lambda(SVec<ProcParam*> params, TypeSpec* ret, SVec<Stmt*> block){
     e->lambda.block     = block;
     return e;
 }
+Expr* expr_new(TypeSpec* type, Expr* size, SVec<Expr*> args){
+    Expr* e = init_expr(EXPR_NEW);
+    e->new_expr.size = size;
+    e->new_expr.type = type;
+    e->new_expr.args = args;
+    return e;
+}
 TypeSpec* init_typespec(TypeSpecKind kind, Lexer::Token token){
     TypeSpec* ts = arena_alloc<TypeSpec>();    
     ts->kind = kind;        

@@ -16,11 +16,13 @@ The resolver will
 #include <iostream>
 #include <memory>
 #include <string>
-#define STRUCT_REASSIGN_FLAG "struct_reassign"
+#define STRUCT_REASSIGN_FLAG    "struct_reassign"
+#define NEW_FLAG                "new_allocator"
 
 bool impl_ctx = false;
 Decl* string_comparator = nullptr;
 Decl* struct_reassigner = nullptr;
+Decl* new_allocator     = nullptr;
 SVec<Sym*> Declared_lambdas;
 void allocate_lambda(Sym* lambda){
     Declared_lambdas.push(lambda);
@@ -862,6 +864,34 @@ namespace Pietra::Resolver{
         );
         return operand_lvalue(declared_lambda->type, {0});
     }
+    Operand resolve_new(Expr*& e){
+        SVec<Expr*>&    args = e->new_expr.args;
+        Expr*&          size = e->new_expr.size;
+        TypeSpec*&      type = e->new_expr.type;
+        resolve_typespec(type);
+        Operand list_size = resolve_expr(size);
+
+        if(not list_size.type->isInteger()){
+            printf("[ERROR]: `new[]` operator expects integer in list size, got `new[%s]`.\n", list_size.type->repr());
+            exit(1);
+        }
+
+        if(args.len() > 0){            
+            for(Expr*& arg: args){
+                resolve_expr(arg);
+            }
+            if(0){
+                printf("[ERROR]: operator `new` with arguments are not implemented yet.\n");
+                exit(1);
+            }
+        }
+
+
+        TypeSpec* type_allocated = Utils::typespec_pointer(type, type->token);
+        resolve_typespec(type_allocated);
+        return operand_rvalue(type_allocated->resolvedTy);        
+    }
+
     Operand resolve_expr(Expr* &expr){        
         if(!expr){
             return operand_lvalue(type_void(), {0});
@@ -904,6 +934,7 @@ namespace Pietra::Resolver{
             case EXPR_FIELD:        return resolve_field(expr->field_acc.parent, expr->field_acc.children);
             case EXPR_TERNARY:      return resolve_ternary(expr->ternary.cond, expr->ternary.if_case, expr->ternary.else_case);
             case EXPR_LAMBDA:       return resolve_lambda(expr);
+            case EXPR_NEW:          return resolve_new(expr);
         
         }
         printf("[ERROR]: Couldn't resolve the following expression:\n");
@@ -998,7 +1029,11 @@ namespace Pietra::Resolver{
         CBridge::tmp_self = sym->type;
         sym->type->isSelf = true;
         impl_ctx = true;
-        for(Decl* node: body){
+        for(Decl* node: body){    
+            if(node->name == Core::cstr("new")){
+                printf("[ERROR]: Can't name a implementation procedure using `new`.\n");
+                exit(1);
+            }
             node->name = Core::cstr(strf("%s_impl_%s", sym->name, node->name));
             if(impls.find(node->name)){
                 printf("[ERROR]: duplicated field in impl (%s.%s).\n", sym->name, node->name);
@@ -1025,7 +1060,8 @@ namespace Pietra::Resolver{
     }
     void show_flags(){
         const char* flags[] = {
-            STRUCT_REASSIGN_FLAG
+            STRUCT_REASSIGN_FLAG,
+            NEW_FLAG
         };
         printf("Flags: [ ");
         for(const char*& flag: flags){                 
@@ -1048,8 +1084,14 @@ namespace Pietra::Resolver{
 
             if(arg->string_lit == Core::cstr(STRUCT_REASSIGN_FLAG)){
                 struct_reassigner = d;
-            }
-            else {
+            } else if( arg->string_lit == Core::cstr(NEW_FLAG)){
+                if(new_allocator){
+                    printf("[ERROR]: Multiple configurations of `new` operator in pietra compiler.\n");
+                    printf("[INFO]: `new` configured in `%s` but tried to reconfigure in `%s`.\n", new_allocator->name, d->name);
+                    exit(1);
+                }                
+                new_allocator = d;                                
+            } else {
                 // TODO: put error and info in respective functions
                 printf("[ERROR]: the flag `%s` is unkown by the resolver:\n", arg->string_lit);
                 printf("[INFO]: Possible flags:\n");
@@ -1066,7 +1108,12 @@ namespace Pietra::Resolver{
         exit(1);
     }
 
+
     void resolve_decl_proc(Decl* &d, Type* type){                
+        if(d->name == Core::cstr("new")){
+            printf("[ERROR]: Can't name a procedure with `new` identifier.\n");
+            exit(1);
+        }
         CBridge::save_cp();
         if(d->notes.len() > 0){
             SVec<Note*>& notes = d->notes;

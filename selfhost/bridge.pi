@@ -3,8 +3,8 @@ use std{std}
 use std::core{types}
 use selfhost{ast}
 
-defined_names:      *ll_list = ll_list.new()
-tmp_defined_names:  *ll_list = ll_list.new()
+defined_names:      *ll_list = new ll_list
+tmp_defined_names:  *ll_list = new ll_list
 
 raise_exception_if      :: (cond: i64, desc: *i8){
     if cond {
@@ -44,13 +44,10 @@ Constexpr :: {
     name: mut *i8
     expr: mut *Expr
 }
-Constexpr_list: *ll_list = ll_list.new()
-impl Constexpr new :: (name: *i8, e: *Expr ): *Constexpr
-{
-    ce: *Constexpr  = std.allocate(sizeof(Constexpr))
-    ce.name         = name
-    ce.expr         = e
-    return ce
+Constexpr_list: *ll_list = new ll_list
+impl Constexpr constructor :: (self: *Self, name: *i8, e: *Expr ): *Constexpr{    
+    self.name         = name
+    self.expr         = e    
 }
 impl Constexpr find :: (name: *i8): *Constexpr
 {
@@ -75,7 +72,7 @@ impl Constexpr store :: (name: *i8, e: *Expr)
         exit(1)        
     }
     
-    ce: *Constexpr = Constexpr.new(name, e)    
+    ce: *Constexpr = new Constexpr(name, e)    
     Constexpr_list.push(ce)
 }
 Var :: {
@@ -85,7 +82,7 @@ Var :: {
     is_global:      mut i64
     stack_offset:   mut i64 // if is local
 }
-global_vars: *ll_list = ll_list.new()
+global_vars: *ll_list = new ll_list
 impl Var __new__       :: (is_global: i64, name: *i8, type: *Type, init: *Expr){
     v: *Var = std.allocate(sizeof(Var))
     v.name = name
@@ -141,7 +138,7 @@ impl Proc find_its_local :: (self: *Self, name: *i8): *Var {
 
 
 
-Proc_list: *ll_list = ll_list.new()
+Proc_list: *ll_list = new ll_list
 
 cp_allocate_var :: (var: *Var): addr_t
 {    
@@ -153,27 +150,24 @@ cp_allocate_var :: (var: *Var): addr_t
     return current_proc.stack_allocation - t.size
     
 }
-impl Proc new :: (name: *i8, ret_type: *Type, params: *ll_list): *Proc 
-{
-    proc: *Proc = std.allocate(sizeof(Proc))
-    proc.name = name
-    proc.stack_allocation = 0
-    proc.ret_type = ret_type
-    proc.locals = params    
-    
-    current_proc = proc
-    Proc_list.push(proc)
-    return proc
+impl Proc constructor :: (self: *Self, name: *i8, ret_type: *Type, params: *ll_list): *Proc 
+{    
+    self.name = name
+    self.stack_allocation = 0
+    self.ret_type = ret_type
+    self.locals = params        
+    current_proc = self
+    Proc_list.push(self)    
 }
 
 impl Proc find :: (name: i64): *Proc 
 {
     node: mut *ll_node = Proc_list.head
     while node.value     
-    {
-        proc: *Proc = node.value
-        if name == proc.name 
+    {        
+        if (name == node.value)
             return proc
+
         node = node.next
     }
     return null
@@ -202,7 +196,7 @@ impl State expect   :: (self: *Self, k: i64){
     return false
 }
 
-Global_strings: *ll_list = ll_list.new()
+Global_strings: *ll_list = new ll_list
 create_global_string :: (str: *i8): addr_t {    
     addr: addr_t = Global_strings.size
     Global_strings.push(str)    

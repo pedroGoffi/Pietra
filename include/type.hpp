@@ -15,11 +15,12 @@ namespace Pietra::Ast {
         TYPE_UNRESOLVED,
         TYPE_VOID,        
         TYPE_ANY,
-        TYPE_FIRST_ARITHMETRIC_TYPE,
+        TYPE_FIRST_ARITHMETRIC_TYPE,        
             TYPE_I8,
             TYPE_I16,
             TYPE_I32,
             TYPE_I64,
+        TYPE_LAST_INTEGER,
             TYPE_F32,
             TYPE_F64,
         TYPE_LAST_ARITHMETRIC_TYPE,
@@ -67,6 +68,7 @@ namespace Pietra::Ast {
         bool isLValue();
         bool canCast(Type* type);
         int calcSize();
+        bool isInteger();
     };
 
     struct TypeField {

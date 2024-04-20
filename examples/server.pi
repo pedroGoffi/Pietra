@@ -9,7 +9,7 @@ LOCAL_HOST_IP :: 16777343 // af_inet("127.0.0.1")
 SERVER_PORT   :: 6969
 
 
-main :: (){  
+main :: (){    
   server: *HTTP_SERVER = HTTP_SERVER.new(LOCAL_HOST_IP, SERVER_PORT)  
   server.send_html(map_file("examples/server_html.html"))
 }

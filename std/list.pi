@@ -45,11 +45,11 @@ ll_push :: (list: *ll_list, item: any){
     list.size           = list.size + 1
 }
 
-impl ll_list new :: (): *ll_list {
-    ll: mut *ll_list = std.allocate(sizeof(ll_list));
-    ll.constructor()    
-    return ll
-}
+//impl ll_list new :: (): *ll_list {
+//    ll: mut *ll_list = std.allocate(sizeof(ll_list));
+//    ll.constructor()    
+//    return ll
+//}
 
 
 impl ll_list swap :: (self: *Self, idx1: i64, idx2: i64): null {
@@ -76,7 +76,7 @@ impl ll_list sort_by :: (self: *Self, sort_func: proc(i64, i64)){
 }
 
 impl ll_list map :: (self: *Self, func: proc(any): any): *ll_list{
-    ret: *ll_list = ll_list.new()
+    ret: *ll_list = std.allocate(sizeof(ll_list))
     node: mut *ll_node = self.head
     while node.value 
     {
@@ -85,4 +85,22 @@ impl ll_list map :: (self: *Self, func: proc(any): any): *ll_list{
         node = node.next
     }
     return ret
+}
+
+impl ll_list self_map :: (self: *Self, func: proc(any): any): *ll_list{    
+    node: mut *ll_node = self.head
+    while node.value 
+    {        
+        node.value = func(node.value)
+        node = node.next
+    }    
+}
+impl ll_list self_map_ptr :: (self: *Self, func: proc(*any): any): *ll_list{    
+    node: mut *ll_node = self.head
+    while node.value 
+    {        
+
+        node.value = func(&node.value)
+        node = node.next
+    }    
 }

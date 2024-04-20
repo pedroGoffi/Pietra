@@ -1,0 +1,2 @@
+selfhost/bridge.pi:48:impl Constexpr new :: (name: *i8, e: *Expr ): *Constexpr
+selfhost/bridge.pi:156:impl Proc new :: (name: *i8, ret_type: *Type, params: *ll_list): *Proc 

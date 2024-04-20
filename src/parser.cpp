@@ -34,8 +34,31 @@ Expr* literal_expr_assign(const char* name){
     return Utils::expr_assign(name, ts, init);
 
 }
-
-Expr* literal_expr(){
+Expr* new_expr(){
+    //assert(is_kind(TK_NEW));
+    next();
+    Expr* list_items_number = nullptr;
+    if(is_kind(Lexer::TK_OPEN_SQUARED_BRACES)){
+        next();
+        list_items_number = expr();
+                    
+        assert(is_kind(Lexer::TK_CLOSE_SQUARED_BRACES));
+        next();
+    }
+    else {
+        list_items_number = Utils::expr_int(1);
+    }
+    TypeSpec* type = typespec();
+    SVec<Expr*> args;
+    if(is_kind(Lexer::TK_OPEN_ROUND_BRACES)) {
+        next();
+        args = expr_list();        
+        assert(is_kind(Lexer::TK_CLOSE_ROUND_BRACES));
+        next();
+    }        
+    return Utils::expr_new(type, list_items_number, args);    
+}
+Expr* literal_expr(){    
     if(is_kind(TK_NAME)){
         if(token.name == keyword_switch){
             Stmt* st_switch = stmt_switch();
@@ -43,10 +66,10 @@ Expr* literal_expr(){
                 st_switch->stmt_switch.cond, 
                 st_switch->stmt_switch.cases,                  
                 st_switch->stmt_switch.has_default,
-                st_switch->stmt_switch.default_case);
-        }
+                st_switch->stmt_switch.default_case);                
+        } else if(is_name("new")) return new_expr();
 
-        const char* name = token.name;
+        const char* name = token.name;        
         next();        
         if(is_kind(Lexer::TK_DDOT)){
             // fast assign var :type = expr
@@ -271,7 +294,7 @@ Expr* ternary_expr(){
 
     return logic;
 }
-Expr* cast_expr(){    
+Expr* cast_expr(){        
     Expr* logic = ternary_expr();
     if(token.name == keyword_as){
         next();
@@ -281,11 +304,13 @@ Expr* cast_expr(){
     return logic;
 }
 
+
 static inline bool is_assign(){
     return
             token.kind == TK_EQ 
     ;
 }
+
 Expr* assign_expr(){
     Expr* cast = cast_expr();
     if(is_assign()){
@@ -316,7 +341,7 @@ Expr* expr_lambda(){
     return Utils::expr_lambda(params, ret, block);    
 }
 Expr* expr(){
-    if(token.name == Core::cstr("proc")){
+    if(is_name("proc")){
         return expr_lambda();
     }
     return assign_expr();        
@@ -339,7 +364,7 @@ TypeSpec* typespec_base(){
         return Utils::typespec_name(name, token);        
     }
     else {
-        printf("[ERR]: expected typespec, got: %s\n", token.name);
+        printf("[ERR]: expected typespec, got: %s\n", token.name);        
         exit(1);
     }
 }
@@ -699,7 +724,11 @@ ProcParam* proc_param(){
 }
 SVec<ProcParam*> proc_params(){
     SVec<ProcParam*> params;
-    assert(is_kind(Lexer::TK_OPEN_ROUND_BRACES));
+    if(!is_kind(Lexer::TK_OPEN_ROUND_BRACES)){
+        printf("-> %s\n", stream);
+        printf("[ERROR] parser.\n");
+        exit(1);
+    }
     next();
     while(!is_kind(Lexer::TK_CLOSE_ROUND_BRACES)){
         if(params.len() > 0){

@@ -1,0 +1,20 @@
+use std{std, list, varargs}
+
+
+ST :: struct {
+    data: mut *i8
+    size: i64
+}
+
+impl ST constructor :: (self: *Self, data: *i8){    
+    self.data = data
+    self.size = std.strlen(self.data)    
+}
+impl ST cout :: (self: *Self){ std.puts(self.data) }
+
+
+main :: (){
+    x := new ST("hello, world\n")
+    
+    
+}

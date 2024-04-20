@@ -24,7 +24,7 @@ struct_reassign :: (dst: *i8, src: *i8, size: i64){
 }
 
 // The idea for intern_range is only for ptr comparasion
-intern_strings: mut *ll_list = ll_list.new()
+intern_strings: mut *ll_list = std.allocate(sizeof(ll_list))
 intern_range :: (begin: cstr, end: cstr): *i8
 {
     node: mut *ll_node = intern_strings.head
@@ -48,3 +48,12 @@ intern_str :: (str: *i8): *i8
     return intern_range(str, str + std.strlen(str))
 }
 
+@flag("new_allocator")
+new_allocator :: (item_nbytes: i64, list_items: i64): *any {
+    std.puts("Using NEW < [")
+    std.puts(std.itocstr(list_items))
+    std.puts("] size = ")
+    std.puts(std.itocstr(item_nbytes))
+    std.puts(" >\n")
+    return std.allocate(list_items * item_nbytes)
+}

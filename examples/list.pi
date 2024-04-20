@@ -5,9 +5,6 @@ SIZE :: 10
 impl std lt :: (first: i64, second: i64) return first < second
 impl std gt :: (first: i64, second: i64) return first > second
 
-
-
-
 main :: () {
     std.srand(time(null))
     l: *ll_list = init_ll_list_ptr()
@@ -17,13 +14,9 @@ main :: () {
         l.push(rg.random_range(0, 50))
         //l.push(std.random_range(0, 20))
         i = i + 1
-    }
-    // TODO: Fix this in compiler
-    l.sort_by(std.lt)
-        
-    new:*ll_list = l.map(std.itocstr)    
-    new.map(proc(str: cstr){
-        std.puts(str)
-        std.puts("\n")
+    }     
+
+    l.self_map(proc(item: i64){
+        dump(item)
     })
 }

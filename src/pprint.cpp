@@ -100,6 +100,31 @@ namespace Pietra::pPrint{
             CASE(EXPR_NAME,
                 pprint("%s", e->name);                
             )
+            CASE(EXPR_NEW,                
+                pprint("<New ");
+                if(e->new_expr.size->kind == EXPR_INT and e->new_expr.size->int_lit != 1){
+                    pprint("[ ");
+                    expr(e->new_expr.size);
+                    pprint(" ] ");
+                }
+                typespec(e->new_expr.type);
+
+                if(e->new_expr.args.len() > 0){
+                    int n = 0;
+
+                    pprint("( ");
+                    for(Expr* e: e->new_expr.args){                        
+                        expr(e);
+                        pprint(" ");
+                        if(n + 1 < e->new_expr.args.len()){
+                            pprint(", ");
+                        }
+                        n++;
+                    }
+                    pprint(" ) ");
+                }
+                pprint(">");
+            )
             CASE(EXPR_LAMBDA,
                 pprint("TODO print expr lambda\n");
             )

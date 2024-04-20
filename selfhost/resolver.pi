@@ -40,14 +40,11 @@ Sym     :: {
     val:    Val
     impls:  SymImpl
 }
-impl Sym new :: (kind: i64): *Self
-{
-    s: *Sym = std.allocate(sizeof(Sym))
-    s.kind = kind
-    return s
+impl Sym constructorr :: (self: *Self, kind: i64): *Self{
+    self.kind = kind    
 }
 impl Sym new_var :: (name: *i8, t: *Type, rhs: *Expr){    
-    s: *Sym = Sym.new(SYM_VAR)
+    s: *Sym = new Sym(SYM_VAR)
     s.name = name
     s.type = t
     s.expr = rhs
@@ -60,23 +57,22 @@ Operand :: {
     val:        mut Val
 }
 
-impl Operand new :: (type: *Type, is_lvalue: i64, is_const: i64, val: Val)
-{
-    op: *Operand        = std.allocate(sizeof(Operand))
-    op.type             = type
-    op.is_lvalue        = is_lvalue
-    op.is_const         = is_const
+impl Operand constructor :: (self: *Self, type: *Type, is_lvalue: i64, is_const: i64, val: Val)
+{    
+    self.type             = type
+    self.is_lvalue        = is_lvalue
+    self.is_const         = is_const
     // Force var change
-    op.val as mut any   = val 
+    self.val as mut any   = val 
     return op
 }
 
 operand_lvalue :: (type: *Type, val: Val): *Operand 
 {
-    return Operand.new(type, true, false, val)
+    return new Operand(type, true, false, val)
 }
 init_builtin_sym_int_from_size :: (name: *i8, size: i64): *Sym {
-    s: *Sym = Sym.new(SYM_TYPE)
+    s: *Sym = new Sym(SYM_TYPE)
     s.state = SYM_RESOLVED
     s.name  = intern_str(name)
     s.type  = type_int(size, false)
@@ -168,9 +164,7 @@ sym_from_decl :: (name: imut *i8, decl: imut *Decl): *Sym
             // TODO: resolve typespec
         }
     }    
-    sym: *Sym   = Sym.new(kind)
-   
-    
+    sym: *Sym   = new Sym(kind)       
     sym.name    = name    
     sym.type    = type
     sym.decl    = decl
@@ -204,7 +198,7 @@ resolve_init_var :: (name: *i8, ts: *TypeSpec, rhs: *Expr, is_local: i64, is_par
     t: *Type = asm("call resolve_typespec")
 
     std.puts("RESOLVING INIT VAR\n")
-    if is_local or is_param {
+    if is_local or is_param {        
         s: *Sym = Sym.new_var(name, t, rhs)
         localSyms.push(s)
 
@@ -354,8 +348,10 @@ resolve_constexpr :: (d: *Decl){
 resolve_proc :: (name: *i8, p: *DeclProc)
 {    
     ret: *Type = resolve_typespec(p.ret)
-    params: *ll_list = ll_list.new()     
-    Proc.new(name, ret, params)
+    params: *ll_list = new ll_list
+    
+    // NOTE: new proc calls it's constructor allocating itself in another structure
+    new Proc(name, ret, params)
 
     resolve_stmt_block(p.block)
 }

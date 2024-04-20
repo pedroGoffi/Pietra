@@ -2,7 +2,7 @@
 use std{std}
 
 // The idea for intern_range is only for ptr comparasion
-intern_strings: mut *ll_list = ll_list.new()
+intern_strings: mut *ll_list = new ll_list
 
 intern_range :: (begin: cstr, end: cstr): *i8
 {

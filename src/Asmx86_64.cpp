@@ -1088,8 +1088,99 @@ void makeLabel() {
         
         return compile_expr(Utils::expr_name(lambda->name), state_none);
     }
+    Type* compile_new(Expr*& e){
+        if(!new_allocator){
+            err("[ERROR]: `new` allocator not configured in the compiler, compilation will be aborted.\n");
+            exit(1);
+        }
+        Sym* s = sym_get(new_allocator->name);
+        assert(s);
+
+        SVec<Expr*> &args = e->new_expr.args;
+        Expr*       &size = e->new_expr.size;
+        TypeSpec*   &type = e->new_expr.type;
+
+        if(args.len() + 1 > MAX_ARGREG){
+            printf("[ERROR]: new operator max args.\n");
+            exit(1);
+        }            
+
+        Type* rty = type->resolvedTy;
+        if(rty->size == 0){
+            err("[ERROR]: INTERNAL rty->size == 0 for %s\n", rty->repr());
+            exit(1);
+        }
+
+        /*
+            Objective:
+                rax -> new_proc(item_size, list_size)
+            Memory allocation:
+                item_nbytes -> rdi | argreg64[0]
+                list_items  -> rsi | argreg64[1]                        
+        */        
+        SVec<Expr*> call_args;
+            /* rdi -> */ call_args.push(Utils::expr_int(rty->size));     // item nbytes
+            /* rsi -> */ call_args.push(size);                               // list size
+        
+        Expr* new_call = Utils::expr_call(
+            Utils::expr_name(s->name),
+            call_args
+        );
+        Type* ptr_ty = compile_expr(new_call, state_none);
+        if(args.len() == 0) return ptr_ty;
+        if(type->kind != Ast::TYPESPEC_NAME){
+            err("[ERROR]: Compiling typespec in `new` operator expects type name, got: %s.\n", type->resolvedTy->repr());
+            exit(1);
+        }
+        int reg_id = 0;
+        push(reg_from_size(ptr_ty->size, reg_id), ptr_ty);
+        push(reg_from_size(ptr_ty->size, reg_id++), ptr_ty);
+        
+
+        Sym* structure = sym_get(type->name);
+        Sym* method = structure->impls.find("constructor");
+        if(!method){
+            err("[ERROR]: trying to pass arguments in new operator for a struct with no constructor\n");
+            exit(1);
+        }
+        assert(method->kind == Resolver::SYM_PROC);
+
+        if(method->decl->proc.params.len() != args.len() + 1){
+            int expected    = method->decl->proc.params.len();
+            int got         = args.len();
+            err("[ERROR]: Trying to call constructor of `%s` that expects %i arguments but just got %i\n", 
+                ptr_ty->repr(),
+                expected,
+                got);
+            exit(1);
+        }
+        
+        
+        // stack = ... ptr                
+        for(Expr*& arg: args){
+            /* rax -- nth-arg */Type* arg_ty = compile_expr(arg, state_none);
+            push(rax_reg_from_size(arg_ty->size), arg_ty);
+        }
+        // stack = ... ptr ...args
+        
+        reg_id = 1;
+        
+        for(Expr*& arg: args){
+            (void) arg;
+            Type* ty = stack.back();
+            pop(reg_from_size(ty->size, args.len() + 1 - reg_id++));
+        }        
+        pop("rax");
+        println("mov %s, rax", reg_from_size(ptr_ty->size, 0));
+        println(";; NEW WITH ARGS");
+        println("call %s", method->name);
+        pop(rax_reg_from_size(ptr_ty->size));
+        /* rax -- pointer */ 
+        return ptr_ty;
+    }
+
     Type* compile_expr(Expr* e, CState& state){                
-        static int i = 0;
+        //static int i = 0;
         
         switch(e->kind){
             case EXPR_INT:                
@@ -1121,10 +1212,13 @@ void makeLabel() {
             case EXPR_FIELD:        return compile_field(e->field_acc.parent, e->field_acc.children, state);
             case EXPR_TERNARY:      return compile_ternary(e->ternary.cond, e->ternary.if_case, e->ternary.else_case);
             case EXPR_LAMBDA:       return compile_lambda(e);
+            case EXPR_NEW:          return compile_new(e);
             default:                 
-                fprintf(stderr, "========================\n");
+                fprintf(stdout, "========[ ERROR PLANG UNKNOWN EXPRESSION COMPILATION BRANCH ]================\n");
+                fprintf(stdout, "Got expression: ");
                 pPrint::expr(e);
-                fprintf(stderr, "========================\n");
+                fprintf(stdout, "\n");
+                fprintf(stdout, "=============================================================================\n");
                 exit(1);
         }
     }

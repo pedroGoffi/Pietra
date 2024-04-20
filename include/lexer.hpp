@@ -41,7 +41,7 @@ namespace Pietra::Lexer{
         TK_OPEN_CURLY_BRACES,
         TK_CLOSE_CURLY_BRACES,        
         TK_COMMA,
-        TK_DDOT,
+        TK_DDOT,        
         TK_PREP,
         TK_EQ,
         TK_CMPEQ,        
@@ -87,6 +87,7 @@ namespace Pietra::Lexer{
     inline bool is_keyword(char c);
     inline bool is_numeric(char c);
     inline bool is_kind(tokenKind kind);
+    inline bool is_name(const char* name);
     inline bool expects_kind(tokenKind kind);
     inline bool is_eof();
     void init_stream(const char* filename, const char* str);        

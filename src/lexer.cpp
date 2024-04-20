@@ -69,6 +69,7 @@ const char* keyword_case        = cstr("case");
 const char* keyword_impl        = cstr("impl");
 const char* keyword_default     = cstr("default");
 const char* keyword_do          = cstr("do");
+const char* keyword_new         = cstr("new");
 
 
 
@@ -318,6 +319,9 @@ inline bool Lexer::is_keyword(char c){
 
 inline bool Lexer::is_kind(tokenKind kind){
     return token.kind == kind;
+}
+inline bool Lexer::is_name(const char* name){
+    return is_kind(TK_NAME) and token.name == Core::cstr(name);
 }
 
 inline bool Lexer::expects_kind(tokenKind kind){

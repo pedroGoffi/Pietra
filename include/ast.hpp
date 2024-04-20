@@ -109,7 +109,13 @@ namespace Pietra::Ast {
                 SVec<ProcParam*>    params;
                 TypeSpec*           ret;
                 SVec<Stmt*>         block;
-            } lambda;
+            } lambda;            
+
+            struct {
+                Expr*       size;
+                TypeSpec*   type;
+                SVec<Expr*> args;
+            } new_expr;
         };
     };
     enum StmtKind{

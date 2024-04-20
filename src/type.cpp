@@ -197,6 +197,9 @@ bool can_add_type(Type* lhs, Type* rhs){
     return false;
 }
 
+bool Type::isInteger(){
+    return (TYPE_FIRST_ARITHMETRIC_TYPE <= this->kind) and (this->kind <= TYPE_LAST_INTEGER);
+}
 bool Type::typeCheck(Type* other){    
     if(this->kind == TYPE_ARRAY and isNumericType(other)){
         if(this->base->typeCheck(other)){
