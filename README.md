@@ -30,7 +30,10 @@ main :: (){
     my_proc(1) 
 }
 ```
-
+# New operator
+- Syntax new ([numeric expression] optional) type ('(' expression list ')' optional)
+- for new Type -> will allocate sizeof(Type)
+- for new Type(args...) -> will allocate sizeof(Type) and call Type.constructr(allocated_pointer)
 # Expression_macros
 - Expression macros works like C macros without parameters
 - They may be preprocessed or not
