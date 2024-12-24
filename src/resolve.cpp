@@ -9,6 +9,7 @@ The resolver will
 #include "../include/resolve.hpp"
 #include "../include/packages.hpp"
 #include "../include/bridge.hpp"
+#include "./scope.cpp"
 #include "ast.cpp"
 #include "pprint.cpp"    
 #include "bridge.cpp"
@@ -19,11 +20,11 @@ The resolver will
 #define STRUCT_REASSIGN_FLAG    "struct_reassign"
 #define NEW_FLAG                "new_allocator"
 
-bool impl_ctx = false;
-Decl* string_comparator = nullptr;
-Decl* struct_reassigner = nullptr;
-Decl* new_allocator     = nullptr;
-SVec<Sym*> Declared_lambdas;
+bool        impl_ctx = false;
+Decl*       string_comparator = nullptr;
+Decl*       struct_reassigner = nullptr;
+Decl*       new_allocator     = nullptr;
+SVec<Sym*>  Declared_lambdas;
 void allocate_lambda(Sym* lambda){
     Declared_lambdas.push(lambda);
 }
@@ -61,8 +62,9 @@ void show_all_decorators(){
     printf("]\n");  
 }
 namespace Pietra::Resolver{
-    SVec<Sym*>          Syms;
-    SVec<Sym*>          localSyms;
+    SVec<Sym*>          global_syms;
+    ScopeManager        scopes;
+    //SVec<Sym*>          localSyms;
     SVec<Decl*>         final_ast;
     SVec<PPackage*>     packages;
     
@@ -95,6 +97,7 @@ namespace Pietra::Resolver{
     void final_ast_push(Decl* d){
         final_ast.push(d);
     }
+    
     Operand operand_lvalue(Type *type, Val val){
         return {
             .type = type,
@@ -109,13 +112,10 @@ namespace Pietra::Resolver{
         };
     }
     Sym* sym_get(const char* &name){
-        name = Core::cstr(name);
-        for(auto& sym: Syms){
-            if(sym->name == name) return sym;
-        }
-        for(auto& sym: localSyms){
-            if(sym->name == name) return sym;                            
-        }
+        name = Core::cstr(name);        
+        Sym* sym = scopes.find_sym(name);
+        if(sym) return sym;
+        
         return nullptr;
     }
     Sym* sym_getlval(const char* name){
@@ -262,8 +262,9 @@ namespace Pietra::Resolver{
                 }
             }
             else {                                
-                Sym* sym = sym_new(decl->name, decl);                            
-                Syms.push(sym);                
+                Sym* sym = sym_new(decl->name, decl);                    
+                scopes.add_sym(sym);        
+                global_syms.push(sym);                
             }
         }
     }
@@ -273,10 +274,11 @@ namespace Pietra::Resolver{
 
     #define DEFINE_BUILTIN(_name, ...)                      \
         {                                                   \
-            Syms.push(sym_new(Core::cstr(_name), __VA_ARGS__));         \
+            scopes.add_sym(sym_new(Core::cstr(_name), __VA_ARGS__));         \
         }
 
     void declare_built_in(){
+        scopes.enter_scope();
         DEFINE_BUILTIN("true",
             Utils::decl_var("true", 
                 Utils::typespec_name("i64", {}),
@@ -290,18 +292,20 @@ namespace Pietra::Resolver{
         };
         
         Builin_Sym_type types[]{
-            {"i8", type_int(8, true)},
-            {"i16", type_int(16, true)},
-            {"i32", type_int(32, true)},
-            {"i64", type_int(64, true)},            
-            {"f32", type_float(32, true)},
-            {"f64", type_float(64, true)},
-            {"any", type_any()}
+            {"i8",      type_int(8, true)},
+            {"i16",     type_int(16, true)},
+            {"i32",     type_int(32, true)},
+            {"i64",     type_int(64, true)},            
+            {"f32",     type_float(32, true)},
+            {"f64",     type_float(64, true)},
+            {"any",     type_any()},
+            {"void",    type_any()}
             
         };
-        for(auto& [name, type]: types){
+        for(auto& [name, type]: types){            
             Sym* _ty = sym_type(name, type);
-            Syms.push(_ty);
+            global_syms.push(_ty);
+            scopes.add_sym(_ty);
         }
         
         
@@ -311,10 +315,7 @@ namespace Pietra::Resolver{
                 Utils::typespec_name("i64", {}),
                 Utils::expr_int(0)));
 
-        DEFINE_BUILTIN("null",
-            Utils::decl_var("null", 
-                Utils::typespec_name("i64", {}),
-                Utils::expr_int(0)));
+        
         {
             const char* builtin_procs[] = {
                 "dump",
@@ -391,7 +392,6 @@ namespace Pietra::Resolver{
                 TS_CHECK_INT(16);
                 TS_CHECK_INT(32);
                 TS_CHECK_INT(64);
-
                 TS_CHECK_TYPE(type_void);
                 TS_CHECK_TYPE(type_any);
                 
@@ -514,7 +514,9 @@ namespace Pietra::Resolver{
         if(isLocal or isParam){                        
             Sym* s = sym_var(name, type->resolvedTy, init);                                    
             assert(s);
-            localSyms.push(s);
+            // CHANGE: added scopes
+            scopes.add_sym(s);
+            //localSyms.push(s);
             CBridge::CreateVar(
                 name,
                 type->resolvedTy,
@@ -538,6 +540,7 @@ namespace Pietra::Resolver{
     Operand resolve_name(const char* name){
         Sym* sym = sym_get(name);                
         if(!sym){
+
             printf("[ERROR]: the name '%s' is not declared in this scope.\n", name);
             exit(1);
         }
@@ -655,7 +658,7 @@ namespace Pietra::Resolver{
             printf(")\n");
             exit(1);
         }
-
+        // TODO: wrap those stuff to specific methods
         if(!b.type->typeCheck(r.type)){
             if(Sym* sym = sym_get(b.type->name)){
                 if(Sym* __eq = sym->impls.find("__eq__")){
@@ -946,19 +949,23 @@ namespace Pietra::Resolver{
         pPrint::expr(expr);
         exit(1);
     }
-
+    #define SCOPE_ACTION(...) scopes.enter_scope(); {__VA_ARGS__}; scopes.leave_scope();
     void resolve_stmt(Stmt* &stmt){
         switch(stmt->kind){
             case Ast::STMT_EXPR:
                 resolve_expr(stmt->expr);
                 break;
             case Ast::STMT_IF:
-                resolve_expr(stmt->stmt_if.if_clause->cond);
-                resolve_stmt_block(stmt->stmt_if.if_clause->block);                                
+                SCOPE_ACTION(
+                    resolve_expr(stmt->stmt_if.if_clause->cond);
+                    resolve_stmt_block(stmt->stmt_if.if_clause->block);
+                )            
                 break;
             case Ast::STMT_WHILE:   {
-                resolve_expr(stmt->stmt_while->cond);
-                resolve_stmt_block(stmt->stmt_while->block);
+                SCOPE_ACTION(
+                    resolve_expr(stmt->stmt_while->cond);
+                    resolve_stmt_block(stmt->stmt_while->block);
+                )
                 break;
             }
             case Ast::STMT_RETURN: {                
@@ -1115,6 +1122,8 @@ namespace Pietra::Resolver{
 
 
     void resolve_decl_proc(Decl* &d, Type* type){                
+        // CHANGE: added scopes
+        scopes.enter_scope();
         if(d->name == Core::cstr("new")){
             printf("[ERROR]: Can't name a procedure with `new` identifier.\n");
             exit(1);
@@ -1162,7 +1171,9 @@ namespace Pietra::Resolver{
             }
         }
         assert(d->kind == DECL_PROC);
-        localSyms.free();        
+        // CHANGE: added scopes
+        scopes.enter_scope();
+        //localSyms.free();        
         CBridge::CreateProc(d->name, type);
                 
         for(ProcParam* pp: d->proc.params){            
@@ -1275,13 +1286,17 @@ namespace Pietra::Resolver{
         return sym;
     }
     
-    SVec<Decl*> resolve_package(PPackage* &package){                                                  
+    
+    SVec<Decl*> resolve_package(PPackage* &package){
+        scopes.enter_scope();
         declare_package(package);
 
-        for(Sym* sym: Syms){
-            resolve_sym(sym);        
-        }   
+        for(Sym* sym: global_syms){
+            resolve_sym(sym);
+        }
         
+        
+        int last_scope_level = scopes.m_lvl;        
         return final_ast;        
     }    
 }

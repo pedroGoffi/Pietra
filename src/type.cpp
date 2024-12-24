@@ -21,7 +21,7 @@ Type int64_ty       = {.kind = TYPE_I64,    .name = Core::cstr("i64"),  .size = 
 Type f32_ty         = {.kind = TYPE_F32,    .name = Core::cstr("f32"),  .size = sizeof(float)};
 Type f64_ty         = {.kind = TYPE_F64,    .name = Core::cstr("f64"),  .size = sizeof(double)};
 Type str_ty         = {.kind = TYPE_PTR,    .name = Core::cstr("cstr"), .size = sizeof(void*), .base = &int8_ty};
-Type void_ty        = {.kind = TYPE_VOID,   .name = Core::cstr("null"), .size = 8, .ismut = false};
+Type void_ty        = {.kind = TYPE_VOID,   .name = Core::cstr("void"), .size = 8, .ismut = false};
 Type unresolved_ty  = {.kind = TYPE_UNRESOLVED, .name = Core::cstr("unresolved")};
 Type any_ty         = {.kind = TYPE_ANY,    .name = Core::cstr("any"), .size = sizeof(void*), .ismut = true};
 Type self_ty        = {.kind = TYPE_SELF,   .name = Core::cstr("Self"), .ismut = true};

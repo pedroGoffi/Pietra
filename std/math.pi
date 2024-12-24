@@ -37,7 +37,7 @@ RandomGenerator :: {
 }
 impl RandomGenerator {
     constructor :: (self: *Self){
-        self.seed = time(null)
+        self.seed = time(0)
 
     }
 

@@ -1,3 +1,4 @@
 ## TODOS 
-- Return of non pointer struct
+- Return of a non pointer struct
 - SelfHost
+- migrate current lexer to 

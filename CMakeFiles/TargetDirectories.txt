@@ -1,0 +1,3 @@
+/home/pietra/Pietra/CMakeFiles/pi.dir
+/home/pietra/Pietra/CMakeFiles/edit_cache.dir
+/home/pietra/Pietra/CMakeFiles/rebuild_cache.dir

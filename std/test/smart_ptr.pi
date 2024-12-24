@@ -18,7 +18,7 @@ impl Smart_ptr set :: (self: *Self, data: any){
     self.data = data;
 }    
 impl Smart_ptr release :: (self: *Self){
-    self.data = null;
+    self.data = 0;
 }    
 impl Smart_ptr __eq__ :: (self: *Self, data: any){
     if self.data == 0 {

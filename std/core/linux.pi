@@ -6,7 +6,8 @@ __fd_stdin                      :: 0
 __fd_stdout                     :: 1
 __fd_stderr                     :: 2
 
-nullptr                         ::  null
+null                            ::  0
+nullptr                         ::  0
 AT_FDCWD	                    ::  -100
 MAP_SHARED                      ::  1 
 MAP_PRIVATE                     ::  2 
@@ -331,10 +332,10 @@ SYS_finit_module                ::  313
 exit :: (exit_code: i64) {
     syscall(exit_code, SYS_exit)
 }
-read :: (fd: i64, buf: *null, count: i64): i64 {
+read :: (fd: i64, buf: *void, count: i64): i64 {
     return syscall(count, buf, fd, SYS_read)
 }
-write :: (fd: i64, ptr: *null, size: i64){
+write :: (fd: i64, ptr: *void, size: i64){
     syscall(size, ptr, fd, SYS_write)
 }
 

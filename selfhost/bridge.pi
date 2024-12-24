@@ -55,9 +55,9 @@ impl Constexpr find :: (name: *i8): *Constexpr
     while node.value 
     {
         ce: *Constexpr = node.value
-        if std.streq(ce.name, name)        
+        if std.streq(ce.name, name) {
             return ce
-
+        }
         node = node.next
     }
     return null
@@ -162,14 +162,14 @@ impl Proc constructor :: (self: *Self, name: *i8, ret_type: *Type, params: *ll_l
 
 impl Proc find :: (name: i64): *Proc 
 {
-    node: mut *ll_node = Proc_list.head
-    while node.value     
-    {        
-        if (name == node.value)
-            return proc
-
-        node = node.next
-    }
+    //node: mut *ll_node = Proc_list.head
+    //while node.value     
+    //{        
+    //    if (name == node.value) {
+    //        return proc
+    //    }
+    //    node = node.next
+    //}
     return null
 }
 

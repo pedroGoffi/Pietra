@@ -1,16 +1,27 @@
+
 use std{std}
 
+myVar: *i8 = "I am a global string\n"
 
-call_me :: (f: proc(i64)){
-    f(1)
-}
-main :: (){
-    
-    myLambda := proc(){
-        std.puts("I am a lambda\n")
-        return 1
+
+foo :: (x: *void){
+    lambda := proc(str: *i8): void {
+        std.puts(str)
     }
 
-    dump(myLambda())
-    std.puts("ok\n")
+    lambda(x)    
 }
+
+main :: (){
+    foo(myVar)
+    // This should not work, TODO fix this in resolver step
+    if 1 {
+        std.puts("OK - inside if\n")
+        insideIfVar: i64 = 69
+        dump(insideIfVar)
+    }
+
+    dump(insideIfVar)    
+}
+
+

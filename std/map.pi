@@ -23,7 +23,7 @@ impl Hash_map {
         bucket_target: Hash_bucket
         i: i64 = 0
 
-        if self.buckets == null {
+        if self.buckets == 0 {
             self.capacity = HASH_MAP_INITIAL_CAPACITY
             self.buckets = std.allocate(sizeof(Hash_bucket) * self.capacity)
             self.size = 0            

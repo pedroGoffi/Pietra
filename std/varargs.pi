@@ -3,7 +3,7 @@ Va_list :: {
     __va_index: mut i64
     __va_ptr:      mut *i64
     __va_stack: mut *any
-    __va_end:   mut *null
+    __va_end:   mut *void
     __va_cap:   mut i64
 }
 

@@ -52,7 +52,7 @@ ll_push :: (list: *ll_list, item: any){
 //}
 
 
-impl ll_list swap :: (self: *Self, idx1: i64, idx2: i64): null {
+impl ll_list swap :: (self: *Self, idx1: i64, idx2: i64): void {
     v_idx1: *ll_node = self.at(idx1);
     v_idx2:  *ll_node = self.at(idx2)
     std.swap_ptr(&v_idx1.value, &v_idx2.value)
