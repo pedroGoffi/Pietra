@@ -1,0 +1,135 @@
+#package "pietra.test.future"
+use std{list}
+
+FUTURE_DONE         :: 1
+FUTURE_REJECTED     :: 2
+FUTURE_THEN         :: 3
+
+// Due to the language limitations i'll have to sacrifice perfomance / memory management
+Future :: {
+    left:       mut *any 
+    right:      mut *any
+    data:       mut *any     
+    callback:   mut proc(*any): *any
+    kind:       i64
+}
+Future_poll :: (future: *Future, data: *null): *any  {
+    result: mut *any;    
+    if future.kind == FUTURE_DONE or future.kind == FUTURE_REJECTED {
+        return future.data
+    }
+
+    if future.kind != FUTURE_THEN {
+        std.puts("[ERROR]: expected THEN\n");
+        dump(future.kind)
+        return nullptr;
+    }
+
+    if (future.left) {
+        result = Future_poll(future.left, nullptr)
+        if (result) {
+            future.right = future.callback(result);
+            future.left = nullptr;
+        }
+        return nullptr;
+    } 
+
+    return Future_poll(future.right, data);
+}
+impl Future poll :: (self: *Self, data: *any): *Future {
+    return Future_poll(self, data)
+}
+
+
+impl Future is_rejected :: (self: *Self){
+    return self.kind == FUTURE_REJECTED
+}
+impl Future is_then :: (self: *Self){
+    return self.kind == FUTURE_THEN
+}
+
+
+
+init_future     ::  (data: *any, left: *any, right: *any, callback: proc(*any): *Future, kind: i64): *Future {
+    future: *Future     = new Future;
+    future.data         = data;
+    future.left         = left;
+    future.right        = right;
+    future.callback     = callback;
+    future.kind         = kind;
+    return future;
+}
+
+make_done               ::  (value: *any): *Future  {
+    return init_future(value, null, null, null, FUTURE_DONE)
+}
+
+make_reject             ::  (value: *any): *Future  {
+    return init_future(value, null, null, null, FUTURE_REJECTED)
+}
+
+make_then               ::  (value: *any, callback: proc(*any): *Future): *Future {
+    return init_future(null, value, null, callback, FUTURE_THEN)
+}
+impl Future then :: (self: *Self, callback: proc(*any): *Future){
+    return make_then(self, callback)   
+}
+async_run               ::  (future: *Future): *any {
+    while true {        
+        result: *any = future.poll(nullptr)
+        if(result) {
+            std.puts("got future result\n");
+            return result;
+        }
+    }
+}
+
+//
+// Asynchronously gathers results from a list of futures.
+//
+// @param futures_ptr A pointer to a linked list of futures.
+// @return This function does not return a value.
+//
+async_gather :: (futures_ptr: *ll_list): null {
+    futures: ll_list = *futures_ptr
+    
+    quit: i32 = false
+    max_iterations: i64 = 100  // Safeguard against infinite loops
+    iteration_count: i64 = 0
+
+    while !quit and iteration_count < max_iterations {
+        quit = true                
+        i: i64 = 0
+
+        while i < futures.size {
+            future: *Future = futures.at(i)
+
+            if Future_poll(*future, nullptr) == nullptr {
+                quit = false
+            }
+            i = i + 1
+        }        
+
+        iteration_count = iteration_count + 1
+    }
+    
+    if iteration_count + 1> max_iterations {
+        std.puts("[ERROR]: async_gather exceeded max iterations, aborting.\n")
+        exit(1)
+    }
+}
+
+//
+// Asynchronously waits for the given future to complete and returns its result.
+//
+// @param future A pointer to a Future object that represents an asynchronous computation.
+// @return A pointer to the result of the future once it is completed.
+//
+await :: (future: *Future): *any {
+    while true {
+        result: *any = future.poll(nullptr)
+        if result != nullptr  {
+            return make_done(result)
+        }
+    }   
+}
