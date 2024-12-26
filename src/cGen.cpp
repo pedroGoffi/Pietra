@@ -1,6 +1,7 @@
 #ifndef CGEN_CPP
 #define CGEN_CPP
 #include "../include/cGen.hpp"
+#include "./lexer.cpp"
 #include <cstring>
 #include "resolve.cpp"
 using namespace Pietra::cGen;
@@ -67,7 +68,7 @@ void cGen::gen_expr(Expr* e){
         } break;
         case EXPR_BINARY:
         {
-            const char* repr = tokenKind_repr(e->binary.binary_kind);
+            const char* repr = tokenKindRepr(e->binary.binary_kind);
             printf("(");
             gen_expr(e->binary.left);
             printf(" %s ", repr);
@@ -111,7 +112,7 @@ void cGen::gen_expr(Expr* e){
             break;
         
         case EXPR_UNARY:
-            if(e->unary.unary_kind == Lexer::TK_SUB){
+            if(e->unary.unary_kind == TK_minus){
                 printf("-");
             }
             else {

@@ -1,3 +1,13 @@
 .vscode/*
 *.bin
 *.asm
+o
+pi
+pietra.asm
+pietra.bin 
+.mise.toml
+
+.cache/* 
+.build/*
+.debug/*
+.release/*

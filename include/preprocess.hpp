@@ -46,7 +46,7 @@ namespace Pietra::Preprocess {
 
     // Preprocessing expressions
     namespace PreprocessExpr {
-        Expr* binary(Lexer::tokenKind kind, Expr* lhs, Expr* rhs);
+        Expr* binary(TokenKind kind, Expr* lhs, Expr* rhs);
         Expr* expr(Ast::Expr* e);
 
         Expr* binary_add(Expr* lhs, Expr* rhs);

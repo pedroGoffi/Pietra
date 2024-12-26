@@ -12,389 +12,387 @@
 
 using namespace Pietra;
 using namespace Pietra::Ast;
-using namespace Pietra::Lexer;
-#define unimplemented() printf("[ERR]: the %s is unimplemented for: %s", __FUNCTION__, token.name); exit(1);
-TypeSpec* proc_params();
+#define unimplemented() printf("[ERR]: the %s is unimplemented for: %s", __FUNCTION__, lexer->token.name); exit(1);
+//TypeSpec* proc_params(Lexer* lexer);
 
 
 namespace Pietra::Parser {
-    PPackage* cpack;    
-Expr* literal_expr_assign(const char* name){        
-    assert(is_kind(TK_DDOT));    
-    next();
+PPackage* cpack;    
+
+Expr* literal_expr_assign(Lexer* lexer, const char* name){
+    assert(lexer->expect(TK_colon));    
     TypeSpec*   ts   = nullptr;
     Expr*       init = nullptr;
-    if(!is_kind(TK_EQ)){
-        ts = typespec();
+    if(!lexer->token.isKind(TK_eq)){
+        ts = typespec(lexer);
     }
-    if(is_kind(TK_EQ)){
-        next();
-        init = expr();
+    if(lexer->token.isKind(TK_eq)){
+        lexer->nextToken();
+        init = expr(lexer);
     }    
     return Utils::expr_assign(name, ts, init);
 
 }
-Expr* new_expr(){
-    //assert(is_kind(TK_NEW));
-    next();
+Expr* new_expr(Lexer* lexer){
+    //assert(lexer->token.isKind(TK_NEW));
+    lexer->nextToken();
     Expr* list_items_number = nullptr;
-    if(is_kind(Lexer::TK_OPEN_SQUARED_BRACES)){
-        next();
-        list_items_number = expr();
-                    
-        assert(is_kind(Lexer::TK_CLOSE_SQUARED_BRACES));
-        next();
+    if(lexer->expect(TK_lbracket)){        
+        list_items_number = expr(lexer);                    
+        assert(lexer->expect(TK_rbracket));        
     }
     else {
         list_items_number = Utils::expr_int(1);
     }
-    TypeSpec* type = typespec();
+    TypeSpec* type = typespec(lexer);
     SVec<Expr*> args;
-    if(is_kind(Lexer::TK_OPEN_ROUND_BRACES)) {
-        next();
-        args = expr_list();        
-        assert(is_kind(Lexer::TK_CLOSE_ROUND_BRACES));
-        next();
+    if(lexer->expect(TK_lparen)) {    
+        args = expr_list(lexer);        
+        assert(lexer->expect(TK_rparen));        
     }        
     return Utils::expr_new(type, list_items_number, args);    
 }
-Expr* literal_expr(){    
-    if(is_kind(TK_NAME)){
-        if(token.name == keyword_switch){
-            Stmt* st_switch = stmt_switch();
+Expr* literal_expr(Lexer* lexer){    
+    if(lexer->token.isKind(TK_name)){
+        if(lexer->token.name == switch_keyword){
+            Stmt* st_switch = stmt_switch(lexer);
             return Utils::expr_switch(
                 st_switch->stmt_switch.cond, 
                 st_switch->stmt_switch.cases,                  
                 st_switch->stmt_switch.has_default,
                 st_switch->stmt_switch.default_case);                
-        } else if(is_name("new")) return new_expr();
 
-        const char* name = token.name;        
-        next();        
-        if(is_kind(Lexer::TK_DDOT)){
+        } else if(lexer->token.name == new_keyword) return new_expr(lexer);
+
+        const char* name = lexer->token.name;        
+        lexer->nextToken();
+        if(lexer->token.isKind(TK_colon)){
             // fast assign var :type = expr
-            return literal_expr_assign(name);
+            return literal_expr_assign(lexer, name);
         }
         else {
             return Utils::expr_name(name);
         }
-    } else if(is_kind(TK_INT)){
-        uint64_t i64 = token.i64;
-        next();
+    } else if(lexer->token.isKind(TK_int)){
+        uint64_t i64 = lexer->token.i64;
+        lexer->nextToken();
         return Utils::expr_int(i64);    
-    } else if(is_kind(TK_FLOAT)){
-        double f64 = token.f64;
-        next();
+    } else if(lexer->token.isKind(TK_float)){
+        double f64 = lexer->token.f64;
+        lexer->nextToken();
         return Utils::expr_float(f64);
-    } else if(is_kind(TK_STRING)){
-        const char* str = token.name;
-        next();
+    } else if(lexer->token.isKind(TK_dqstring)){
+        const char* str = lexer->token.string;
+        lexer->nextToken();
         return Utils::expr_string(str);
-    } else if(is_kind(Lexer::TK_OPEN_ROUND_BRACES)){
-        next();
-        if(is_kind(TK_DDOT)){
-            // Casting
-            next();
-            TypeSpec* ts = typespec();
-            assert(is_kind(Lexer::TK_CLOSE_ROUND_BRACES));
-            next();
-            Expr* base = unary_expr();
+    } else if(lexer->token.isKind(TK_sqstring)){
+        const char* str = lexer->token.string;
+        lexer->nextToken();        
+        char character = *str;
+        return Utils::expr_int(character);
+
+    } else if(lexer->token.isKind(TK_lparen)){
+        lexer->nextToken();
+        if(lexer->token.isKind(TK_colon)){            
+            TypeSpec* ts = typespec(lexer);
+            assert(lexer->expect(TK_rparen));
+            Expr* base = unary_expr(lexer);
             return Utils::expr_cast(ts, base);
         }
         else {
-            Expr* e = expr();
-
-            assert(is_kind(Lexer::TK_CLOSE_ROUND_BRACES));
-            next();
+            Expr* e = expr(lexer);
+            assert(lexer->expect(TK_rparen));        
             return e;
         }
 
     }
-    else {
-        printf("[ERROR]: expected expression, got: %s\n", token.name);
-        printf("stream:\n%s", stream);
-        next();
+    else {        
+        syntax_error(lexer->getLocation(), "expected expression, got: (%s) kind %s\n", 
+            lexer->token.name,
+            tokenKindRepr(lexer->token.kind));    
+
+        lexer->nextToken();
         return nullptr;
     }
 }
 
-inline bool is_base_expr(){
-    return 
-            token.kind == Pietra::Lexer::TK_PREP
-        |   token.kind == Pietra::Lexer::TK_DOT
-        |   token.kind == Pietra::Lexer::TK_OPEN_ROUND_BRACES
-        |   token.kind == Pietra::Lexer::TK_OPEN_SQUARED_BRACES        
-        ;
+inline bool is_base_expr(Lexer* lexer){
+    return  lexer->token.isKind(TK_dot)
+        |   lexer->token.isKind(TK_lparen)
+        |   lexer->token.isKind(TK_lbracket)
+        ;    
 }
-Expr* base_expr(){
-    Expr* base = literal_expr();
-    while(is_base_expr()){
-        if(is_kind(TK_DOT)){
-            next();
-            Expr* child = literal_expr();
+Expr* base_expr(Lexer* lexer){
+    Expr* base = literal_expr(lexer);
+    while(is_base_expr(lexer)){
+        if(lexer->token.isKind(TK_dot)){
+            lexer->nextToken();
+            Expr* child = literal_expr(lexer);
             
             base = Utils::expr_field_access(base, child);
-        }  else if(is_kind(Lexer::TK_OPEN_SQUARED_BRACES)){
-            next();
+        }  else if(lexer->token.isKind(TK_lbracket)){
+            lexer->nextToken();
 
             Expr* arr_field = nullptr;
-            if(!is_kind(Lexer::TK_CLOSE_SQUARED_BRACES)){
-                arr_field = expr();
+            if(!lexer->token.isKind(TK_rbracket)){
+                arr_field = expr(lexer);
             }
 
-            assert(is_kind(Lexer::TK_CLOSE_SQUARED_BRACES));
-            next();
+            assert(lexer->token.isKind(TK_rbracket));
+            lexer->nextToken();
 
             base = Utils::expr_array_index(base, arr_field);
 
-        } else if(is_kind(Lexer::TK_OPEN_ROUND_BRACES)){
-            next();
+        } else if(lexer->token.isKind(TK_lparen)){
+            lexer->nextToken();
             SVec<Expr*> args = {};
 
-            if(!is_kind(Lexer::TK_CLOSE_ROUND_BRACES)){
-                args = expr_list();
+            if(!lexer->token.isKind(TK_rparen)){
+                args = expr_list(lexer);
             }
 
-            assert(is_kind(Lexer::TK_CLOSE_ROUND_BRACES));
-            next();
+            assert(lexer->token.isKind(TK_rparen));
+            lexer->nextToken();
             base = Utils::expr_call(base, args);
 
         }
         else {
-            unimplemented();
+            printf("Unimplemented..\n");
+            abort();
         }
     }
 
     return base;
 }
-static inline bool is_unary_expr(){
+static inline bool is_unary_expr(Lexer* lexer){
     return 
-            token.kind == Pietra::Lexer::TK_ADD 
-        |   token.kind == TK_SUB
-        |   token.kind == TK_NOT
-        |   token.kind == TK_MULT
-        |   token.kind == TK_AMPERSAND
-        ;
+            lexer->token.isKind(TK_plus) 
+        |   lexer->token.isKind(TK_minus)
+        |   lexer->token.isKind(TK_not)
+        |   lexer->token.isKind(TK_mul)
+        |   lexer->token.isKind(TK_and)
+        ;    
 }
-Expr* unary_expr(){        
-    while(is_unary_expr()){
-        tokenKind kind = token.kind;
-        next();                
-        return Utils::expr_unary(kind, unary_expr());
+Expr* unary_expr(Lexer* lexer){        
+    while(is_unary_expr(lexer)){
+        TokenKind kind = lexer->token.kind;
+        lexer->nextToken();                
+        return Utils::expr_unary(kind, unary_expr(lexer));
     }    
 
 
-    return base_expr();
-    
+    return base_expr(lexer);   
 }
-static inline bool is_mult_expr(){
+static inline bool is_mult_expr(Lexer* lexer){
     return 
-            token.kind == TK_MULT   or
-            token.kind == TK_DIV    or
-            token.kind == TK_PIPE   or
-            token.kind == TK_MOD
+            lexer->token.isKind(TK_mul)     or
+            lexer->token.isKind(TK_div)     or
+            lexer->token.isKind(TK_or)      or
+            lexer->token.isKind(TK_mod)
     ;
 }
-Expr* mult_expr(){
-    Expr* unary = unary_expr();
-    while(is_mult_expr()){
-        tokenKind kind = token.kind; 
-        next();
-        Expr* rhs = unary_expr();
+Expr* mult_expr(Lexer* lexer){
+    Expr* unary = unary_expr(lexer);
+    while(is_mult_expr(lexer)){
+        TokenKind kind = lexer->token.kind; 
+        lexer->nextToken();
+        Expr* rhs = unary_expr(lexer);
 
         unary = Utils::expr_binary(kind, unary, rhs);
     }
     return unary;
 }
-static inline bool is_add_expr(){
+static inline bool is_add_expr(Lexer* lexer){
     return 
-            token.kind == TK_ADD
-        |   token.kind == TK_SUB
+            lexer->token.isKind(TK_plus) or
+            lexer->token.isKind(TK_minus)
     ;
 }
-Expr* add_expr(){
-    Expr* mult = mult_expr();
-    while(is_add_expr()){
-        tokenKind kind = token.kind;
-        next();
-        Expr* rhs = mult_expr();
+
+Expr* add_expr(Lexer* lexer){
+    Expr* mult = mult_expr(lexer);
+    while(is_add_expr(lexer)){
+        TokenKind kind = lexer->token.kind;
+        lexer->nextToken();
+        Expr* rhs = mult_expr(lexer);
 
         mult = Utils::expr_binary(kind, mult, rhs);
 
     }
     return mult;
 }
-static inline bool is_cmp_expr(){
-    return 
-            token.kind == TK_CMPEQ
-        |   token.kind == TK_LT
-        |   token.kind == TK_GT
-        |   token.kind == TK_LTE
-        |   token.kind == TK_NEQ
-
-    ;
+static inline bool is_cmp_expr(Lexer* lexer){
+    return  lexer->token.isKind(TK_eqeq)    
+    |       lexer->token.isKind(TK_less)    
+    |       lexer->token.isKind(TK_greater) 
+    |       lexer->token.isKind(TK_lesseq)  
+    |       lexer->token.isKind(TK_noteq)
+    ;    
 }
-Expr* cmp_expr(){
-    Expr* add = add_expr();
-    while(is_cmp_expr()){
-        tokenKind kind = token.kind;
-        next();
-        Expr* rhs = add_expr();
+Expr* cmp_expr(Lexer* lexer){
+    Expr* add = add_expr(lexer);
+    while(is_cmp_expr(lexer)){
+        TokenKind kind = lexer->token.kind;
+        lexer->nextToken();
+        Expr* rhs = add_expr(lexer);
 
         add = Utils::expr_binary(kind, add, rhs);
     }
     return add;
 }
-static inline bool is_logic_expr(){
-    return 
-            token.name == keyword_land
-        |   token.name == keyword_lor
+static inline bool is_logic_expr(Lexer* lexer){
+    return  lexer->matchKeyword(and_keyword)
+    |       lexer->matchKeyword(or_keyword)
+    |       lexer->token.isKind(TK_oror)
+    |       lexer->token.isKind(TK_andand)    
     ;
 }
-Expr* logic_expr(){
-    
-    if(token.name == keyword_not){
-        tokenKind kind = TK_NOT;
-        
-
-        next();
-        return Utils::expr_unary(kind, logic_expr());
+Expr* logic_expr(Lexer* lexer){
+    // TODO: wrap this to var
+    if(lexer->token.name == cstr("not")){   
+        TokenKind kind = TK_not;
+        lexer->nextToken();
+        return Utils::expr_unary(kind, logic_expr(lexer));
     }
 
-    Expr* cmp = cmp_expr();
-    while(is_logic_expr()){
-        tokenKind kind = token.kind;
-        next();
-        Expr* rhs = cmp_expr();
+    Expr* cmp = cmp_expr(lexer);
+    while(is_logic_expr(lexer)){
+        TokenKind kind = lexer->token.kind;
+        if(lexer->token.isKind(TK_name)){
+            kind = lexer->matchKeyword(and_keyword) ? TK_andand : TK_oror;
+        }
+        lexer->nextToken();
+        Expr* rhs = cmp_expr(lexer);
         cmp = Utils::expr_binary(kind, cmp, rhs);
     }
     return cmp;
 }
 
-Expr* ternary_expr(){
-    Expr* logic = logic_expr();
+Expr* ternary_expr(Lexer* lexer){
+    Expr* logic = logic_expr(lexer);
 
-    if(is_kind(TK_QUESTION)){
-        next();
-        Expr* then = ternary_expr();
-        if(!is_kind(Lexer::TK_DDOT)){
+    if(lexer->token.isKind(TK_question)){
+        lexer->nextToken();
+        Expr* then = ternary_expr(lexer);
+        if(!lexer->token.isKind(TK_colon)){
             printf("[ERROR]: expected ':' while parsing ternary.\n");
             exit(1);
         }
-        next();
-        Expr* otherwise = ternary_expr();
+        lexer->nextToken();
+        Expr* otherwise = ternary_expr(lexer);
         
         logic = Utils::expr_ternary(logic, then, otherwise);
     }
-    else if(is_kind(TK_DQUESTION)){
-        next();        
-        Expr* rhs = ternary_expr();
-        logic = Utils::expr_ternary(logic, logic, rhs);
-    }
+    // TODO: implement lexing of ?? operator
+    // else if(lexer->token.isKind(TK_DQUESTION)){
+    //     lexer->nextToken();        
+    //     Expr* rhs = ternary_expr(lexer);
+    //     logic = Utils::expr_ternary(logic, logic, rhs);
+    // }
 
     return logic;
 }
-Expr* cast_expr(){        
-    Expr* logic = ternary_expr();
-    if(token.name == keyword_as){
-        next();
-        TypeSpec* ts = typespec();
+Expr* cast_expr(Lexer* lexer){        
+    Expr* logic = ternary_expr(lexer);
+    if(lexer->token.name == cstr("as")){
+        lexer->nextToken();
+        TypeSpec* ts = typespec(lexer);
         return Utils::expr_cast(ts, logic);
     }
     return logic;
 }
 
 
-static inline bool is_assign(){
+static inline bool is_assign(Lexer* lexer){
     return
-            token.kind == TK_EQ 
+            lexer->token.isKind(TK_eq)
     ;
 }
 
-Expr* assign_expr(){
-    Expr* cast = cast_expr();
-    if(is_assign()){
-        tokenKind kind = token.kind;
-        next();
-        Expr* rhs = expr();
+Expr* assign_expr(Lexer* lexer){
+    Expr* cast = cast_expr(lexer);
+    if(is_assign(lexer)){
+        TokenKind kind = lexer->token.kind;
+        lexer->nextToken();
+        Expr* rhs = expr(lexer);
         cast = Utils::expr_binary(kind, cast, rhs);
     }
     return cast;
 }
-Expr* expr_lambda(){    
-    next();
-    SVec<ProcParam*>    params = proc_params();
+Expr* expr_lambda(Lexer* lexer){    
+    lexer->nextToken();
+    SVec<ProcParam*>    params = proc_params(lexer);
     TypeSpec*           ret    = nullptr;
-    if(is_kind(Lexer::TK_DDOT)){
-        next();
-        ret = typespec();
+    if(lexer->token.isKind(TK_colon)){
+        lexer->nextToken();
+        ret = typespec(lexer);
     }
 
-    if(not is_kind(Lexer::TK_OPEN_CURLY_BRACES)){
+    if(!lexer->token.isKind(TK_lcurly)){
         printf("[ERROR]: lambda expressions expects syntax lambda (...): ret {body}\n");
-        printf("Got %s\n", stream);
+        printf("Got %s\n", lexer->getPtr());
         exit(1);        
     }
 
-    SVec<Stmt*> block = stmt_opt_curly_block();
+    SVec<Stmt*> block = stmt_opt_curly_block(lexer);
 
     return Utils::expr_lambda(params, ret, block);    
 }
-Expr* expr(){
-    if(is_name("proc")){
-        return expr_lambda();
+Expr* expr(Lexer* lexer){
+    if(lexer->token.name == cstr("proc")){
+        return expr_lambda(lexer);
     }
-    return assign_expr();        
+    return assign_expr(lexer);
 }
-SVec<Expr*> expr_list(){
+SVec<Expr*> expr_list(Lexer* lexer){
     SVec<Expr*> list;
     do {
         if(list.len() > 0){
-            assert(is_kind(Lexer::TK_COMMA));
-            next();
+            assert(lexer->token.isKind(TK_comma));
+            lexer->nextToken();
         }
-        list.push(expr());
-    } while(is_kind(Lexer::TK_COMMA));
+        list.push(expr(lexer));
+    } while(lexer->token.isKind(TK_comma));
     return list;
 }
-TypeSpec* typespec_base(){
-    if(is_kind(TK_NAME)){        
-        const char* name = token.name;
-        next();
-        return Utils::typespec_name(name, token);        
+TypeSpec* typespec_base(Lexer* lexer){
+    if(lexer->token.isKind(TK_name)){        
+        const char* name = lexer->token.name;
+        lexer->nextToken();
+        return Utils::typespec_name(name, lexer->token);        
     }
     else {
-        printf("[ERR]: expected typespec, got: %s\n", token.name);        
+        printf("[ERR]: expected typespec, got: %s\n", lexer->token.name);        
         exit(1);
     }
 }
-static inline bool is_typespec(){
+static inline bool is_typespec(Lexer* lexer){
     return 
-            token.kind == TK_LT // fot templates TYPESPEC<TYPESPEC>
+            lexer->token.isKind(TK_less) // fot templates TYPESPEC<TYPESPEC>
     ;
 }
-TypeSpec* proc_type(){
-    assert(token.name == keyword_proc);
-    next();
-    if(!is_kind(Lexer::TK_OPEN_ROUND_BRACES)){
-        printf("[ERROR]: expected %s token while trying to parse proc type.\n", tokenKind_repr(Lexer::TK_OPEN_ROUND_BRACES));
+TypeSpec* proc_type(Lexer* lexer){
+    assert(lexer->token.name == cstr("proc"));
+    lexer->nextToken();
+    if(!lexer->token.isKind(TK_lparen)){
+        printf("[ERROR]: expected %s token while trying to parse proc type.\n", tokenKindRepr(TK_lparen));
         exit(1);
     }
-    next();
+    lexer->nextToken();
         
     SVec<TypeSpec *> params         = {};
     TypeSpec         *ret           = nullptr;
     bool             has_varags     = false;
-    Lexer::Token     tk             = token;    
-    while(!is_kind(Lexer::TK_CLOSE_ROUND_BRACES)){        
+    Token           tk              = lexer->token;    
+    while(!lexer->token.isKind(TK_rparen)){        
         if(params.len() > 0){
-            if(!is_kind(Lexer::TK_COMMA)){
+            if(!lexer->token.isKind(TK_comma)){
                 printf("[ERROR]: expected ',' while trying to parse the type proc.\n");
                 exit(1);
             }
-            next();
+            lexer->nextToken();
         }
-        if(expects_kind(Lexer::TK_TRIPLE_DOT)){
+        if(lexer->expect(TK_tripledot)){
             has_varags = true;
             TypeSpec* va = Utils::proc_param_varargs()->type;            
             params.push(va);
@@ -404,63 +402,63 @@ TypeSpec* proc_type(){
                 printf("[ERROR]: variad args must be the last argument in procedures.\n");
                 exit(1);
             }
-            TypeSpec* type = typespec();
+            TypeSpec* type = typespec(lexer);
             params.push(type);     
         }
     }    
-    if(!is_kind(Lexer::TK_CLOSE_ROUND_BRACES)){
-        printf("[ERROR]: expected %s token while trying to parse proc type.\n", tokenKind_repr(Lexer::TK_CLOSE_ROUND_BRACES));
+    if(!lexer->token.isKind(TK_rparen)){
+        printf("[ERROR]: expected %s token while trying to parse proc type.\n", tokenKindRepr(TK_rparen));
         exit(1);
     }    
-    next();
+    lexer->nextToken();
 
-    if(is_kind(Lexer::TK_DDOT)){
-        next();
-        ret = typespec();
+    if(lexer->token.isKind(TK_colon)){
+        lexer->nextToken();
+        ret = typespec(lexer);
     }
     return Utils::typespec_proc(params, ret, has_varags, tk);
 }
-TypeSpec* typespec(){    
-    if(is_kind(Lexer::TK_OPEN_SQUARED_BRACES)){
-        next();
+TypeSpec* typespec(Lexer* lexer){    
+    if(lexer->token.isKind(TK_lbracket)){
+        lexer->nextToken();
         Expr* arr_size = nullptr;
-        if(!is_kind(Lexer::TK_CLOSE_SQUARED_BRACES)){            
-            arr_size = expr();
+        if(!lexer->token.isKind(TK_rbracket)){            
+            arr_size = expr(lexer);
         } 
-        assert(is_kind(Lexer::TK_CLOSE_SQUARED_BRACES));
-        next();
+        assert(lexer->token.isKind(TK_rbracket));
+        lexer->nextToken();
 
-        return Utils::typespec_array(typespec(), arr_size, token);
-    } else if(token.name == keyword_const){
-        next();
-        return Utils::typespec_const(typespec(), token);
-    } else if(token.kind == TK_MULT){
-        next();
-        return Utils::typespec_pointer(typespec(), token);
-    } else if(token.name == keyword_proc){        
-        return proc_type();
-    } else if(token.name == keyword_mut){
-        next();
-        TypeSpec* ts = typespec();
+        return Utils::typespec_array(typespec(lexer), arr_size, lexer->token);
+    } else if(lexer->token.name == const_keyword){
+        lexer->nextToken();
+        return Utils::typespec_const(typespec(lexer), lexer->token);
+    } else if(lexer->token.isKind(TK_mul)){
+        lexer->nextToken();
+        return Utils::typespec_pointer(typespec(lexer), lexer->token);
+    } else if(lexer->token.name == cstr("proc")){        
+        return proc_type(lexer);
+    } else if(lexer->token.name == cstr("mut")){
+        lexer->nextToken();
+        TypeSpec* ts = typespec(lexer);
         ts->mutablity = true;
         return ts;        
     } 
     // NOTE: imut is equivalent to const 
-    else if(token.name == keyword_imut or token.name == keyword_const){
-        next();
-        TypeSpec* ts = typespec();
+    else if(lexer->token.name == cstr("imut") or lexer->token.name == cstr("mut")){
+        lexer->nextToken();
+        TypeSpec* ts = typespec(lexer);
         ts->mutablity = false;
         return ts;
     }
     else {
-        TypeSpec* ts = typespec_base();                
-        while(is_typespec()){
-            if(token.kind == TK_LT){
-                next();
-                TypeSpec* base = typespec();
-                assert(is_kind(TK_GT));
-                next();
-                ts = Utils::typespec_template(ts, base, token);
+        TypeSpec* ts = typespec_base(lexer);                
+        while(is_typespec(lexer)){
+            if(lexer->token.kind == TK_less){
+                lexer->nextToken();
+                TypeSpec* base = typespec(lexer);
+                assert(lexer->token.isKind(TK_greater));
+                lexer->nextToken();
+                ts = Utils::typespec_template(ts, base, lexer->token);
             }
             else {
                 unimplemented();
@@ -470,274 +468,278 @@ TypeSpec* typespec(){
     }    
 }
 
-SVec<Stmt*> stmt_opt_curly_block(){
+SVec<Stmt*> stmt_opt_curly_block(Lexer* lexer){    
     SVec<Stmt*> block = {};
 
-    if(is_kind(Lexer::TK_OPEN_CURLY_BRACES)){
-        next();
-        while(!is_kind(Lexer::TK_CLOSE_CURLY_BRACES)){
-            Stmt* st = stmt();
+    if(lexer->token.isKind(TK_lcurly)){
+        lexer->nextToken();
+        while(!lexer->token.isKind(TK_rcurly)){
+            Stmt* st = stmt(lexer);
             if(st){
                 block.push(st);            
             }
         }
 
-        assert(is_kind(Lexer::TK_CLOSE_CURLY_BRACES));
-        next();
+        assert(lexer->token.isKind(TK_rcurly));
+        lexer->nextToken();
     }
     else {
-        Stmt* st = stmt();
+        Stmt* st = stmt(lexer);
         if(st){
             block.push(st);            
         }
-    }
+    }    
     return block;
 }
-IfClause* stmt_if_clause(){
-    Expr* e = expr();
-    SVec<Stmt*> block = stmt_opt_curly_block();
+IfClause* stmt_if_clause(Lexer* lexer){
+    Expr* e             = expr(lexer);
+    SVec<Stmt*> block   = stmt_opt_curly_block(lexer);
     return Utils::init_if_clause(e, block);
 }
 
 
-static inline bool is_switch_case_pattern(){
-    return 
-            token.kind == Pietra::Lexer::TK_NAME
-        |   token.kind == Pietra::Lexer::TK_INT
-        |   token.kind == Pietra::Lexer::TK_FLOAT    
-        |   token.kind == Pietra::Lexer::TK_STRING
+static inline bool is_switch_case_pattern(Lexer* lexer){
+    return  lexer->token.isKind(TK_name) 
+    |       lexer->token.isKind(TK_int) 
+    |       lexer->token.isKind(TK_float) 
+    |       lexer->token.isKind(TK_dqstring) 
     ;
-
 }
-SwitchCasePattern* switch_case_pattern(){
+SwitchCasePattern* switch_case_pattern(Lexer* lexer){
     // 1 (..end | , pattern )
     SwitchCasePattern* pattern = Utils::init_pattern();    
     
 
-    if(is_kind(TK_INT)){
-        pattern->begin = token.i64;
-        next();
+    if(lexer->token.isKind(TK_int)){
+        pattern->begin = lexer->token.i64;
+        lexer->nextToken();
     } 
-    else if(is_kind(TK_NAME)){
+    else if(lexer->token.isKind(TK_name)){
         pattern->begin = pattern->end;
-        pattern->name = token.name;
-        next();
-    } else if(is_kind(Lexer::TK_STRING)){        
-        pattern->string = token.name;
-        next();        
+        pattern->name = lexer->token.name;
+        lexer->nextToken();
+    } else if(lexer->token.isKind(TK_dqstring)){        
+        pattern->string = lexer->token.string;
+        lexer->nextToken();        
+    } else if(lexer->token.isKind(TK_sqstring)) {
+        pattern->begin = *lexer->token.string;
+        lexer->nextToken();
     }
     else {
-        assert(0 && "unknown switch case pattern token kind");
+        
+        syntax_error(lexer->getLocation(), "unknown switch case pattern token kind");
+        return nullptr;
     }
 
-    if(is_kind(Pietra::Lexer::TK_TRIPLE_DOT)){
-        next();
-        pattern->end = token.i64;
-        next();
+    if(lexer->token.isKind(TK_tripledot)){
+        lexer->nextToken();
+        pattern->end = lexer->token.i64;
+        lexer->nextToken();
     }    
     return pattern;
 }
-SVec<SwitchCasePattern*> switch_case_patterns(){
+SVec<SwitchCasePattern*> switch_case_patterns(Lexer* lexer){
     SVec<SwitchCasePattern*> patterns;
     do {
         if(patterns.len() > 0){
-            assert(is_kind(TK_COMMA));
-            next();
+            assert(lexer->token.isKind(TK_comma));
+            lexer->nextToken();
         }
 
-        patterns.push(switch_case_pattern());
-    } while(is_kind(TK_COMMA));
+        patterns.push(switch_case_pattern(lexer));
+    } while(lexer->token.isKind(TK_comma));
     
     return patterns;
 }
 
-SwitchCase* switch_case(){
-    assert(token.name == keyword_case);
-    next();
+SwitchCase* switch_case(Lexer* lexer){
+    assert(lexer->token.name == cstr("case"));
+    lexer->nextToken();
 
-    SVec<SwitchCasePattern*> patterns = switch_case_patterns();    
-    assert(is_kind(Lexer::TK_DDOT));
-    next();
-    SVec<Stmt*> block = stmt_opt_curly_block();
+    SVec<SwitchCasePattern*> patterns = switch_case_patterns(lexer);    
+    assert(lexer->token.isKind(TK_colon));
+    lexer->nextToken();
+    SVec<Stmt*> block = stmt_opt_curly_block(lexer);
 
     return Utils::switch_case(patterns, block);
 }
-static inline bool is_case(){    
+static inline bool is_case(Lexer* lexer){    
     return 
-        token.name == keyword_case
-    |   token.name == keyword_default
+        lexer->token.name == cstr("case")
+    |   lexer->token.name == cstr("default")
     ;
 }
-Stmt* stmt_switch(){
-    assert(token.name == keyword_switch);
-    next();
-    Expr*               cond            = expr();
+Stmt* stmt_switch(Lexer* lexer){
+    assert(lexer->token.name == switch_keyword);
+    lexer->nextToken();
+    Expr*               cond            = expr(lexer);
     SVec<SwitchCase*>   cases           = {};
     bool                has_default     = false;
     SVec<Stmt*>         default_block   = {};
 
-    assert(is_kind(Lexer::TK_OPEN_CURLY_BRACES));
-    next();
-    while(is_case()){
-        if(token.name == keyword_case){            
-            cases.push(switch_case());
-        } else if(token.name == keyword_default){
-            next();
-            assert(is_kind(Lexer::TK_DDOT));
-            next();
+    assert(lexer->token.isKind(TK_lcurly));
+    lexer->nextToken();
+    while(is_case(lexer)){
+        if(lexer->token.name == cstr("case")){            
+            cases.push(switch_case(lexer));
+        } else if(lexer->token.name == cstr("default")){
+            lexer->nextToken();
+            assert(lexer->token.isKind(TK_colon));
+            lexer->nextToken();
 
             has_default = true;
-            default_block = stmt_opt_curly_block();            
+            default_block = stmt_opt_curly_block(lexer);
         }
         else {
-            printf("[ERR]: switch case not implemented for keyword: `%s`\n", token.name);
+            printf("[ERR]: switch case not implemented for keyword: `%s`\n", lexer->token.name);
             exit(1);
         }
     }
-    assert(is_kind(Lexer::TK_CLOSE_CURLY_BRACES));
-    next();
+    assert(lexer->token.isKind(TK_rcurly));
+    lexer->nextToken();
 
 
 
     return Utils::stmt_switch(cond, cases, has_default, default_block);
 }
-Stmt* stmt_for(){    
+Stmt* stmt_for(Lexer* lexer){    
     Expr* init          = nullptr;
     Expr* cond          = nullptr;
     Expr* inc           = nullptr;
     SVec<Stmt*> block   = {};
 
-    assert(token.name == keyword_for);
-    next();
+    assert(lexer->token.name == for_keyword);
+    lexer->nextToken();
 
-    if(is_kind(Lexer::TK_OPEN_CURLY_BRACES)){
+    if(lexer->token.isKind(TK_lcurly)){
         // for {}
-        block = stmt_opt_curly_block();
+        block = stmt_opt_curly_block(lexer);
     }
     else {
-        init = expr();
+        init = expr(lexer);
         if(init->kind != Ast::EXPR_INIT_VAR){
             printf("[ERROR]: `for` statement incorrect usage.\n");
             exit(1);
         } 
 
-        if(is_kind(Lexer::TK_DDOT)){
+        if(lexer->token.isKind(TK_colon)){
             // for x:type : list
-            next();
-            cond = expr();            
+            lexer->nextToken();
+            cond = expr(lexer);            
         }
         else {
             // for x:i64 = 0; x < 10; x = x + 1 {}
-            assert(is_kind(Lexer::TK_DCOMMA));
-            next();
-            cond = expr();        
-            assert(is_kind(Lexer::TK_DCOMMA));
-            next();
-            inc = expr();
+            assert(lexer->token.isKind(TK_semicolon));
+            lexer->nextToken();
+            cond = expr(lexer);        
+            assert(lexer->token.isKind(TK_semicolon));
+            lexer->nextToken();
+            inc = expr(lexer);
             
         }
-        block = stmt_opt_curly_block();
+        block = stmt_opt_curly_block(lexer);
         
     }    
     return Utils::stmt_for(init, cond, inc, block);
 }
-Stmt* stmt_while(){
-    assert(token.name == keyword_while);
-    next();
-    Expr* cond          = expr();
-    SVec<Stmt*> block   = stmt_opt_curly_block();
-    
+Stmt* stmt_while(Lexer* lexer){
+    assert(lexer->token.name == while_keyword);    
+    lexer->nextToken();
+    Expr* cond          = expr(lexer);
+    SVec<Stmt*> block   = stmt_opt_curly_block(lexer);        
     return Utils::stmt_while(cond, block, false);
 }
-Stmt* stmt_if(){    
-    assert(token.name == keyword_if);
-    next();
-    IfClause*       if_clause = stmt_if_clause();
+Stmt* stmt_if(Lexer* lexer){        
+    assert(lexer->token.name == if_keyword);
+    lexer->nextToken();
+    IfClause*       if_clause = stmt_if_clause(lexer);
     SVec<IfClause*> elif_clauses;
     SVec<Stmt*>     else_block;
 
-    while(token.name == keyword_elif){        
-        next();
-        elif_clauses.push(stmt_if_clause());
+    while(lexer->token.name == cstr("elif")){        
+        lexer->nextToken();
+        elif_clauses.push(stmt_if_clause(lexer));
     }
 
-    if(token.name == keyword_else){
-        next();        
-        else_block = stmt_opt_curly_block();
+    if(lexer->token.name == cstr("else")){
+        lexer->nextToken();        
+        else_block = stmt_opt_curly_block(lexer);
     }
 
 
     return Utils::stmt_if(if_clause, elif_clauses, else_block);    
 }
-Stmt* stmt_do_while(){
-    assert(token.name == keyword_do);
-    next();
-    SVec<Stmt*> block = stmt_opt_curly_block();
-    assert(token.name == keyword_while);
-    next();
-    Expr* cond = expr();
+Stmt* stmt_do_while(Lexer* lexer){
+    assert(lexer->token.name == cstr("do"));
+    lexer->nextToken();
+    SVec<Stmt*> block = stmt_opt_curly_block(lexer);
+    assert(lexer->token.name == while_keyword);
+    lexer->nextToken();
+    Expr* cond = expr(lexer);
     return Utils::stmt_while(cond, block, true);
 }
-Stmt* stmt(){            
-    if(is_kind(Lexer::TK_DCOMMA)){
-        next();
+Stmt* stmt(Lexer* lexer){              
+    if(lexer->token.isKind(TK_semicolon)){
+        lexer->nextToken();
         return nullptr;
     }
-    if(token.name == keyword_if){
-        return stmt_if();
-    } else if(token.name == keyword_while){
-        return stmt_while();
-    } else if(token.name == keyword_for){
-        return stmt_for();
-    } else if(token.name == keyword_switch){        
-        return stmt_switch();
-    } else if(token.name == keyword_return){        
-        next();        
-        return Utils::stmt_return(expr());
-    } else if(token.name == keyword_do){
-        return stmt_do_while();        
+    if(lexer->token.name == if_keyword){    
+        return stmt_if(lexer);
+    } else if(lexer->token.name == while_keyword){        
+        return stmt_while(lexer);
+    } else if(lexer->token.name == for_keyword){
+        return stmt_for(lexer);
+    } else if(lexer->token.name == switch_keyword){        
+        return stmt_switch(lexer);
+    } else if(lexer->token.name == return_keyword){        
+        lexer->nextToken();        
+        return Utils::stmt_return(expr(lexer));
+    } else if(lexer->token.name == cstr("do")){
+        return stmt_do_while(lexer);        
     }
     else {
-        return Utils::stmt_expr(expr());        
+        return Utils::stmt_expr(expr(lexer));        
     }
 }
-ProcParam* proc_param(){    
-    if(is_kind(Lexer::TK_TRIPLE_DOT)){
-        next();
+ProcParam* proc_param(Lexer* lexer){    
+    if(lexer->token.isKind(TK_tripledot)){
+        lexer->nextToken();
         return Utils::proc_param_varargs();
     }
-    assert(token.kind == TK_NAME);
-    const char* name = token.name;
-    next();
+    assert(lexer->token.kind == TK_name);
+    const char* name = lexer->token.name;
+    lexer->nextToken();
 
-    assert(is_kind(Lexer::TK_DDOT));
-    next();
-    TypeSpec* type = typespec();
+    if(!lexer->token.isKind(TK_colon)){
+        syntax_error(lexer->getLocation(), "Expected ':', got \"%s\"\n", lexer->token.name);
+    }
+    lexer->nextToken();
+    TypeSpec* type = typespec(lexer);
     
     Expr* init = nullptr;
-    if(is_kind(Lexer::TK_EQ)){        
-        next();
-        init = expr();
+    if(lexer->token.isKind(TK_eq)){        
+        lexer->nextToken();
+        init = expr(lexer);
     } 
 
     return Utils::proc_param(name, type, init);
 }
-SVec<ProcParam*> proc_params(){
+SVec<ProcParam*> proc_params(Lexer* lexer){
     SVec<ProcParam*> params;
-    if(!is_kind(Lexer::TK_OPEN_ROUND_BRACES)){
-        printf("-> %s\n", stream);
+    if(!lexer->token.isKind(TK_lparen)){
+        printf("-> %s\n", lexer->getPtr());
         printf("[ERROR] parser.\n");
         exit(1);
     }
-    next();
-    while(!is_kind(Lexer::TK_CLOSE_ROUND_BRACES)){
+    lexer->nextToken();
+    while(!lexer->token.isKind(TK_rparen)){
         if(params.len() > 0){
-            assert(is_kind(Lexer::TK_COMMA));
-            next();
+            assert(lexer->token.isKind(TK_comma));
+            lexer->nextToken();
         }
-        ProcParam* param = proc_param();
+        ProcParam* param = proc_param(lexer);
         if(param->isVararg){
-            if(!is_kind(Lexer::TK_CLOSE_ROUND_BRACES)){
+            if(!lexer->token.isKind(TK_rparen)){
                 printf("[ERR]: variadic argument must be the last argument.\n");
                 exit(1);
             }
@@ -745,203 +747,203 @@ SVec<ProcParam*> proc_params(){
         params.push(param);
 
     }
-    assert(is_kind(Lexer::TK_CLOSE_ROUND_BRACES));
-    next();
+    assert(lexer->token.isKind(TK_rparen));
+    lexer->nextToken();
     
     return params;
 }
-Decl* decl_proc(const char* name){    
-    if(token.name == keyword_proc) next();
+Decl* decl_proc(Lexer* lexer, const char* name){    
+    if(lexer->token.name == cstr("proc")) lexer->nextToken();
     bool isVarargs = false;
-    SVec<ProcParam*> params = proc_params();
+    SVec<ProcParam*> params = proc_params(lexer);
     
     if(params.len() != 0 and params.back()->isVararg){
         isVarargs = true;
     }
     TypeSpec* ret = nullptr;
-    if(is_kind(TK_DDOT)){
-        next();
-        ret = typespec();
+    if(lexer->token.isKind(TK_colon)){
+        lexer->nextToken();
+        ret = typespec(lexer);
     }
 
     SVec<Stmt*> block;
     bool is_complete = true;    
 
-    if(is_kind(Lexer::TK_DCOMMA)){        
-        next();        
+    if(lexer->token.isKind(TK_semicolon)){        
+        lexer->nextToken();        
         is_complete = false;                
     } else {    
-        block = stmt_opt_curly_block();
+        block = stmt_opt_curly_block(lexer);
     }
     return Utils::decl_proc(name, params, ret, block, is_complete, isVarargs);
 }
 
-AggregateItem* aggregate_item(){
+AggregateItem* aggregate_item(Lexer* lexer){
     // NAME ':' or '::'
-    assert(is_kind(TK_NAME));        
+    assert(lexer->token.isKind(TK_name));        
     SVec<const char*> names;
     TypeSpec*         type  = nullptr;
     Expr*             init  = nullptr;
     do{
         if(names.len() > 0){
-            assert(is_kind(TK_COMMA));
-            next();
+            assert(lexer->token.isKind(TK_comma));
+            lexer->nextToken();
         }
-        names.push(token.name);
-        next();
-        if(is_kind(TK_EQ)){
-            next();
-            init = expr();
+        names.push(lexer->token.name);
+        lexer->nextToken();
+        if(lexer->token.isKind(TK_eq)){
+            lexer->nextToken();
+            init = expr(lexer);
             return Utils::aggregate_item_field(names, type, init);
         }
         
-    } while(is_kind(TK_COMMA));
+    } while(lexer->token.isKind(TK_comma));
 
-    assert(is_kind(TK_DDOT));
-    next();
-    type = typespec();
-    if(is_kind(TK_EQ)){
-        next();
-        init = expr();
+    assert(lexer->token.isKind(TK_colon));
+    lexer->nextToken();
+    type = typespec(lexer);
+    if(lexer->token.isKind(TK_eq)){
+        lexer->nextToken();
+        init = expr(lexer);
     }
 
     return Utils::aggregate_item_field(names, type, init);
 }
-Decl* decl_aggregate(const char* name, aggregateKind kind){
-    assert(is_kind(Pietra::Lexer::TK_OPEN_CURLY_BRACES));
-    next();
+Decl* decl_aggregate(Lexer* lexer, const char* name, aggregateKind kind){
+    assert(lexer->token.isKind(TK_lcurly));
+    lexer->nextToken();
     SVec<AggregateItem*> items;
-    while(!is_kind(Pietra::Lexer::TK_CLOSE_CURLY_BRACES)){
-        AggregateItem* item = aggregate_item();
+    while(!lexer->token.isKind(TK_rcurly)){
+        AggregateItem* item = aggregate_item(lexer);
 
         items.push(item);
     }
-    assert(is_kind(Pietra::Lexer::TK_CLOSE_CURLY_BRACES));
-    next();
+    assert(lexer->token.isKind(TK_rcurly));
+    lexer->nextToken();
     
     return Utils::decl_aggregate(name, kind, items);
 }
-Decl* decl_struct(const char* name){
-    if(token.name == keyword_struct) next();
-    assert(is_kind(Pietra::Lexer::TK_OPEN_CURLY_BRACES));
-    return decl_aggregate(name, AGG_STRUCT);
+Decl* decl_struct(Lexer* lexer, const char* name){
+    if(lexer->token.name == cstr("struct")) lexer->nextToken();
+    assert(lexer->token.isKind(TK_lcurly));
+    return decl_aggregate(lexer, name, AGG_STRUCT);
 }
-Decl* decl_union(const char* name){
-    assert(token.name == keyword_union);
-    next();
-    assert(is_kind(Pietra::Lexer::TK_OPEN_CURLY_BRACES));    
-    return decl_aggregate(name, AGG_UNION);
+Decl* decl_union(Lexer* lexer, const char* name){
+    assert(lexer->token.name == cstr("union"));
+    lexer->nextToken();
+    assert(lexer->token.isKind(TK_lcurly));    
+    return decl_aggregate(lexer, name, AGG_UNION);
 }
-Decl* decl_enum(const char* name){
-    assert(token.name == keyword_enum);
-    next();
-    assert(is_kind(Pietra::Lexer::TK_OPEN_CURLY_BRACES));    
-    next();
+Decl* decl_enum(Lexer* lexer, const char* name){
+    assert(lexer->token.name == cstr("enum"));
+    lexer->nextToken();
+    assert(lexer->token.isKind(TK_lcurly));    
+    lexer->nextToken();
     SVec<EnumItem*> items;
     
-    while(is_kind(TK_NAME)){                
+    while(lexer->token.isKind(TK_name)){                
         Expr* init = nullptr;
-        const char* name = token.name;
-        next();
+        const char* name = lexer->token.name;
+        lexer->nextToken();
         
-        if(is_kind(TK_EQ)){
-            next();
-            init = expr();
+        if(lexer->token.isKind(TK_eq)){
+            lexer->nextToken();
+            init = expr(lexer);
         }
         items.push(Utils::EnumItem_new(name, init));
      
     }
 
-    assert(is_kind(Pietra::Lexer::TK_CLOSE_CURLY_BRACES));    
-    next();
+    assert(lexer->token.isKind(TK_rcurly));    
+    lexer->nextToken();
 
     return Utils::decl_enum(name, items);
 
 }
-Decl* decl_base(const char* name, SVec<Note*> notes){
+Decl* decl_base(Lexer* lexer, const char* name, SVec<Note*> notes){
     Decl* decl;
-    if(token.name == keyword_proc or is_kind(Lexer::TK_OPEN_ROUND_BRACES)){
-        decl = decl_proc(name);  
-    } else if(token.name == keyword_struct or is_kind(Lexer::TK_OPEN_CURLY_BRACES)){
-        decl = decl_struct(name);
-    } else if(token.name == keyword_union){
-        decl = decl_union(name);
-    } else if(token.name == keyword_enum){
-        decl = decl_enum(name);
+    if(lexer->token.name == cstr("proc") or lexer->token.isKind(TK_lparen)){
+        decl = decl_proc(lexer, name);  
+    } else if(lexer->token.name == cstr("struct") or lexer->token.isKind(TK_lcurly)){
+        decl = decl_struct(lexer, name);
+    } else if(lexer->token.name == cstr("union")){
+        decl = decl_union(lexer, name);
+    } else if(lexer->token.name == cstr("enum")){
+        decl = decl_enum(lexer, name);
     } else {                  
-        decl = Utils::decl_constexpr(name, expr());
+        decl = Utils::decl_constexpr(name, expr(lexer));
     }    
 
     assert(decl);
     decl->notes = notes;
     return decl;
 }
-Decl* decl_type(){
-    assert(token.name == keyword_type);
-    next();
-    assert(is_kind(TK_NAME));
-    const char* name = token.name;
-    next();
+Decl* decl_type(Lexer* lexer){
+    assert(lexer->token.name == cstr("type"));
+    lexer->nextToken();
+    assert(lexer->token.isKind(TK_name));
+    const char* name = lexer->token.name;
+    lexer->nextToken();
 
-    assert(is_kind(TK_PREP));
-    next();
-    TypeSpec* type = typespec();
+    assert(lexer->token.isKind(TK_scoperes));
+    lexer->nextToken();
+    TypeSpec* type = typespec(lexer);
     return Utils::decl_type(name, type);
 }
-SVec<const char*> use_module_names(){    
-    if(!is_kind(TK_NAME)) return {};    
+SVec<const char*> use_module_names(Lexer* lexer){    
+    if(!lexer->token.isKind(TK_name)) return {};    
     SVec<const char*> names = {};
     do {
         if(names.len() > 0){
-            assert(is_kind(TK_PREP));
-            next();
+            assert(lexer->token.isKind(TK_scoperes));
+            lexer->nextToken();
         }
-        const char* name = token.name;
-        next();
+        const char* name = lexer->token.name;
+        lexer->nextToken();
         names.push(name);
-    } while(*stream and is_kind(TK_PREP));
+    } while(*lexer->getPtr() and lexer->token.isKind(TK_scoperes));
 
     return names;
 }
-SVec<const char*> use_names(){
+SVec<const char*> use_names(Lexer* lexer){
     SVec<const char*> names = {};
-    if(is_kind(TK_OPEN_CURLY_BRACES)){
-        next();
+    if(lexer->token.isKind(TK_lcurly)){
+        lexer->nextToken();
         do {
             if(names.len() > 0){
-                assert(is_kind(TK_COMMA));
-                next();                
+                assert(lexer->token.isKind(TK_comma));
+                lexer->nextToken();                
             }
 
-            const char* name = token.name;
-            next();
+            const char* name = lexer->token.name;
+            lexer->nextToken();
             names.push(name);
-        } while(*stream and is_kind(TK_COMMA));        
-        assert(is_kind(TK_CLOSE_CURLY_BRACES));
-        next();
+        } while(*lexer->getPtr() and lexer->token.isKind(TK_comma));        
+        assert(lexer->token.isKind(TK_rcurly));
+        lexer->nextToken();
     }
     return names;
 }
 
-Decl* decl_use(){
-    assert(token.name == keyword_use);
-    next();
-    SVec<const char*> _mod_names = use_module_names();
+Decl* decl_use(Lexer* lexer){
+    assert(lexer->token.name == cstr("use"));
+    lexer->nextToken();
+    SVec<const char*> _mod_names = use_module_names(lexer);
     SVec<const char*> _use_names; 
-    if(is_kind(TK_OPEN_CURLY_BRACES)){
-        _use_names = use_names();
+    if(lexer->token.isKind(TK_lcurly)){
+        _use_names = use_names(lexer);
     }
     bool use_all = false;
-    if(is_kind(TK_MULT)){
-        next();
+    if(lexer->token.isKind(TK_mul)){
+        lexer->nextToken();
         use_all = true;
     }
 
     const char* rename = 0;
-    if(token.name == keyword_as){
-        next();
-        rename = Core::cstr(token.name);
-        next();
+    if(lexer->token.name == cstr("as")){
+        lexer->nextToken();
+        rename = Core::cstr(lexer->token.name);
+        lexer->nextToken();
     }
 
     const char* path = ".";
@@ -955,15 +957,12 @@ Decl* decl_use(){
     if(_use_names.len() == 0){
         printf("[WARN]: Cant include all package yet, use_names.len == 0.\n");
         exit(1);
-    }
-
-
-    
+    }    
     SVec<Decl*> module;    
     for(const char* use: _use_names){        
         const char* new_path = strf("%s/%s.pi", path, use);
-        
-        Lexer::stream_snaphot();
+        // TODO: test in here
+        //stream_snaphot();
         PPackage* package = PPackage::from(new_path);
         if(!package){
             printf("[ERROR]: Could not find the package in '%s'\n", new_path);
@@ -972,35 +971,34 @@ Decl* decl_use(){
         for(auto& node: package->ast){
             module.push(node);
         }                
-        Lexer::stream_rewind();                            
+        //stream_rewind();                            
     }
     return Utils::decl_use(module, use_all, rename);
 }
 
-SVec<Expr*> note_args(){
-    if(!is_kind(Lexer::TK_OPEN_ROUND_BRACES)){
+SVec<Expr*> note_args(Lexer* lexer){
+    if(!lexer->token.isKind(TK_lparen)){
         return {};        
     }
-    next();    
+    lexer->nextToken();    
     SVec<Expr*> args;
-    while(*stream and !is_kind(Lexer::TK_CLOSE_ROUND_BRACES)){
-        Expr* arg = expr();
+    while(*lexer->getPtr() and !lexer->token.isKind(TK_rparen)){
+        Expr* arg = expr(lexer);
         assert(arg);
         args.push(arg);
     }
-    assert(is_kind(Lexer::TK_CLOSE_ROUND_BRACES));
-    next();
+    assert(lexer->token.isKind(TK_rparen));
+    lexer->nextToken();
     return args;
 }
-SVec<Note*> parse_notes(){
-    SVec<Note*> notes;
-
-    while(is_kind(TK_NOTE)){
-        next();
-        assert(is_kind(TK_NAME));
-        const char* name = token.name;
-        next();
-        SVec<Expr*> args = note_args();
+SVec<Note*> parse_notes(Lexer* lexer){
+    SVec<Note*> notes;    
+    while(lexer->token.isKind(TK_decorator)){
+        lexer->nextToken();
+        assert(lexer->token.isKind(TK_name));
+        const char* name = lexer->token.name;
+        lexer->nextToken();
+        SVec<Expr*> args = note_args(lexer);
         Note* note = Utils::init_note(name, args);
         assert(note);
         notes.push(note);        
@@ -1008,20 +1006,20 @@ SVec<Note*> parse_notes(){
 
     return notes;
 }
-SVec<Decl*> parse_impl_body(){
+SVec<Decl*> parse_impl_body(Lexer* lexer){
     SVec<Decl*> body;
-    if(!is_kind(Pietra::Lexer::TK_OPEN_CURLY_BRACES)){
-        Decl* node = decl();
+    if(!lexer->token.isKind(TK_lcurly)){
+        Decl* node = decl(lexer);
         if(!node){
             exit(1);
         }
         body.push(node);
     }
     else {
-        assert(is_kind(Pietra::Lexer::TK_OPEN_CURLY_BRACES));
-        next();
-        while(!is_kind(Pietra::Lexer::TK_CLOSE_CURLY_BRACES)){
-            Decl* node = decl();
+        assert(lexer->token.isKind(TK_lcurly));
+        lexer->nextToken();
+        while(!lexer->token.isKind(TK_rcurly)){
+            Decl* node = decl(lexer);
             if(!node){
                 exit(1);
             }
@@ -1031,115 +1029,115 @@ SVec<Decl*> parse_impl_body(){
             }        
             body.push(node);
         }
-        assert(is_kind(Pietra::Lexer::TK_CLOSE_CURLY_BRACES));
-        next();
+        assert(lexer->token.isKind(TK_rcurly));
+        lexer->nextToken();
     }        
     return body;
 } 
-Decl* decl_impl(){
-    assert(token.name == keyword_impl);
-    next();
-    if(!is_kind(TK_NAME)){
+Decl* decl_impl(Lexer* lexer){
+    assert(lexer->token.name == cstr("impl"));
+    lexer->nextToken();
+    if(!lexer->token.isKind(TK_name)){
         printf("[ERR]: TODO DOC THIS.\n");
         exit(1);
     }
-    const char* target = token.name;
-    next();
-    SVec<Decl*> body = parse_impl_body();
+    const char* target = lexer->token.name;
+    lexer->nextToken();
+    SVec<Decl*> body = parse_impl_body(lexer);
     
     return Utils::decl_impl(target, body);
 }
-Decl* parse_comptime(){    
-    if(!is_kind(TK_NAME)){
+Decl* parse_comptime(Lexer* lexer){    
+    if(!lexer->token.isKind(TK_name)){
         printf("[ERROR]: comptime expects token name.\n");
         exit(1);
     }
 
-    if(token.name == keyword_package){       
-        next();
-        if(!is_kind(Lexer::TK_STRING)){
+    if(lexer->token.name == cstr("package")){       
+        lexer->nextToken();
+        if(!lexer->token.isKind(TK_dqstring)){
             printf("[ERROR]: comptime 'package' expects string. #package \"myPackage\".\n");
             exit(1);
         }
 
-        const char* package_name = token.name;
-        next();
+        const char* package_name = lexer->token.name;
+        lexer->nextToken();
         
         if(is_included(package_name)){                        
-            while(stream and *stream and *stream++);            
-            token.kind = TK_EOF;            
+            while(lexer->getPtr() and *lexer->getPtr() and *lexer->getPtr()++);            
+            lexer->token.kind = TK_eof;            
             return nullptr;
         }        
         // TODO: make the package be in an PPackage list
         include_me(package_name); // Push the package in the packages        
         return nullptr;
     }
-    else if(token.name == keyword_run){
-        next();
-        SVec<Stmt*> block = stmt_opt_curly_block();        
+    else if(lexer->token.name == cstr("run")){
+        lexer->nextToken();
+        SVec<Stmt*> block = stmt_opt_curly_block(lexer);
         Preprocess::eval_block(block);
         return nullptr;
     }
     else {
-        printf("[ERROR]: Undefined comptime expressions '%s'\n", token.name);
+        printf("[ERROR]: Undefined comptime expressions '%s'\n", lexer->token.name);
         exit(1);
     }    
 }
 
-Decl* decl(){
-    if(token.kind == TK_EOF or not *stream) {
-        token.kind = TK_EOF; // TO avoid end of the stream infinite loop
+Decl* decl(Lexer* lexer){
+    if(lexer->token.kind == TK_eof or not *lexer->getPtr()) {
+        lexer->token.kind = TK_eof; // TO avoid end of the lexer->getPtr() infinite loop
         return nullptr;
     }
 
-    if(token.kind == Lexer::TK_HASH){
-        next();
-        return parse_comptime();                
+    if(lexer->token.kind == TK_hash){
+        lexer->nextToken();
+        return parse_comptime(lexer);
     }
     
-    SVec<Note*> notes = parse_notes();    
-    if(token.name == keyword_type){        
+    SVec<Note*> notes = parse_notes(lexer);    
+    if(lexer->token.name == cstr("type")){        
         // type cstr :: *char
-        return decl_type();
-    } else if(token.name == keyword_use){
-        return Parser::decl_use();
+        return decl_type(lexer);
+    } else if(lexer->token.name == cstr("use")){
+        return Parser::decl_use(lexer);
         
-    } else if(token.name == keyword_impl){
-        return decl_impl();
+    } else if(lexer->token.name == cstr("impl")){
+        return decl_impl(lexer);
     } 
             
-    if( not *stream ){
+    if( not *lexer->getPtr() ){
         return nullptr;
     }
 
-    const char* name = token.name;
-    next();
+    const char* name = lexer->token.name;
+    lexer->nextToken();
     
-    if(is_kind(Lexer::TK_PREP)){
-        next();
-        return decl_base(name, notes);        
-    } else if(is_kind(Lexer::TK_DDOT)){
-        next();
-        TypeSpec* type = Utils::typespec_name("any", token);
-        if(!is_kind(TK_EQ)) type = typespec();
+    if(lexer->token.isKind(TK_scoperes)){
+        lexer->nextToken();
+        return decl_base(lexer, name, notes);        
+    } else if(lexer->token.isKind(TK_colon)){
+        lexer->nextToken();
+        TypeSpec* type = Utils::typespec_name("any", lexer->token);
+        if(!lexer->token.isKind(TK_eq)) type = typespec(lexer);
         Expr* init = nullptr;
-        if(is_kind(TK_EQ)){
-            next();
-            init = expr();
+        if(lexer->token.isKind(TK_eq)){
+            lexer->nextToken();
+            init = expr(lexer);
         }
         return Utils::decl_var(name, type, init);
     }
     else {
-        printf("[ERR]: expected declaration, but got: %s\n", token.name);
+        printf("[ERR]: expected declaration, but got: %s\n", lexer->token.name);
         exit(1);
     }
     exit(1);
 }
 
-SVec<Decl*> parser_loop(){
+SVec<Decl*> parser_loop(Lexer* lexer){
     SVec<Decl*> ast;
-    while(token.kind != Lexer::TK_EOF){        
-        Decl* node = decl();               
+    while(lexer->token.kind != TK_eof){        
+        Decl* node = decl(lexer);               
         if(node){        
             ast.push(node);
         } 

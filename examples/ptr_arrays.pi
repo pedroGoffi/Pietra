@@ -8,9 +8,8 @@ ptr_array_sort :: (arr: *any, len: i64): null {
     while i < len {
         j: i64 = 0
         while j < len {
-            if arr[i] > arr[j] {
-                swap: i64 = (*arr as *i64)[i]
-                
+            if arr[i] < arr[j] {
+                swap: *any = *(&arr[i] as *any)                            
                 arr[i] = arr[j]
                 arr[j] = swap
             }
@@ -19,32 +18,40 @@ ptr_array_sort :: (arr: *any, len: i64): null {
         i = i + 1
     }
 }
-
+ptr_foreach :: (ptr: *any, ptr_len: i64, func: proc(i64, any): any): null {
+    i: i64 = 0
+    while i < ptr_len {
+        func(i, ptr[i])
+        i = i + 1
+    }
+}
 main :: (){
     len: i64 = 10
     arr: *i64 = allocate_array(len)
     i: i64 = 0;
 
-    arr[0] = 1
-    arr[1] = 2
-    arr[2] = 3
-    arr[3] = 4
-    arr[4] = 5
-    arr[5] = 6
-    arr[6] = 7
-    arr[7] = 8
-    arr[8] = 9
-    arr[9] = 10
+    ptr_foreach(arr, len, proc(index: i64, item: any){
+        arr[index] = std.random_range(0, 100)
+    })
+    //arr[0] = std.random_range(0, 100)
+    //arr[1] = std.random_range(0, 100)
+    //arr[2] = std.random_range(0, 100)
+    //arr[3] = std.random_range(0, 100)
+    //arr[4] = std.random_range(0, 100)
+    //arr[5] = std.random_range(0, 100)
+    //arr[6] = std.random_range(0, 100)
+    //arr[7] = std.random_range(0, 100)
+    //arr[8] = std.random_range(0, 100)
+    //arr[9] = std.random_range(0, 100)
     
-
-
     ptr_array_sort(arr, len)
-    while i < len {
-        dump(arr[i])
-        i = i + 1
-    }
-    
 
+    ptr_foreach(arr, len, proc(index: i64, item: any){
+        std.puts("Pointee: ")
+        std.puti(index)
+        std.puts(", value = ")        
+        std.puti(item)
+        std.puts("\n")
+    })
     
-
 }

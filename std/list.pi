@@ -45,11 +45,11 @@ ll_push :: (list: *ll_list, item: any){
     list.size           = list.size + 1
 }
 
-//impl ll_list new :: (): *ll_list {
-//    ll: mut *ll_list = std.allocate(sizeof(ll_list));
-//    ll.constructor()    
-//    return ll
-//}
+impl ll_list New :: (): *ll_list {
+    ll: mut *ll_list = std.allocate(sizeof(ll_list));
+    ll.constructor()    
+    return ll
+}
 
 
 impl ll_list swap :: (self: *Self, idx1: i64, idx2: i64): void {
@@ -80,7 +80,7 @@ impl ll_list map :: (self: *Self, func: proc(any): any): *ll_list{
     node: mut *ll_node = self.head
     while node.value 
     {
-        got_v := func(node.value)
+        got_v: i64 = func(node.value)
         ret.push(got_v)
         node = node.next
     }

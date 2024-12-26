@@ -2,6 +2,7 @@
 #define ASMPLANG
 
 #include "../include/Asmx86_64.hpp"
+#include "./lexer.cpp"
 #include "pprint.cpp"
 #include "resolve.cpp"
 #include "ast.cpp"
@@ -130,9 +131,9 @@ void makeLabel() {
     makeLabel(count());
 }
 
-    Type* compile_unary(Lexer::tokenKind kind, Expr* e, CState& state){
+    Type* compile_unary(TokenKind kind, Expr* e, CState& state){
         switch(kind){  
-            case Lexer::TK_NOT: {
+            case TK_not: {
                 Type* ty = compile_expr(e, state);
                 cmp_zero(ty);
                 println("mov rcx, 0");
@@ -142,26 +143,26 @@ void makeLabel() {
                 
                 return ty;
             }                      
-            case Lexer::TK_MULT:    {
+            case TK_mul:    {
                 Type* ty = compile_expr(e, state);
                 assert(ty->kind == TYPE_PTR) ;
                 load(ty->base);                
                 return ty->base;                
             }          
 
-            case Lexer::TK_AMPERSAND:   {                
+            case TK_and:   {                
                 Type* type = compile_expr(e, state_getaddr);
                 return type_ptr(type, type->ismut);
             }  
 
-            case Lexer::TK_SUB: {
+            case TK_minus: {
                 Type* t = compile_expr(e, state);
                 println("neg rax");
                 return t;
             }
             
             default: 
-                err("Can't compile unary for %s\n", Lexer::tokenKind_repr(kind));
+                err("Can't compile unary for %s\n", tokenKindRepr(kind));
                 exit(1);                
         }
     }
@@ -193,8 +194,8 @@ void makeLabel() {
                         Expr* base = Utils::expr_name(STRUCT_REASSIGN_FLAG);
                         SVec<Expr*> args;
                         
-                        args.push(Utils::expr_unary(Lexer::TK_AMPERSAND, lhs));
-                        args.push(Utils::expr_unary(Lexer::TK_AMPERSAND, rhs));                                                                        
+                        args.push(Utils::expr_unary(TK_and, lhs));
+                        args.push(Utils::expr_unary(TK_and, rhs));                                                                        
                         args.push(Utils::expr_int(dst_size));
                         Expr* call = Utils::expr_call(base, args);
                         println(";; Calling std.config `%s`", struct_reassigner->name);
@@ -222,31 +223,31 @@ void makeLabel() {
         return lhs_t;
             
     }
-    Type* compile_binary(Lexer::tokenKind kind, Ast::Expr* lhs, Ast::Expr* rhs, CState& state){        
+    Type* compile_binary(TokenKind kind, Ast::Expr* lhs, Ast::Expr* rhs, CState& state){        
         switch(kind){            
-            case Lexer::TK_LAND:{
+            case TK_andand:{
                 int end_fail    = count();
                 int end_ok      = count();
                 int end         = count();
-                
-                
+
+
                 Type* lhs_t = compile_expr(lhs, state_none);
                 cmp_zero(lhs_t);
                 println("je .L%i", end_fail);
                 Type* rhs_t = compile_expr(rhs, state_none);
                 cmp_zero(rhs_t);
                 println("je .L%i", end_fail);
-                
+
                 makeLabel(end_ok);
                 println("mov rax, 1");
                 println("jmp .L%i", end);
                 makeLabel(end_fail);                
                 println("mov rax, 0");
                 makeLabel(end);
-                
+
                 return lhs_t;
             }
-            case Lexer::TK_LOR: {
+            case TK_oror: {
                 Type* lhs_t = compile_expr(lhs, state_none);
                 cmp_zero(lhs_t);
                 push("rax", lhs_t);
@@ -256,9 +257,9 @@ void makeLabel() {
                 println("add rax, rbx");                       
                 return lhs_t;
             }
-            case Lexer::TK_EQ: return compile_eq(lhs, rhs, state);                      
+            case TK_eq: return compile_eq(lhs, rhs, state);                      
 
-            case Lexer::TK_MOD: {
+            case TK_mod: {
                 Type* rhs_t = compile_expr(rhs, state);
                 push("rax", rhs_t);
                 Type* lhs_t = compile_expr(lhs, state);
@@ -268,7 +269,7 @@ void makeLabel() {
                 println("mov rax, rdx");
                 return lhs_t;
             }
-            case Lexer::TK_DIV: {
+            case TK_div: {
                 Type* rhs_t = compile_expr(rhs, state);
                 push("rax", rhs_t);
                 Type* lhs_t = compile_expr(lhs, state);
@@ -277,7 +278,7 @@ void makeLabel() {
                 println("div rbx");     
                 return lhs_t;
             }
-            case Lexer::TK_MULT:    {
+            case TK_mul:    {
                 Type* lhs_t = compile_expr(lhs, state);
                 push("rax", lhs_t);
                 compile_expr(rhs, state);                
@@ -285,8 +286,8 @@ void makeLabel() {
                 println("mul rbx");
                 return lhs_t;
             }
-            case Lexer::TK_NEQ:
-            case Lexer::TK_CMPEQ:   {
+            case TK_noteq:
+            case TK_eqeq:   {
                 Type* lhs_t = compile_expr(lhs, state);
                 push("rax", lhs_t);
                 compile_expr(rhs, state);
@@ -296,7 +297,7 @@ void makeLabel() {
                 println("mov rdx, 1");       // rdx = 1
                 println("xor rax, rax");     // rax = 0
                 println("cmp rbx, rcx");     // rbx == rcx?                
-                if(kind == Lexer::TK_NEQ){
+                if(kind == TK_noteq){
                     println("cmovne rax, rdx");
                 }
                 else {
@@ -304,7 +305,7 @@ void makeLabel() {
                 }
                 return type_int(8, lhs_t->ismut);
             }
-            case Lexer::TK_ADD: {
+            case TK_plus: {
                 // TODO OPTIONAL: optimize this section
                 Type* rhs_t = compile_expr(rhs, state);
                 push("rax", rhs_t);
@@ -334,7 +335,7 @@ void makeLabel() {
                     return ret;
                 }
             }
-            case Lexer::TK_SUB: {
+            case TK_minus: {
                 Type* rhs_t = compile_expr(rhs, state);
                 push("rax", rhs_t);
 
@@ -349,7 +350,7 @@ void makeLabel() {
             }
             
         
-            case Lexer::TK_PIPE:    {
+            case TK_or:    {
                 Type* rhs_t = compile_expr(rhs, state);                
                 push("rax", rhs_t);
                 Type* type = compile_expr(lhs, state);
@@ -361,9 +362,9 @@ void makeLabel() {
                 
             };
             
-            case Lexer::TK_GT:              
-            case Lexer::TK_LT:  
-            case Lexer::TK_LTE:  {
+            case TK_greater:              
+            case TK_less:  
+            case TK_lesseq:  {
                 // lhs < rhs                
                 Type* rhs_t = compile_expr(rhs, state);
                 push("rax", rhs_t);                
@@ -375,13 +376,13 @@ void makeLabel() {
                 println("mov rcx, 0");
                 println("mov rdx, 1");
                 println("cmp rax, rbx");
-                if(kind == Lexer::TK_LT){
+                if(kind == TK_less){
                     println("cmovl rcx, rdx");
                 }
-                else if(kind == Lexer::TK_GT) {                    
+                else if(kind == TK_greater) {                    
                     println("cmovg rcx, rdx");
                 }
-                else if(kind == Lexer::TK_LTE) {
+                else if(kind == TK_lesseq) {
                     println("cmovle rcx, rdx");
                 }
                 else {
@@ -678,7 +679,7 @@ void makeLabel() {
             }            
         }        
         if(init){                     
-            Expr* eq = Utils::expr_binary(Lexer::TK_EQ, Utils::expr_name(var->name), init);            
+            Expr* eq = Utils::expr_binary(TK_eq, Utils::expr_name(var->name), init);            
             compile_expr(eq, state_none);                        
         }           
         return var->type;        
@@ -1032,16 +1033,16 @@ void makeLabel() {
             for(SwitchCasePattern* pt: c->patterns){
                 if(pt->begin != pt->end){
                     Expr* lt = Utils::expr_binary(
-                        Lexer::TK_LT,
+                        TK_less,
                         Utils::expr_int(pt->begin),
                         cond);
 
                     Expr* gt = Utils::expr_binary(
-                        Lexer::TK_GT,
+                        TK_greater,
                         Utils::expr_int(pt->begin),
                         cond);
 
-                    Expr* lt_and_gt = Utils::expr_binary(Lexer::TK_LAND, lt, gt);
+                    Expr* lt_and_gt = Utils::expr_binary(TK_and, lt, gt);
                     Type* cond_t = compile_expr(lt_and_gt, state);
                     cmp_zero(cond_t);
                     println("jne .L%i", begin);
@@ -1224,9 +1225,9 @@ void makeLabel() {
     }
     Type* compile_is_between(Expr* cond, int begin, int end){        
         println("; compile_is_between");
-        Expr* low      = Utils::expr_binary(Lexer::TK_LT, cond, Utils::expr_int(begin));
-        Expr* high   = Utils::expr_binary(Lexer::TK_GT, cond, Utils::expr_int(end));
-        Expr* logic     = Utils::expr_binary(Lexer::TK_LOR, low, high);
+        Expr* low       = Utils::expr_binary(TK_less, cond, Utils::expr_int(begin));
+        Expr* high      = Utils::expr_binary(TK_greater, cond, Utils::expr_int(end));
+        Expr* logic     = Utils::expr_binary(TK_or, low, high);
         return compile_expr(logic, state_none);        
     }
     void compile_switch_case(Stmt* s){        

@@ -17,8 +17,8 @@ The resolver will
 #include <iostream>
 #include <memory>
 #include <string>
-#define STRUCT_REASSIGN_FLAG    "struct_reassign"
-#define NEW_FLAG                "new_allocator"
+#define STRUCT_REASSIGN_FLAG    cstr("struct_reassign")
+#define NEW_FLAG                cstr("new_allocator")
 
 bool        impl_ctx = false;
 Decl*       string_comparator = nullptr;
@@ -415,8 +415,8 @@ namespace Pietra::Resolver{
                         return type_int(64, false);
                     }
                 }
+                printf("Undefined type: %s\n", ts->name);
                 
-                tok_err(ts->token, "Undefined type: %s\n", ts->name);                
                 exit(1);
 
 
@@ -473,7 +473,7 @@ namespace Pietra::Resolver{
             type->name = init_t->name;
             type->resolvedTy = init_t;
             
-            IF_FLAG(FLAG_NAME_IMPLICIT_CAST, {
+            IF_FLAG(FLAG_NAME_IMPLICIT_CAST, {            
                 printf("[INFO]: Implicit cast in variable `%s` -> `%s`.\n", name, init_t->repr());                
             })
         }
@@ -578,7 +578,7 @@ namespace Pietra::Resolver{
 
                         if(base_parent_op.type->kind != TYPE_PTR){
                             // if self is not a poiner, then we make self be &self
-                            self = Utils::expr_unary(Lexer::TK_AMPERSAND, self);
+                            self = Utils::expr_unary(TK_and, self);
                         }
                         assert(self);
                         new_args.push(self);
@@ -604,12 +604,12 @@ namespace Pietra::Resolver{
         return operand_rvalue(ret);
         
     }
-    Operand resolve_unary(Lexer::tokenKind kind, Expr* expr){
+    Operand resolve_unary(TokenKind kind, Expr* expr){
         switch(kind){
-            case Lexer::TK_NOT: {
+            case TK_not: {
                 return resolve_expr(expr);
             }
-            case Lexer::TK_AMPERSAND:   {
+            case TK_and:   {
                 Operand op = resolve_expr(expr);
                 if(op.is_lvalue){
                     printf("[ERROR]: trying to get the address if an lvalue.\n");
@@ -620,11 +620,11 @@ namespace Pietra::Resolver{
                 return op;
             }
 
-            case Lexer::TK_SUB: {
+            case TK_minus: {
                 return resolve_expr(expr);
             }
 
-            case Lexer::TK_MULT:    {
+            case TK_mul:    {
                 // derrefencing
                 Operand op = resolve_expr(expr);
                 if(op.is_lvalue){
@@ -642,8 +642,8 @@ namespace Pietra::Resolver{
             default: assert(0);
         }
     }
-    static inline bool is_assign(Lexer::tokenKind kind){
-        return kind == Lexer::TK_EQ;
+    static inline bool is_assign(TokenKind kind){
+        return kind == TK_eq;
     }
     Operand resolve_assign(Expr* base, Expr* rhs){
         Operand b = resolve_expr(base);        
@@ -679,26 +679,28 @@ namespace Pietra::Resolver{
         }
         return b;
     }
-    Operand resolve_binary(Lexer::tokenKind kind, Expr* lhs, Expr* rhs){
+    Operand resolve_binary(TokenKind kind, Expr* lhs, Expr* rhs){
         if(is_assign(kind)){
             return resolve_assign(lhs, rhs);
         }
-        switch(kind){            
-            case Lexer::TK_LAND:
-            case Lexer::TK_LOR:
-            case Lexer::TK_PIPE:    {
+        switch(kind){           
+            // TODO: add support in lexer for both AND &   (as bit and)
+            case TK_andand:
+            case TK_oror:
+            case TK_or:           
+            {
                 Operand l = resolve_expr(lhs);
                 Operand r = resolve_expr(rhs);
                 return l;
             }
-            case Lexer::TK_NEQ:
-            case Lexer::TK_CMPEQ:   {
+            case TK_noteq:
+            case TK_eqeq:   {
                 Operand l = resolve_expr(lhs);
                 Operand r = resolve_expr(rhs);
 
                 return operand_lvalue(type_int(8, l.type->ismut), {});                
             }
-            case Lexer::TK_SUB: {
+            case TK_minus: {
                 Operand l = resolve_expr(lhs);
                 Operand r = resolve_expr(rhs);
 
@@ -708,7 +710,7 @@ namespace Pietra::Resolver{
 
                 return l;
             }            
-            case Lexer::TK_DIV: {
+            case TK_div: {
                 Operand l = resolve_expr(lhs);                
                 Operand r = resolve_expr(rhs);
 
@@ -720,18 +722,21 @@ namespace Pietra::Resolver{
 
                 return l;
             }
-            case Lexer::TK_GT:
-            case Lexer::TK_MULT:
-            case Lexer::TK_LT:
-            case Lexer::TK_LTE:            
-            case Lexer::TK_MOD:
-            case Lexer::TK_ADD: {
+            case TK_mul:
+            case TK_greater:
+            case TK_less:
+            case TK_lesseq:
+            case TK_mod:
+            case TK_plus:{
                 Operand l = resolve_expr(lhs);
                 Operand r = resolve_expr(rhs);
 
                 return l;
             }
-            default: assert(0);
+            default: 
+                printf("Couldn't resolve this binary expression.\n");
+                pPrint::expr(Utils::expr_binary(kind, lhs, rhs));
+                exit(1);
         }
     }
     Operand resolve_index(Expr* &expr){
@@ -748,10 +753,10 @@ namespace Pietra::Resolver{
         }
         Type* b_t = bop.type->base;
         
-        expr = Utils::expr_unary(Lexer::TK_MULT, expr); 
+        expr = Utils::expr_unary(TK_mul, expr); 
         
-        Expr* offset = Utils::expr_binary(Lexer::TK_MULT, index, Utils::expr_int(b_t->size));
-        Expr* item = Utils::expr_binary(Lexer::TK_ADD, base, offset);
+        Expr* offset = Utils::expr_binary(TK_mul, index, Utils::expr_int(b_t->size));
+        Expr* item = Utils::expr_binary(TK_plus, base, offset);
 
         expr = item; 
         
@@ -927,12 +932,12 @@ namespace Pietra::Resolver{
             case EXPR_INIT_VAR:     return resolve_var_init(expr->init_var.name, expr->init_var.type, expr->init_var.rhs, true, false);
             case EXPR_UNARY:        return resolve_unary(expr->unary.unary_kind, expr->unary.expr);
             case EXPR_BINARY:   {
-                if(expr->binary.binary_kind == Lexer::TK_LTE){
+                if(expr->binary.binary_kind == TK_lesseq){
                     // T: lhs <= rhs --> not(lhs > rhs);                    
                     Expr* lhs = expr->binary.left;
                     Expr* rhs = expr->binary.right;
-                    Expr* base_gt = Utils::expr_binary(Lexer::TK_GT, lhs, rhs);
-                    expr = Utils::expr_unary(Lexer::TK_NOT, base_gt);
+                    Expr* base_gt = Utils::expr_binary(TK_greater, lhs, rhs);
+                    expr = Utils::expr_unary(TK_not, base_gt);
                     return resolve_expr(expr);                    
                 }          
                 return resolve_binary(expr->binary.binary_kind, expr->binary.left, expr->binary.right);                
@@ -1070,16 +1075,17 @@ namespace Pietra::Resolver{
     void resolve_decl_var(Decl* &d){
         resolve_var_init(d->name, d->var.type, d->var.init, false, false);        
     }
+    const char* decorator_flags[] = {
+        STRUCT_REASSIGN_FLAG,
+        NEW_FLAG
+    };
     void show_flags(){
-        const char* flags[] = {
-            STRUCT_REASSIGN_FLAG,
-            NEW_FLAG
-        };
+        
         printf("Flags: [ ");
-        for(const char*& flag: flags){                 
+        for(const char*& flag: decorator_flags){                 
             printf("@%s%s", 
                 flag, 
-                SAD_printf_cond(flag, flags));        
+                SAD_printf_cond(flag, decorator_flags));        
         }
 
         printf(" ]");
@@ -1092,11 +1098,11 @@ namespace Pietra::Resolver{
                 printf("[ERROR]: flag preprocessor expect ONLY string in it's arguments");
                 exit(1);
             }
-
-
-            if(arg->string_lit == Core::cstr(STRUCT_REASSIGN_FLAG)){
-                struct_reassigner = d;
-            } else if( arg->string_lit == Core::cstr(NEW_FLAG)){
+            const char* flag = cstr(arg->string_lit);
+            
+            if(flag == STRUCT_REASSIGN_FLAG){
+                struct_reassigner = d;  
+            } else if(flag == NEW_FLAG){
                 if(new_allocator){
                     printf("[ERROR]: Multiple configurations of `new` operator in pietra compiler.\n");
                     printf("[INFO]: `new` configured in `%s` but tried to reconfigure in `%s`.\n", new_allocator->name, d->name);

@@ -10,7 +10,10 @@ using namespace Pietra;
 
 const char* fileReader::read_file(const char* filename){    
     FILE* fd = fopen(filename, "rb");
-    assert(fd);
+    if(!fd){
+        printf("[ERROR]: the file %s couldn't be readed\n", filename);
+        exit(1);
+    }
     
     fseek(fd, 0, SEEK_END);
     int fsize = ftell(fd);

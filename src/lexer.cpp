@@ -1,614 +1,836 @@
-#ifndef LEXER_CPP
-#define LEXER_CPP
+#ifndef PLLLEXER
+#define PLLLEXER
 #include "../include/lexer.hpp"
-#include "../include/smallVec.hpp"
-#include <asm-generic/errno.h>
-#include <cctype>
-#include <cassert>
-#include <cmath>
-#include <cstdint>
-#include <cstdio>
-#include <cstdlib>
-#include <memory>
-#include <vector>
+#include "../include/srcLocation.hpp"
+#include <cstdarg>
 #include "interns.cpp"
-using namespace Pietra;
 
-struct StreamInfo {
-    const char*  stream;
-    Lexer::Token token;
-};
 
-const char* stream;
-Lexer::Token token;
-namespace Pietra::Lexer {
-    std::vector<StreamInfo*> streams;
-    void stream_snaphot(){
-        StreamInfo* si = new StreamInfo {.stream = Core::cstr(stream), .token = token};        
-        streams.push_back(si);
-    }
-    void stream_rewind(){
-        auto* si = streams.back();
-        streams.pop_back();
+void initInternKeywords() {
 
-        stream = si->stream;
-        token  = si->token;
-    }
-    
+#define DEF_INTERN(x) x##_keyword = cstr(#x)
+	DEF_INTERN(new);
+	DEF_INTERN(if);
+	DEF_INTERN(elif);
+	DEF_INTERN(else);
+	DEF_INTERN(let);
+	DEF_INTERN(const);
+	DEF_INTERN(stmt);
+	DEF_INTERN(while);
+	DEF_INTERN(for);
+	DEF_INTERN(fn);
+	DEF_INTERN(struct);
+	DEF_INTERN(union);
+	DEF_INTERN(comptime);
+	DEF_INTERN(use);
+	DEF_INTERN(and);
+	DEF_INTERN(or);	
+	DEF_INTERN(extern);
+	DEF_INTERN(true);
+	DEF_INTERN(false);
+	DEF_INTERN(i64);
+	DEF_INTERN(int);
+	DEF_INTERN(i32);
+	DEF_INTERN(i16);
+	DEF_INTERN(i8);
+	DEF_INTERN(char);
+	DEF_INTERN(cstr);
+	DEF_INTERN(void);
+	DEF_INTERN(f32);
+	DEF_INTERN(f64);
+	DEF_INTERN(return);
+	DEF_INTERN(Self);
+	DEF_INTERN(switch);
+#undef DEF_INTERN
+}
+const char* check_not_intern(const char* str) {
+	for(const char** intern: intern_table){
+		if (*intern == str) return strf("keyword '%s' is internal.", *intern);
+	}
+	return nullptr;
+}
+const char* tokenKindRepr(TokenKind kind) {
+	static_assert(TOKENKIND_COUNT == 55, "Need fix here boss");
+	switch (kind) {
+	case TK_eof:          	return "TK_eof";
+	case TK_name:         	return "TK_name";
+	case TK_int:          	return "TK_int";
+	case TK_float:        	return "TK_float";
+	case TK_dqstring:     	return "TK_dqstring";
+	case TK_sqstring:     	return "TK_sqstring";
+	case TK_dot:          	return "TK_dot";
+	case TK_tripledot:    	return "TK_tripledot";
+	case TK_comma:        	return "TK_comma";
+	case TK_scoperes:     	return "TK_scoperes";
+	case TK_lparen:       	return "TK_lparen";
+	case TK_rparen:       	return "TK_rparen";
+	case TK_lbracket:     	return "TK_lbracket";
+	case TK_hash:			return "TK_hash";
+	case TK_decorator:		return "TK_decorator";
+	case TK_rbracket:     	return "TK_rbracket";
+	case TK_lcurly:       	return "TK_lcurly";
+	case TK_rcurly:       	return "TK_rcurly";
+	case TK_question:     	return "TK_question";
+	case TK_colon:        	return "TK_colon";
+	case TK_semicolon:    	return "TK_semicolon";
+	case TK_minus:        	return "TK_minus";
+	case TK_minusminus:   	return "TK_minusminus";
+	case TK_minuseq:      	return "TK_minuseq";
+	case TK_arrow:        	return "TK_arrow";
+	case TK_plus:         	return "TK_plus";
+	case TK_pluseq:       	return "TK_pluseq";
+	case TK_plusplus:     	return "TK_plusplus";
+	case TK_and:          	return "TK_and";
+	case TK_andand:       	return "TK_andand";
+	case TK_andeq:        	return "TK_andeq";
+	case TK_or:           	return "TK_or";
+	case TK_oror:         	return "TK_oror";
+	case TK_oreq:         	return "TK_oreq";
+	case TK_eq:           	return "TK_eq";
+	case TK_eqeq:         	return "TK_eqeq";
+	case TK_eqarrow:      	return "TK_eqarrow";
+	case TK_not:          	return "TK_not";
+	case TK_noteq:        	return "TK_noteq";
+	case TK_xor:          	return "TK_xor";
+	case TK_xoreq:        	return "TK_xoreq";
+	case TK_mod:          	return "TK_mod";
+	case TK_modeq:        	return "TK_modeq";
+	case TK_mul:          	return "TK_mul";
+	case TK_muleq:        	return "TK_muleq";
+	case TK_div:          	return "TK_div";
+	case TK_diveq:        	return "TK_diveq";
+	case TK_less:         	return "TK_less";
+	case TK_lesseq:       	return "TK_lesseq";
+	case TK_greater:      	return "TK_greater";
+	case TK_greatereq:    	return "TK_greatereq";
+	case TK_shl:          	return "TK_shl";
+	case TK_shleq:        	return "TK_shleq";
+	case TK_shr:          	return "TK_shr";
+	case TK_shreq:        	return "TK_shreq";
+	}
+	assert(0 && "unreachable");
+}
+static Token makeToken(Lexer* lexer, const char* fc, const char* lc, TokenKind kind, long i64) {
+	return {
+		.firstChar = fc,
+		.lastChar = lc,
+		.kind = kind,
+		.name = cstr_range(fc, lc),
+		.loc = lexer->getLocation(),
+		.i64 = i64
+	};
+}
+static Token makeToken(Lexer* lexer, const char* fc, const char* lc, TokenKind kind, double f64) {
+	return {
+		.firstChar = fc,
+		.lastChar = lc,
+		.kind = kind,
+		.name = cstr_range(fc, lc),
+		.loc = lexer->getLocation(),
+		.f64 = f64
+	};
 }
 
-const char* keyword_run         = cstr("run");
-const char* keyword_package     = cstr("package");
-const char* keyword_mut         = cstr("mut");
-const char* keyword_imut        = cstr("imut");
-const char* keyword_if          = cstr("if");
-const char* keyword_elif        = cstr("elif");
-const char* keyword_else        = cstr("else");
-const char* keyword_while       = cstr("while");
-const char* keyword_let         = cstr("let");
-const char* keyword_const       = cstr("const");
-const char* keyword_prep        = cstr("::");
-const char* keyword_proc        = cstr("proc");
-const char* keyword_as          = cstr("as");
-const char* keyword_return      = cstr("return");
-const char* keyword_sizeof      = cstr("sizeof");
-const char* keyword_struct      = cstr("struct");
-const char* keyword_union       = cstr("union");
-const char* keyword_enum        = cstr("enum");
-const char* keyword_preprocess  = cstr("preprocess");
-const char* keyword_use         = cstr("use");
-const char* keyword_and         = cstr("and");
-const char* keyword_or          = cstr("or");
-const char* keyword_not         = cstr("not");
-const char* keyword_for         = cstr("for");
-const char* keyword_switch      = cstr("switch");
-const char* keyword_type        = cstr("type");
-const char* keyword_land        = cstr("and");
-const char* keyword_lor         = cstr("or");
-const char* keyword_case        = cstr("case");
-const char* keyword_impl        = cstr("impl");
-const char* keyword_default     = cstr("default");
-const char* keyword_do          = cstr("do");
-const char* keyword_new         = cstr("new");
-
-
-
-
-
-inline bool Lexer::is_eof(){    
-    return token.kind == TK_EOF;
+static Token makeToken(Lexer* lexer, const char* fc, const char* lc, TokenKind kind, const char* string) {
+	return {
+		.firstChar = fc,
+		.lastChar = lc,
+		.kind = kind,
+		.name = cstr_range(fc, lc),
+		.loc = lexer->getLocation(),
+		.string = string
+	};
 }
-void Lexer::init_stream(const char* filename, const char* str){
-    token.pos = {0};
-    token.pos.filename = filename;
-    stream = str;    
-    next();    
+static Token makeTokenPonctuation(Lexer* lexer, const char* fc, const char* lc, TokenKind kind) {
+	return makeToken(lexer, fc, lc, kind, "");	
 }
-void Lexer::skip_empty(){
-    while(std::isspace(*stream)){
-        stream++;
-    }
+static Token makeIdentifierToken(Lexer* lexer, const char* fc, const char* lc){
+	return makeToken(lexer, fc, lc, TK_name, "");
 }
 
-bool at_comment_begin(){
-    return stream[0] == '/' and stream[1] == '/';
+static Token makeTokenEof(Lexer* lexer) {
+	return makeToken(lexer, nullptr, nullptr, TK_eof, nullptr);	
+}
+const bool Token::isKind(TokenKind kind) const {
+	return this->kind == kind;
 }
 
-void Lexer::skip_opt_comment(){    
-    if(at_comment_begin()){        
-        while(*stream != '\0' and *stream != '\n'){
-            stream++;
-        }                
-    }
-    skip_empty();
-    if(at_comment_begin()){
-        skip_opt_comment();
-    }
+void Token::print() {
+	if(this->isKind(TK_sqstring) or this->isKind(TK_dqstring)) {
+		printf("TK_string = '%s'\n", this->name);
+	}
+	else if (this->isKind(TK_name)) {
+		printf("TK_name = '%s'\n", this->name);
+	}
+
+	else if (this->isKind(TK_int)) {
+		printf("TK_int = %li\n", this->i64);
+	}
+	else if (this->isKind(TK_float)) {
+		printf("TK_float = %lf\n", this->f64);
+	}
+
+	else {
+		printf("%s\n", tokenKindRepr(this->kind));
+	}
+}
+SrcLocation::SrcLocation() {
+	this->name = nullptr;
+	this->lineNumber = 0;
+	this->lineOffset = 0;
+}
+SrcLocation::SrcLocation(const char* name, int lineNumber) {
+	this->name = name;
+	this->lineNumber = lineNumber;
+	this->lineOffset = 0;
+}
+void SrcLocation::advanceLine() {	
+	this->lineNumber++;
+	this->lineOffset = 0;
+}
+void SrcLocation::addOffset() { this->lineOffset++; }
+
+void SrcLocation::newContext(const char* filename){
+	this->name			= cstr(filename);
+	this->lineNumber	= 0;
+	this->lineOffset	= 0;
 }
 
-
-const char* old_pos;
-void set_token_start(){
-    old_pos = stream;
-}
-void get_token_offset(Lexer::Token& token){
-    Lexer::tokenPos& pos = token.pos;
-    
-    for(const char* cs = old_pos; cs != stream; cs++){
-        char c = *cs;
-        if(c == '\n'){
-            pos.col = 0;
-            pos.line++;
-        }
-        else {
-            pos.col++;
-        }
-    }
-}
-void Lexer::next(){    
-    Lexer::skip_empty();
-    Lexer::skip_opt_comment();
-    token.str_start = stream;
-    set_token_start();    
-    while(isspace(*stream)) stream++;    
-    switch(*stream){
-        __ALL_CASE_KWDS: 
-        {
-            token.str_start = stream;
-            stream++;
-            while(is_keyword(*stream)){
-                stream++;
-            }
-            token.str_end = stream;
-            token.name = Core::cstr_range(token.str_start, stream);
-
-            if(token.name == keyword_and){
-                token.kind = Lexer::TK_LAND;
-            } else if(token.name == keyword_or){
-                token.kind = Lexer::TK_LOR;
-            } else {
-                token.kind = Lexer::TK_NAME;                        
-            }
-            break;
-        }
-        
-        __ALL_CASE_NUMS:
-        {
-            token.str_start = stream;
-            while(isdigit(*stream)){
-                stream++;
-            }
-
-            if(*stream == '.' and *(stream + 1) != '.'){ // for range expressions like 'a'...'b'
-                stream = token.str_start;
-                Lexer::Scanners::scan_float();
-            }
-            else {                
-                stream = token.str_start;
-                Lexer::Scanners::scan_int();   
-            }
-            
-            break;
-        }
-        case '.':
-        {
-            
-            stream++;            
-            token.kind = TK_DOT;
-            
-            if(isdigit(*stream)){
-                stream = token.str_start;
-                Lexer::Scanners::scan_float();                                
-            }   
-            else if (*stream == '.'){
-                stream++;
-                if(*stream == '.'){
-                    stream++;
-                    token.kind = TK_TRIPLE_DOT;
-                }
-                else {
-                    printf("TOKEN .. is unimplemented.\n");
-                    exit(1);
-                }
-            }            
-            token.str_end = stream;
-            token.name = Core::cstr_range(token.str_start, token.str_end);
-            break;
-        }
-        #define CASE1(_CHAR, _KIND)  \
-            case _CHAR: {                   \
-                stream++;                   \
-                token.kind  = _KIND;        \
-                token.str_end = stream;     \
-                token.name  = Core::cstr_range(token.str_start, token.str_end); \
-                break;                      \
-            }
-
-      
-
-        
-        #define CASE2(_C1, _K1, _C2, _K2) \
-            case _C1:\
-                stream++;\
-                if(*stream == _C2){\
-                    token.kind = _K2;\
-                    stream++;\
-                }\
-                else {\
-                    token.kind = _K1;\
-                }\
-                token.str_end = stream;\
-                token.name  = Core::cstr_range(token.str_start, token.str_end); \
-                break;
-        #define CASE3(C1, K1, C2, K2, C3, K3)               \
-            case C1:                                        \
-                stream++;                                   \
-                if(*stream == C2){                          \
-                    stream++;                               \
-                    token.kind = K2;                        \
-                }                                           \
-                else if (*stream == C3){                    \
-                    stream++;                               \
-                    token.kind = K3;                        \
-                }                                           \
-                else {                                      \
-                    token.kind = K1;                        \
-                }                                           \
-                token.str_end = stream;                     \
-                token.name = Core::cstr_range(token.str_start, token.str_end);
-        CASE1('#', TK_HASH)
-        CASE1('(', TK_OPEN_ROUND_BRACES)
-        CASE1(')', TK_CLOSE_ROUND_BRACES)
-        CASE1('[', TK_OPEN_SQUARED_BRACES)
-        CASE1(']', TK_CLOSE_SQUARED_BRACES)
-        CASE1('{', TK_OPEN_CURLY_BRACES)
-        CASE1('}', TK_CLOSE_CURLY_BRACES)
-        CASE1(',', TK_COMMA)
-        CASE1(';', TK_DCOMMA)
-        CASE1('/', TK_DIV)
-        CASE1('*', TK_MULT)
-        CASE1('%', TK_MOD)
-        CASE1('>', TK_GT)
-        CASE1('&', TK_AMPERSAND)
-        CASE1('@', TK_NOTE)
-        CASE2(':', TK_DDOT, ':', TK_PREP)    
-        CASE2('=', TK_EQ, '=', TK_CMPEQ)
-        
-        CASE2('+', TK_ADD, '+', TK_INC)
-        CASE2('-', TK_SUB, '-', TK_DEC);
-          
-        CASE2('<', TK_LT, '=', TK_LTE)       
-        CASE2('!', TK_NOT, '=', TK_NEQ)
-        CASE1('|', TK_PIPE)
-
-       
-        #undef CASE1
-        #undef CASE2
-
-        case '?': {
-            stream++;
-            token.name = Core::cstr("??");
-            token.kind = Lexer::TK_QUESTION;
-            
-            if(*stream == '?'){
-                token.name = Core::cstr("??");
-                token.kind = Lexer::TK_DQUESTION;
-                stream++;
-            }                                    
-            break;
-        }
-        case '\'':
-            Lexer::Scanners::scan_char();
-            break;
-        case '"':            
-            Lexer::Scanners::scan_string();
-            break;
-
-        
-        case '\0': 
-        {          
-            stream++;  
-            token.name = Core::cstr("<EOF>");
-            token.kind = Lexer::TK_EOF;            
-            break;
-        }
-        /*
-            TODO: warn for undefined tokens
-        */        
-        default:
-        error:
-            printf("[ERR]: token.text = %s\nistr = %c\n", token.name, *stream);
-            stream++;
-    }
-
-    get_token_offset(token);        
-}
-inline bool Lexer::is_numeric(char c){
-    switch(c){
-        __ALL_CASE_NUMS: return true;
-        default:         return false;
-    }
-}
-inline bool Lexer::is_keyword(char c){
-    switch(c){
-        __ALL_CASE_KWDS:    return true;
-        __ALL_CASE_NUMS:    return true;        
-        default:            return false;
-    }
+void LexerStream::setStream(const char* inputStream, const char* eof)
+{
+	this->inputStream = inputStream;
+	this->parsePoint = this->inputStream;	
+	this->eof = eof;
+	
 }
 
-inline bool Lexer::is_kind(tokenKind kind){
-    return token.kind == kind;
+const bool Lexer::isEof() const {
+	return (this->stream.parsePoint == this->stream.eof);
 }
-inline bool Lexer::is_name(const char* name){
-    return is_kind(TK_NAME) and token.name == Core::cstr(name);
+const bool Lexer::isIdentifier() const {
+	return ((*this->stream.parsePoint >= 'a' and *this->stream.parsePoint <= 'z')
+		or	(*this->stream.parsePoint >= 'A' and *this->stream.parsePoint <= 'Z')
+		or	(*this->stream.parsePoint == '_'));
 }
+const bool Lexer::isNumber() const {
+	return *this->stream.parsePoint >= '0' and *this->stream.parsePoint <= '9';
+}
+bool Lexer::isWhiteSpace(const char* p) {	
+	return p and (*p == ' ' or *p == '\t' or *p == '\r' or *p == '\n' or *p == '\f');
+}
+void Lexer::skipWhiteSpaces() {
+	for (;;) {		
+		while (this->stream.parsePoint != this->stream.eof) {
+			int increment = this->isWhiteSpace(this->stream.parsePoint);
+			if (increment == 0) break;
 
-inline bool Lexer::expects_kind(tokenKind kind){
-    if(Lexer::is_kind(kind)){
-        Lexer::next();
-        return true;
-    }
-    return false;
-}
-char Lexer::Scanners::scape_to_char(char c){    
-    switch(c) {
-        case '0':   return '\0';
-        case '\'':  return '\'';
-        case '"':   return  '"';
-        case '\\':  return '\\';
-        case 'n':   return '\n';
-        case 'r':   return '\r';
-        case 't':   return '\t';
-        case 'v':   return '\v';
-        case 'b':   return '\b';
-        case 'a':   return '\a';
-        default:    return '\0';
-    }
-}
-void Lexer::Scanners::scan_string(){
-    assert(*stream == '"');
-    stream++;    
-    SVec<char> buff;
-    token.str_start = stream;
-    while(*stream != '"'){
-        
-        if(*stream == '\\'){            
-            stream++;
-            char escape = Scanners::scape_to_char(*stream);
-            if(*stream != '0' and escape == 0){
-                printf("[SYNTAX-ERROR]: Invalid escape literal: \\%c\n", *stream);
-                exit(1);
-            }
-            
-            stream++;
-            buff.push(escape);
-        }
-        else {                
-            buff.push(*stream);
-            stream++;
-        }
-    }
-    buff.push(0);
-    token.kind      = TK_STRING;
-    token.str_end   = stream;
-    token.name      = Core::cstr(buff.data);    
-    assert(*stream == '"');
-    stream++;
-    
-}
+			if (this->stream.eof and this->stream.parsePoint + increment > this->stream.eof) {
+				printf("TOKEN ERROR. TODO:\n");
+				exit(1);
+			}
+			for (int i = 0; i < increment; i++) this->advanceChar();
+			//this->stream.parsePoint += increment;
+		}
 
-void Lexer::Scanners::scan_char(){
-    assert(*stream == '\'');
-    stream++;    
-    SVec<char> buff;
-    token.str_start = stream;
-    while(*stream != '\''){
-        
-        if(*stream == '\\'){            
-            stream++;
-            char escape = Scanners::scape_to_char(*stream);
-            if(*stream != '0' and escape == 0){
-                printf("[SYNTAX-ERROR]: Invalid escape literal: %c\n", *stream);
-                exit(1);
-            }
-            
-            stream++;
-            buff.push(escape);
-        }
-        else {                
-            buff.push(*stream);
-            stream++;
-        }
-    }    
-    assert(stream and *stream == '\'');
-    stream++;
-    token.str_end = stream;
+		// Skip comments
+		if (!this->isEof() and this->stream.parsePoint[0] == '/' and this->stream.parsePoint[1] == '/') {
 
-    // CHECK FOR STRING LITERAL IN CHAR MODE        
-    if(buff.len() == 1){
-        // This is a char
-        char c = buff.data[0];
-        token.kind = TK_INT;        
-        token.i64  = (int) c; 
-    }
-    else {
-        // This is a string        
-        buff.push(0);
-        token.kind      = TK_STRING;        
-    }
+			while (this->stream.parsePoint != this->stream.eof and *this->stream.parsePoint != '\r' and *this->stream.parsePoint != '\n')
+				this->advanceChar();
+				
+			continue;
+		}
 
-    token.name      = Core::cstr(buff.data);
-    
+		if (!this->isEof() and this->stream.parsePoint[0] == '/' and this->stream.parsePoint[0] == '*') {
+			const char* start = this->stream.parsePoint;
+
+			this->advanceChar(); this->advanceChar();
+
+			while (this->stream.parsePoint != this->stream.eof and (this->stream.parsePoint[0] != '*' or this->stream.parsePoint[1] != '/')) this->advanceChar();
+
+			if (this->stream.parsePoint == this->stream.eof) {
+				printf("TOKEN ERROR. TODO:\n");
+				exit(1);
+			}
+
+			this->advanceChar(); this->advanceChar();
+			continue;
+		}
+
+		break;
+	}	
+}
+// line 600
+int Lexer::charToInt(char c) {
+	switch (c) {
+	case '0': return 0;
+	case '1': return 1;
+	case '2': return 2;
+	case '3': return 3;
+	case '4': return 4;
+	case '5': return 5;
+	case '6': return 6;
+	case '7': return 7;
+	case '8': return 8;
+	case '9': return 9;
+	case 'a': case 'A': return 10;
+	case 'b': case 'B': return 11;
+	case 'c': case 'C': return 12;
+	case 'd': case 'D': return 13;
+	case 'e': case 'E': return 14;
+	case 'f': case 'F': return 15;
+
+	default: return 0;
+	}
+}
+char Lexer::charToScape(char c){
+	switch (c) {
+		case 't': 	return '\t';
+		case 'b': 	return '\b';
+		case 'n': 	return '\n';
+		case 'r': 	return '\r';
+		case 'f': 	return '\f';
+		case '\'': 	return '\'';
+		case '"': 	return '\"';
+		case '0':	return '\0';
+		case '\\': 	return '\\';
+	}
+	return -1;
 }
 
-void Lexer::Scanners::scan_int(){
-    assert(is_numeric(*stream));    
-    int      base = 10;
+int Lexer::scanInteger(){
+	assert(this->isNumber());
+	int base = 10;
+	if (*this->stream.parsePoint == '0') {
+		this->advanceChar();
+		if (tolower(*this->stream.parsePoint) == 'x') {
+			base = 16;
+			this->advanceChar();
+		}
+		else if (tolower(*this->stream.parsePoint) == 'b') {
+			this->advanceChar();
+			base = 2;
+		}
+		else if (isdigit(*this->stream.parsePoint)) {
+			this->advanceChar();
+			base = 8;
+		}
+	}
 
-    
-    if(*stream == '0'){
-        stream++;    
-        if(tolower(*stream) == 'x'){            
-            base = 16;
-            stream++;
-        }        
-        else if(tolower(*stream) == 'b'){
-            stream++;
-            base = 2;
-        }
-        else if(isdigit(*stream)){
-            stream++;
-            base = 8;
-        }
-                
-    }
+	long val = 0;
+	for (;;) {
+		int digit = this->charToInt(*this->stream.parsePoint);
+		if (digit == 0 and *this->stream.parsePoint != '0') {
+			break;
+		}
 
-    Lexer::Scanners::scan_int_base(base);
+		if (digit >= base) {
+			printf("[ERROR]: digit %c out of range for base %d\n", *this->stream.parsePoint, base);
+			break;
+		}
+
+		if (val > (UINT64_MAX - digit) / base) {
+			printf("[ERROR]: integer overflow.\n");
+			while (isdigit(*this->stream.parsePoint)) this->advanceChar();
+			val = 0;
+			break;
+		}
+
+		val = val * base + digit;
+		this->advanceChar();
+	}
+	
+	return val;
+}
+double Lexer::scanFloat() {
+	const char* begin = this->stream.parsePoint;
+	while (isdigit(*this->stream.parsePoint)) this->advanceChar();
+
+	if (*this->stream.parsePoint == '.') {
+		this->advanceChar();
+	}
+
+	while (isdigit(*this->stream.parsePoint)) {
+		this->advanceChar();
+	}
+	if (tolower(*this->stream.parsePoint) == 'e') {
+		this->advanceChar();
+
+		if (*this->stream.parsePoint == '+' or *this->stream.parsePoint == '-') this->advanceChar();
+
+		if (!isdigit(*this->stream.parsePoint)) {
+			printf("[ERR]: Expected digit after float literal exponent, found %c\n", *this->stream.parsePoint);
+			exit(1);
+		}
+
+		while (isdigit(*this->stream.parsePoint)) this->advanceChar();
+	}
+	if (tolower(*this->stream.parsePoint) == 'f') this->advanceChar();
+	const char* name = cstr_range(begin, this->stream.parsePoint);	
+	double f64 = strtod(name, nullptr);
+	
+	if (f64 == HUGE_VAL or f64 == -HUGE_VAL) {
+		printf("[ERROR]: Float literal overflow.\n");
+		f64 = .0;
+	}
+	return f64;
+}
+const char* Lexer::scanString() {
+	assert((*this->stream.parsePoint == '"' or *this->stream.parsePoint == '\'') and "Expected single quotes or double quotes when scanning a token string");
+	
+	char delim = *this->stream.parsePoint;
+	const char* begin = this->advanceChar();
+	std::string buff;
+	while (*this->stream.parsePoint != delim) {
+		if (*this->stream.parsePoint == '\\') {
+			this->advanceChar();
+			char escape = this->charToScape(*this->stream.parsePoint);
+			if (escape < 0) {
+				printf("[ERROR]: invalid espace char %c\n", *this->stream.parsePoint);
+				exit(1);
+			}			
+			buff += escape;			
+		}
+		else {
+			buff += *this->stream.parsePoint;
+		}
+		this->advanceChar();
+	}
+	if (this->isEof()) syntax_error(this->getLocation(), "Expected '\"' after string body, got EOF.\n");
+	assert(*this->stream.parsePoint == delim);
+	buff += '\0';
+	this->advanceChar();
+	return cstr_range(&(*buff.begin()), &(*buff.end()));
 }
 
-int  Lexer::Scanners::char_to_int(char c){
-    switch(c){
-        case '0': return 0;
-        case '1': return 1;
-        case '2': return 2;
-        case '3': return 3;
-        case '4': return 4;
-        case '5': return 5;
-        case '6': return 6;
-        case '7': return 7;
-        case '8': return 8;
-        case '9': return 9;
-        
-        case 'a': case 'A': return 10; 
-        case 'b': case 'B': return 11;
-        case 'c': case 'C': return 12;
-        case 'd': case 'D': return 13;
-        case 'e': case 'E': return 14;
-        case 'f': case 'F': return 15;
-
-
-        default: return 0;
-    }
-    
+Token Lexer::getToken() {			
+	return this->token;
 }
-void Lexer::Scanners::scan_int_base(int base){
-    token.str_start = stream;
-    uint64_t val = 0;    
-    for(;;){
-        int digit = Lexer::Scanners::char_to_int(*stream);        
-
-        if(digit == 0 and *stream != '0'){
-            break;
-        }
-
-        if(digit >= base){
-            printf("[ERR]: digit %c out of range for base %d\n", *stream, base);
-            break;
-        }
-
-        if(val > (UINT64_MAX - digit)/base){
-            printf("[ERR]: integer overflow.\n");
-            while(isdigit(*stream)) stream++;            
-            val = 0;
-            break;
-        }
-
-        val = val*base + digit;        
-        stream++;
-    }
-    
-    token.str_end = stream;        
-    token.name = Core::cstr_range(token.str_start, token.str_end);
-    token.kind = tokenKind::TK_INT;
-    token.i64  = val;
+Token Lexer::nextToken() {
+	this->token = this->lexNextToken();
+	return this->token;
 }
-void Lexer::Scanners::scan_float(){
-    token.str_start = stream;
-    while(isdigit(*stream)) stream++;
+Token Lexer::lexNextToken() {	
+	this->skipWhiteSpaces();
+	if (this->isEof()) {
+		return makeTokenEof(this);
+	}
+	const char* begin = this->stream.parsePoint;
+	
+	switch (*this->stream.parsePoint) {
+	default: {
+		this->stream.parsePoint;
+		if (this->isIdentifier()) {
+			do this->advanceChar(); while (!this->isEof() and (this->isIdentifier() or this->isNumber()));
+		return makeIdentifierToken(this, begin, this->stream.parsePoint);						
+		}
 
-    if(*stream == '.'){
-        stream++;
-    }
+		if (this->isEof()) return makeTokenEof(this);
 
-    while(isdigit(*stream)){
-        stream++;
-    }
-    if(tolower(*stream) == 'e'){
-        stream++;
+		printf("ERROR: unkown token starts with: %c\n", *this->stream.parsePoint);
+		exit(1);
+	}
+	
+	case ',': {
+		this->advanceChar();
+		TokenKind kind = TK_comma;
+		return makeTokenPonctuation(this, begin, this->stream.parsePoint, kind);
+	}
+	case '+': {
+		this->advanceChar();
+		TokenKind kind = TK_plus;
+		if (this->stream.parsePoint != this->stream.eof) {
+			if (this->stream.parsePoint[0] == '+') {
+				kind = TK_plusplus;
+				this->advanceChar();
+			}
+			if (this->stream.parsePoint[0] == '=') {
+				kind = TK_pluseq;
+				this->advanceChar();
+			}
+		}
+		return makeTokenPonctuation(this, begin, this->stream.parsePoint, kind);
+	}
+	case '-': {
+		this->advanceChar();
+		TokenKind kind = TK_minus;
+		if (this->stream.parsePoint != this->stream.eof) {
+			if (this->stream.parsePoint[0] == '-') {
+				kind = TK_minusminus;
+			}
+			if (this->stream.parsePoint[0] == '=') {
+				kind = TK_minuseq;
+				this->advanceChar();
+			}
+			if (this->stream.parsePoint[0] == '>') {
+				kind = TK_arrow;
+				this->advanceChar();
+			}
+		}
+	
+		return makeTokenPonctuation(this, begin, this->stream.parsePoint, kind);
+	}
+	case '&': {
+		this->advanceChar();
+		TokenKind kind = TK_and;
+		if (this->stream.parsePoint != this->stream.eof) {
+			if (this->stream.parsePoint[0] == '&') {
+				kind = TK_andand;
+				this->advanceChar();
+			}
+			if (this->stream.parsePoint[0] == '=') {
+				kind = TK_andeq;
+				this->advanceChar();
+			}
+		}
+		return makeTokenPonctuation(this, begin, this->stream.parsePoint, kind);
+	}
+	case '|': {
+		this->advanceChar();
+		TokenKind kind = TK_or;
+		if (this->stream.parsePoint != this->stream.eof) {
+			if (this->stream.parsePoint[0] == '|') {
+				kind = TK_oror;
+				this->advanceChar();
+			}
+			if (this->stream.parsePoint[0] == '=') {
+				kind = TK_oreq;
+				this->advanceChar();
+			}
+		}
+		return makeTokenPonctuation(this, begin, this->stream.parsePoint, kind);
+	}
+	case '=': {
+		this->advanceChar();
+		TokenKind kind = TK_eq;
+		if (this->stream.parsePoint != this->stream.eof) {
+			if (this->stream.parsePoint[0] == '=') {
+				kind = TK_eqeq;
+				this->advanceChar();
+			}
+			if (this->stream.parsePoint[0] == '>') {
+				kind = TK_eqarrow;
+				this->advanceChar();
+			}
+		}
+		return makeTokenPonctuation(this, begin, this->stream.parsePoint, kind);
+	}
+	case '!': {
+		this->advanceChar();
+		TokenKind kind = TK_not;
+		if (this->stream.parsePoint != this->stream.eof) {
+			if (this->stream.parsePoint[0] == '=') {
+				kind = TK_noteq;
+				this->advanceChar();
+			}
+		}
+		return makeTokenPonctuation(this, begin, this->stream.parsePoint, kind);
+	}
+	case '^': {
+		this->advanceChar();
+		TokenKind kind = TK_xor;
+		if (this->stream.parsePoint != this->stream.eof) {
+			if (this->stream.parsePoint[0] == '=') {
+				kind = TK_xoreq;
+				this->advanceChar();
+			}
+		}
+		return makeTokenPonctuation(this, begin, this->stream.parsePoint, kind);
+	}
+	case '%': {
+		this->advanceChar();
+		TokenKind kind = TK_mod;
+		if (this->stream.parsePoint != this->stream.eof) {
+			if (this->stream.parsePoint[0] == '=') {
+				kind = TK_modeq;
+				this->advanceChar();
+			}
+		}
+		return makeTokenPonctuation(this, begin, this->stream.parsePoint, kind);
+	}
+	case '(': {
+		this->advanceChar();
+		TokenKind kind = TK_lparen;
+		return makeTokenPonctuation(this, begin, this->stream.parsePoint, kind);
+	}
+	case ')': {
+		this->advanceChar();
+		TokenKind kind = TK_rparen;
+		return makeTokenPonctuation(this, begin, this->stream.parsePoint, kind);
+	}
+	case '[': {
+		this->advanceChar();
+		TokenKind kind = TK_lbracket;
+		return makeTokenPonctuation(this, begin, this->stream.parsePoint, kind);
+	}
+	case ']': {
+		this->advanceChar();
+		TokenKind kind = TK_rbracket;
+		return makeTokenPonctuation(this, begin, this->stream.parsePoint, kind);
+	}
+	case '{': {
+		this->advanceChar();
+		TokenKind kind = TK_lcurly;
+		return makeTokenPonctuation(this, begin, this->stream.parsePoint, kind);
+	}
+	case '}': {
+		this->advanceChar();
+		TokenKind kind = TK_rcurly;
+		return makeTokenPonctuation(this, begin, this->stream.parsePoint, kind);
+	}	
+	case '@':{ 
+		this->advanceChar();
+		TokenKind kind = TK_decorator;
+		return makeTokenPonctuation(this, begin, this->stream.parsePoint, kind);
 
-        if(*stream == '+' or *stream == '-') stream++;
+	}
+	case '#':{ 
+		this->advanceChar();
+		TokenKind kind = TK_hash;
+		return makeTokenPonctuation(this, begin, this->stream.parsePoint, kind);
 
-        if(!isdigit(*stream)){
-            printf("[ERR]: Expected digit after float literal exponent, found %c\n", *stream);
-            exit(1);
-        }
+	}
+	case '?': {
+		this->advanceChar();
+		TokenKind kind = TK_question;
+		return makeTokenPonctuation(this, begin, this->stream.parsePoint, kind);
+	}
+	case ':': {
+		this->advanceChar();
+		TokenKind kind = TK_colon;
+		if (!this->isEof()) {
+			if (*this->stream.parsePoint == ':') {
+				this->advanceChar();
+				kind = TK_scoperes;
+			}
+		}
+		return makeTokenPonctuation(this, begin, this->stream.parsePoint, kind);
+	}
+	case ';': {
+		this->advanceChar();
+		TokenKind kind = TK_semicolon;
+		return makeTokenPonctuation(this, begin, this->stream.parsePoint, kind);
+	}
 
-        while(isdigit(*stream)) stream++;
-    }
-    if(tolower(*stream) == 'f') stream++;
-    
-    token.str_end = stream;
-    token.name = Core::cstr_range(
-        token.str_start,
-        token.str_end
-    );
-    token.kind = TK_FLOAT;
-    token.f64 = strtod(token.str_start, nullptr);
 
-    if(token.f64 == HUGE_VAL or token.f64 == -HUGE_VAL){
-        printf("[ERR]: Float literal overflow.\n");
-        token.f64 = .0;
-    }
+	case '.': {
+		this->advanceChar();
+		TokenKind kind = TK_dot;
+		if(!this->isEof() and this->isNumber()){
+			this->stream.parsePoint = begin;
+			double f64 = this->scanFloat();
+			return makeToken(this, begin, this->stream.parsePoint, TK_float, f64);
+		}
+		if (!this->isEof() and this->stream.parsePoint + 1 != this->stream.eof) {
+			if (this->stream.parsePoint[0] == '.' and this->stream.parsePoint[1] == '.') {
+				kind = TK_tripledot;
+				this->advanceChar();
+				this->advanceChar();
 
+			}
 
+		}
+		return makeTokenPonctuation(this, begin, this->stream.parsePoint, kind);
+	}
+
+	case '*': {
+		this->advanceChar();
+		TokenKind kind = TK_mul;
+		if (this->stream.parsePoint != this->stream.eof) {
+			if (this->stream.parsePoint[0] == '=') {
+				kind = TK_muleq;
+				this->advanceChar();
+			}
+		}
+		return makeTokenPonctuation(this, begin, this->stream.parsePoint, kind);
+	}
+	case '/': {
+		this->advanceChar();
+		TokenKind kind = TK_div;
+		if (this->stream.parsePoint != this->stream.eof) {
+			if (this->stream.parsePoint[0] == '=') {
+				kind = TK_diveq;
+				this->advanceChar();
+			}
+		}
+		return makeTokenPonctuation(this, begin, this->stream.parsePoint, kind);
+	}
+	case '<': {
+		this->advanceChar();
+		TokenKind kind = TK_less;
+		if (this->stream.parsePoint != this->stream.eof) {
+			if (this->stream.parsePoint[0] == '=') {
+				this->advanceChar();
+				kind = TK_lesseq;
+			}
+
+			if (this->stream.parsePoint[0] == '<') {
+				this->advanceChar();
+				kind = TK_shl;
+				if (!this->isEof() and this->stream.parsePoint[0] == '=') {
+					this->advanceChar();
+					kind = TK_shleq;
+				}
+			}
+		}
+		return makeTokenPonctuation(this, begin, this->stream.parsePoint, kind);
+	}
+	case '>': {
+		this->advanceChar();
+		TokenKind kind = TK_greater;
+		if (this->stream.parsePoint != this->stream.eof) {
+			if (this->stream.parsePoint[0] == '=') {
+				this->advanceChar();
+				kind = TK_greatereq;
+			}
+			
+			if (this->stream.parsePoint[0] == '>' and !this->parsingTypeSpecTemplate) {				
+				this->advanceChar();
+				kind = TK_shr;
+				if (!this->isEof() and this->stream.parsePoint[0] == '=') {
+					this->advanceChar();
+					kind = TK_shreq;
+				}
+			}
+		}
+		return makeTokenPonctuation(this, begin, this->stream.parsePoint, kind);
+	}
+	case '"': {
+		const char* string = this->scanString();
+		return makeToken(this, begin, this->stream.parsePoint - 1, TK_dqstring, string);
+	}
+	case '\'': {
+		const char* string = this->scanString();
+		return makeToken(this, begin, this->stream.parsePoint - 1, TK_sqstring, string);
+	}
+	case '0': case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8': case '9': {
+		while (isdigit(*this->stream.parsePoint)) {
+			this->advanceChar();
+		}
+		if (!this->isEof()) {
+			if (*this->stream.parsePoint == '.') {
+				this->stream.parsePoint = begin;
+				double f64 = this->scanFloat();
+				return makeToken(this, begin, this->stream.parsePoint, TK_float, f64);
+			}
+		}
+		this->stream.parsePoint = begin;
+		long i64 = this->scanInteger();
+		return makeToken(this, begin, this->stream.parsePoint - 1, TK_int, i64);
+	}
+	}
+	return {};
+}
+SrcLocation Lexer::getLocation() { return this->loc; }
+
+const bool Lexer::expect(TokenKind kind){
+	if (this->token.isKind(kind)) {
+		this->nextToken();
+		return true;
+	}
+	return false;
+}
+const bool Lexer::matchKeyword(const char* keyword) const {
+	return this->token.isKind(TK_name) and this->token.name == keyword;
+}
+const bool Lexer::expectKeyword(const char* keyword) {
+	if (this->matchKeyword(keyword)) {
+		this->nextToken();
+		return true;
+	}
+	return false;
+}
+bool Lexer::checkTemplate() {	
+	if (this->stream.parsePoint == this->stream.eof) return false;		
+	if (!this->token.isKind(TK_less)) return false;
+	
+	
+	const char* p = this->stream.parsePoint;
+	int count = 1;	
+	while (p != this->stream.eof and *p != '\n') {		
+		if (*p == '<') count++;
+		if (*p == '>') {
+			count--;
+			if (count == 0) return true;
+		}
+		
+		p++;
+	}
+	
+	return count == 0;
+}
+const char* Lexer::advanceChar() {		
+	if (this->stream.parsePoint != this->stream.eof) {
+		this->loc.addOffset();
+
+		if (*this->stream.parsePoint == '\n') {						
+			this->loc.advanceLine();
+		}
+	}
+	
+	return this->stream.parsePoint++;
 }
 
-
-void Lexer::fprint_token(FILE* file, Token token){
-    fprintf(file, "Token(<Token_name: %s", token.name);
-
-    #define CASE(_KIND, TYPE) \
-        case _KIND: \
-            fprintf(file, ", " TYPE ">");\
-            break; 
-
-    switch(token.kind){
-        CASE(TK_INT, "Int_i64");
-        CASE(TK_FLOAT, "Float_i64");
-        CASE(TK_KEYWORD, "Keyword");
-        CASE(TK_NAME, "Name");
-        
-        default:
-            fprintf(file, ", Unknown_kind>");
-
-    }
-    #undef CASE
-    fprintf(file, ")\n");
+void Lexer::endOfparsingTemplateContext() {
+	this->parsingTypeSpecTemplate = false;
 }
-const char* Lexer::tokenKind_repr(tokenKind k){
-    switch(k){
-        case TK_PIPE:                   return "|";
-        case TK_DIV:                    return "/";
-        case TK_EOF:                    return "EOF";
-        case TK_DOT:                    return ".";
-        case TK_DCOMMA:                 return ";";
-        case TK_LT:                     return "<";
-        case TK_LTE:                    return "<=";        
-        case TK_SUB:                    return "-";
-        case TK_DEC:                    return "--";
-        case TK_GT:                     return ">";
-        case TK_ADD:                    return "+";
-        case TK_INC:                    return "++";
-        case TK_MULT:                   return "*";
-        case TK_TRIPLE_DOT:             return "...";
-        case TK_OPEN_ROUND_BRACES:      return "(";
-        case TK_CLOSE_ROUND_BRACES:     return ")";
-        case TK_OPEN_SQUARED_BRACES:    return "[";
-        case TK_CLOSE_SQUARED_BRACES:   return "]";
-        case TK_OPEN_CURLY_BRACES:      return "{";
-        case TK_CLOSE_CURLY_BRACES:     return "}";
-        case TK_COMMA:                  return ",";
-        case TK_DDOT:                   return ":";
-        case TK_PREP:                   return "::";
-        case TK_EQ:                     return "=";
-        case TK_CMPEQ:                  return "==";
-        case TK_NAME:                   return "NAME";
-        case TK_KEYWORD:                return "KEYWORD";
-        case TK_INT:                    return "INT";
-        case TK_FLOAT:                  return "FLOAT";
-        case TK_STRING:                 return "STRING";
-        case TK_LAND:                   return "and";
-        case TK_LOR:                    return "or";
-        case TK_NOT:                    return "not";
-        case TK_AMPERSAND:              return "&";
-        case TK_NEQ:                    return "!=";
-
-        default: 
-            printf("repr_TK_KIND: %i\n", k);
-            exit(1);            
-    }      
+void Lexer::parsingTemplateContext(){
+	this->parsingTypeSpecTemplate = true;
 }
+void Lexer::expectSemiColon(){
+	if (!this->expect(TK_semicolon)) syntax_error(this->getLocation(), "Expected ';'.\n");
+}
+const char*& Lexer::getPtr() { return this->stream.parsePoint; }
+void Lexer::setContextPath(std::filesystem::path path) { 
+	this->contextPath = path; 
+	this->loc.newContext(path.string().c_str());
+
+}
+Lexer::Lexer(const char* data)
+{
+	this->stream.setStream(data, data + std::strlen(data));
+	this->loc = SrcLocation();	
+	this->parsingTypeSpecTemplate = false;
+	this->nextToken();
+}
+
+Lexer::Lexer(const char* begin, const char* end) {
+	this->stream.setStream(begin, end);
+	this->loc = SrcLocation();
+	this->parsingTypeSpecTemplate = false;
+	this->nextToken();
+}
+Lexer* Lexer::open_at_file(const char* file_path){
+	const char* file_data = fileReader::read_file(file_path);
+	Lexer* lexer = new Lexer(file_data);
+	lexer->loc = SrcLocation(file_path, 1);
+	return lexer;
+}
+SrcLocation loc_builtin("<stdin>", 0);
+void error(SrcLocation loc, const char* fmt, ...) {
+	if (loc.name == nullptr) {
+		loc = loc_builtin;
+	}
+	va_list args;	
+	va_start(args, fmt);
+	printf("%s\n(%d: %d): error: ", loc.name, loc.lineNumber, loc.lineOffset);
+	vprintf(fmt, args);
+	printf("\n\n");
+	va_end(args);
+}
+void syntax_error(SrcLocation loc, const char* fmt, ...) {
+	if (loc.name == nullptr) {
+		loc = loc_builtin;
+	}
+	va_list args;
+	va_start(args, fmt);
+	printf("FILE %s\n\t(%d: %d): [SYNTAX ERROR]: ", loc.name, loc.lineNumber, loc.lineOffset);
+	vprintf(fmt, args);
+	printf("\n\n");
+	va_end(args);
+	exit(1);
+}
+
 SVec<const char*> included_packages;
 bool is_included(const char* str){
     for(auto& p: included_packages){
@@ -619,4 +841,31 @@ bool is_included(const char* str){
 void include_me(const char* str){
     included_packages.push(Core::cstr(str));
 }
-#endif /*LEXER_CPP*/
+
+#ifdef DEV_TEST
+void make_test(const char* data){
+	Lexer lexer(data);
+	while (!lexer.isEof()) {
+		Token tok = lexer.nextToken();
+		tok.print();
+	}
+
+	const char* intern_1 = cstr("new");
+	const char* intern_2 = cstr("new");
+
+	if (intern_1 != intern_2) {
+		printf("Intern logic error.\n");		
+		exit(1);
+	}
+	printf("---- INTERN ---- \n");
+	printf("%s:%p\n", intern_1, intern_1);
+	printf("%s:%p\n", intern_2, intern_2);
+
+
+}
+void lexer_test() {
+	printf("Lexer test.\n");
+	make_test("iAmAName very cool 12.32 10 10 == 1 + 1 !!weqw!");
+}
+#endif /*DEV_TEST*/
+#endif /*PLLLEXER*/

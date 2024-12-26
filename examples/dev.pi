@@ -1,27 +1,15 @@
-
 use std{std}
 
-myVar: *i8 = "I am a global string\n"
-
-
-foo :: (x: *void){
-    lambda := proc(str: *i8): void {
-        std.puts(str)
-    }
-
-    lambda(x)    
-}
-
 main :: (){
-    foo(myVar)
-    // This should not work, TODO fix this in resolver step
-    if 1 {
-        std.puts("OK - inside if\n")
-        insideIfVar: i64 = 69
-        dump(insideIfVar)
-    }
+    l: ll_list;
+    l.push(69)
+    l.push(6969)
+    
 
-    dump(insideIfVar)    
+    dump(l.size)
+
+    e420: i64 = *l.at(1)
+
+    dump(e420)
+    std.puts("hello, world\n")    
 }
-
-

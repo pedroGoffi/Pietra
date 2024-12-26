@@ -10,8 +10,10 @@ namespace Pietra {
     struct PStreamCursor {       
         const char* stream;
         Decl*       decl;
+        Lexer*      lexer;
         
         static PStreamCursor* from(const char* filename);
+        Lexer* getLexer();
 
         // parse the next declaration
         void next();

@@ -14,7 +14,7 @@ using namespace Pietra;
 namespace Pietra::Core{
 
 template<typename T>
-SVecHdr* SVec<T>::get_head(){    
+SVecHdr* SVec<T>::get_head(){        
     return this->data? ((SVecHdr*)((char*)(this->data) - offsetof(SVecHdr, buff))): 0;    
 }
 

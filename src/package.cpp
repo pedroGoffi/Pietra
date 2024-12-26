@@ -6,12 +6,13 @@ using namespace Pietra;
 
 
 PPackage* PPackage::from(const char *filename){
-    PPackage* package = arena_alloc<PPackage>();    
-    
+    PPackage* package = arena_alloc<PPackage>();        
     PStreamCursor* Streamcursor = PStreamCursor::from(filename);
     if(!Streamcursor) return nullptr;
+    Lexer* lexer = Streamcursor->getLexer();
+    assert(lexer);
     
-    package->ast = Parser::parser_loop();
+    package->ast = Parser::parser_loop(lexer);
     
     Streamcursor->decl = nullptr;
     if(package->ast.len() > 0){

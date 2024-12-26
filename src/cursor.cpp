@@ -7,24 +7,20 @@
 using namespace Pietra;
 
 
+Lexer* PStreamCursor::getLexer(){
+    return this->lexer;
+}
+
 PStreamCursor* PStreamCursor::from(const char *filename){    
-    std::FILE* fd = fopen(filename, "r");
-    if(!fd){
-        printf("[ERROR]: Couldn't open the file: '%s'\n", filename);
-        return nullptr;
-    }
-    
     PStreamCursor* cursor = Core::arena_alloc<PStreamCursor>();
-    cursor->stream = fileReader::read_file(filename);
-    assert(cursor->stream);
-        
-    init_stream(filename, cursor->stream);        
+    cursor->lexer = Lexer::open_at_file(filename);
+    cursor->stream = cursor->lexer->getPtr();    
     return cursor;
 
 }
 
 void PStreamCursor::next(){    
-    this->decl = Parser::decl();    
+    this->decl = Parser::decl(this->lexer);    
 }
 
 PCursor::PCursor(SVec<Decl*>& Decls)

@@ -82,11 +82,11 @@ namespace Pietra::Ast {
                 Expr*       rhs;
             } name_indexing;
             struct {
-                Lexer::tokenKind unary_kind;
-                Expr*            expr;
+                TokenKind           unary_kind;
+                Expr*               expr;
             } unary;
             struct {
-                Lexer::tokenKind    binary_kind;
+                TokenKind           binary_kind;
                 Expr*               left;
                 Expr*               right;
             } binary;
@@ -185,7 +185,7 @@ namespace Pietra::Ast {
     };
     
     struct TypeSpec{
-        Lexer::Token        token;
+        Token               token;
         TypeSpecKind        kind;
         bool                mutablity;
         TypeSpec*           base;    

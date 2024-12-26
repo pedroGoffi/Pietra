@@ -125,19 +125,18 @@ impl std chartoi :: (c: i64): i64 {
 impl std __cstrtoi_base :: (str: mut *i8, base: i64): i64 {
     val: i64 = 0
     
-    while *str
-    {            
-    digit: i64 = std.chartoi(*str)                        
-    if digit == 0 and !(*str == '0') {                        
-    return -1
-    }
-        
-    if base <= digit {                
-    return -1
-    }
-    // TODO: check UINT64_MAX
-    val = val * base + digit
-    str = str + 1            
+    while *str {            
+        digit: i64 = std.chartoi(*str)                        
+        if digit == 0 and !(*str == '0') {
+            return -1
+        }
+
+        if base <= digit {                
+        return -1
+        }
+        // TODO: check UINT64_MAX
+        val = val * base + digit
+        str = str + 1            
     }
     return val        
 }

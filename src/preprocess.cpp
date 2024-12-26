@@ -119,11 +119,11 @@ Expr* PreprocessExpr::binary_mult(Expr* lhs, Expr* rhs){
     return nullptr; 
 }        
 
-Expr* PreprocessExpr::binary(Lexer::tokenKind kind, Expr *lhs, Expr *rhs){
+Expr* PreprocessExpr::binary(TokenKind kind, Expr *lhs, Expr *rhs){
     switch(kind){
-        case Lexer::TK_ADD:     return binary_add(lhs, rhs);
-        case Lexer::TK_SUB:     return binary_sub(lhs, rhs);
-        case Lexer::TK_MULT:    return binary_mult(lhs, rhs);        
+        case TK_plus:       return binary_add(lhs, rhs);
+        case TK_minus:      return binary_sub(lhs, rhs);
+        case TK_mul:        return binary_mult(lhs, rhs);        
     }
     return nullptr;
 }
@@ -226,8 +226,8 @@ namespace Pietra::Preprocess{
             return r_op;
         }
     }
-    Operand eval_bin(Lexer::tokenKind kind, Expr* l, Expr* r, PreprocessContext& ctx){
-        if(kind == Lexer::TK_EQ){
+    Operand eval_bin(TokenKind kind, Expr* l, Expr* r, PreprocessContext& ctx){
+        if(kind == TK_eq){
             return eval_eq(l, r, ctx);
         }
 

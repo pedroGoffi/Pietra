@@ -73,14 +73,14 @@ Expr* expr_compound_name_indexing(const char* name, Expr* rhs){
 Expr* expr_new(){
     assert(false && "unimplemented NEW expr");
 }
-Expr* expr_unary(Lexer::tokenKind unary_kind, Expr* expr){
+Expr* expr_unary(TokenKind unary_kind, Expr* expr){
     assert(expr);
     Expr* e = init_expr(Ast::EXPR_UNARY);
     e->unary.unary_kind = unary_kind;
     e->unary.expr = expr;
     return e;
 }
-Expr* expr_binary(Lexer::tokenKind tok_kind, Expr* lhs, Expr* rhs){
+Expr* expr_binary(TokenKind tok_kind, Expr* lhs, Expr* rhs){
     Expr* e = init_expr(EXPR_BINARY);
     e->binary.binary_kind = tok_kind;
     e->binary.left = lhs;
@@ -148,43 +148,43 @@ Expr* expr_new(TypeSpec* type, Expr* size, SVec<Expr*> args){
     e->new_expr.args = args;
     return e;
 }
-TypeSpec* init_typespec(TypeSpecKind kind, Lexer::Token token){
+TypeSpec* init_typespec(TypeSpecKind kind, Token token){
     TypeSpec* ts = arena_alloc<TypeSpec>();    
     ts->kind = kind;        
     ts->token = token;
     ts->resolvedTy = type_unresolved();
     return ts;
 }
-TypeSpec* typespec_name(const char* name, Lexer::Token token){
+TypeSpec* typespec_name(const char* name, Token token){
     TypeSpec* ts = init_typespec(TYPESPEC_NAME, token);
     ts->name = Core::cstr(name);
     return ts;
 }
-TypeSpec* typespec_pointer(TypeSpec* base, Lexer::Token token){
+TypeSpec* typespec_pointer(TypeSpec* base, Token token){
     TypeSpec* ts = init_typespec(Ast::TYPESPEC_POINTER, token);
     ts->base = base;
     return ts;
 }
-TypeSpec* typespec_array(TypeSpec* base, Expr* size, Lexer::Token token){
+TypeSpec* typespec_array(TypeSpec* base, Expr* size, Token token){
     TypeSpec* ts = init_typespec(TYPESPEC_ARRAY, token);
     ts->base = base;
     ts->array.size = size;
     return ts;
 }
-TypeSpec* typespec_proc(SVec<TypeSpec*> params, TypeSpec* ret, bool has_varags, Lexer::Token token){
+TypeSpec* typespec_proc(SVec<TypeSpec*> params, TypeSpec* ret, bool has_varags, Token token){
     TypeSpec* ts = init_typespec(TYPESPEC_PROC, token);
     ts->proc.params     = params;
     ts->proc.ret        = ret;
     ts->proc.has_varags = has_varags;
     return ts;
 }
-TypeSpec* typespec_template(TypeSpec* typespec, TypeSpec* base, Lexer::Token token){
+TypeSpec* typespec_template(TypeSpec* typespec, TypeSpec* base, Token token){
     TypeSpec* ts = init_typespec(TYPESPEC_TEMPLATE, token);
     ts->base = typespec;
     ts->templated = base;
     return ts;
 }
-TypeSpec* typespec_const(TypeSpec* base, Lexer::Token token){
+TypeSpec* typespec_const(TypeSpec* base, Token token){
     TypeSpec* ts = init_typespec(TYPESPEC_CONST, token);
     ts->base = base;
     return ts;
@@ -345,14 +345,5 @@ Decl* decl_impl(const char* target, SVec<Decl*> body){
     d->impl.body = body;
     return d;
 }
-
-}
-
-void tok_err(Pietra::Lexer::Token token, const char* fmt, ...){
-    va_list ap;
-    va_start(ap, fmt);
-    fprintf(stderr, "%s: %i: %i: ", token.pos.filename, token.pos.line, token.pos.col);
-    vprintf(fmt, ap);
-    va_end(ap);
 }
 #endif /*AST_CPP*/  

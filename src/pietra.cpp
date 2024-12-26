@@ -22,6 +22,7 @@ void init_flags(){
 int Pietra::Main(int argc, char** argv){              
     init_flags();    
     assert(argc == 2);
+    initInternKeywords();
     declare_built_in();          
     PPackage* package = PPackage::from(argv[1]);        
     if(!package){

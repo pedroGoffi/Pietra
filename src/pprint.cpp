@@ -1,6 +1,7 @@
 #ifndef PRETTY_PRINT
 #define PRETTY_PRINT
 #include "../include/ast.hpp"
+#include "../include/lexer.hpp"
 #include <bits/types/FILE.h>
 
 #define pp_undefined_kind(_kind) \
@@ -181,7 +182,7 @@ namespace Pietra::pPrint{
             )
             CASE(EXPR_BINARY,
                 ident++;
-                pprint("(%s ", tokenKind_repr(e->binary.binary_kind));
+                pprint("(%s ", tokenKindRepr(e->binary.binary_kind));
                 expr(e->binary.left);            
                 pprint(" ");
                 expr(e->binary.right);                
@@ -191,7 +192,7 @@ namespace Pietra::pPrint{
             
             CASE(EXPR_UNARY,
                 ident++;
-                pprint("(%s ", Lexer::tokenKind_repr(e->unary.unary_kind));
+                pprint("(%s ", tokenKindRepr(e->unary.unary_kind));
                 expr(e->unary.expr);
                 pprint(")");
                 ident--;

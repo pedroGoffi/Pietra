@@ -25,10 +25,10 @@ namespace Pietra::Asm {
     const char* get_word_size(int size);
     Type* compile_expr(Expr* expr, CState& state);
         Type* compile_lea(CVar* local);
-        Type* compile_binary(Lexer::tokenKind kind, Ast::Expr* lhs, Ast::Expr* rhs, CState& state);
+        Type* compile_binary(TokenKind kind, Ast::Expr* lhs, Ast::Expr* rhs, CState& state);
         Type* compile_modify_var(CVar* var, Ast::Expr* expr);
         void compile_cmp_zero(Type* type);
-        Type* compile_logic_expr(Lexer::tokenKind kind, Expr* lhs, Expr* rhs);
+        Type* compile_logic_expr(TokenKind kind, Expr* lhs, Expr* rhs);
         Type* compile_assign_var_expr(Expr* var_expr, Expr* rhs);
         void compile_pre_call_args(SVec<Expr*> args);
     Type* load(Type* type);
