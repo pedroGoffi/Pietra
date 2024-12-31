@@ -95,34 +95,6 @@ new_allocator :: (item_nbytes: i64, list_items: i64): *any {
 }
 ```
 
-### Expression Parsing
-
-Pietra Lang allows complex expressions, which can include operations like addition, subtraction, and logical comparisons.
-
-Here's how a new expression is parsed:
-
-```pi
-Expr* new_expr(Lexer* lexer) {
-    lexer->nextToken();
-    Expr* list_items_number = nullptr;
-    if(lexer->expect(TK_lbracket)){
-        list_items_number = expr(lexer);
-        assert(lexer->expect(TK_rbracket));
-    } else {
-        list_items_number = Utils::expr_int(lexer->getLocation(), 1);
-    }
-    TypeSpec* type = typespec(lexer);
-    SVec<Expr*> args;
-    if(lexer->expect(TK_lparen)) {
-        args = expr_list(lexer);
-        assert(lexer->expect(TK_rparen));
-    }
-    return Utils::expr_new(lexer->getLocation(), type, list_items_number, args);
-}
-```
-
-This function handles the parsing of a `new` expression, which includes the creation of arrays and objects.
-
 ### Custom Flags
 
 Custom flags in Pietra Lang allow users to modify or extend the behavior of the language. Flags like `@flag("struct_reassign")` or `@flag("new_allocator")` can be used to introduce specific behavior into the program's execution or compilation.
