@@ -1,8 +1,0 @@
-[
-{
-  "directory": "/home/pietra/Pietra",
-  "command": "/usr/bin/clang++   -Wall -Wextra -std=gnu++20 -o CMakeFiles/pi.dir/main.cpp.o -c /home/pietra/Pietra/main.cpp",
-  "file": "/home/pietra/Pietra/main.cpp",
-  "output": "CMakeFiles/pi.dir/main.cpp.o"
-}
-]
