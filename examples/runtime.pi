@@ -1,0 +1,4 @@
+#run "std/runtime.rtpi"
+
+
+main :: (){}

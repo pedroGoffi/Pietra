@@ -1,0 +1,35 @@
+#package "pietra.std.runtime"
+// NOTE: this file is a comptime subset of this language 
+// to use you would have to add to your main code 
+// #run "package path"
+
+myglobal := "hello, world\n"
+callee :: () {
+    print("im callee\n")
+    return 420
+}
+
+main :: () {
+    print("hello, world: ", myglobal)
+
+    if 1 {
+        print("inside if node\n")
+    }
+    else {
+        print("inside else node\n")
+    }
+
+    i   := 0 
+    MAX := 10
+
+    while i < MAX {
+        buffer_append("Loop count: " + str(i))
+        i = i + 1
+    }
+
+    print("OKAy\n")
+    cret := callee()
+
+    print("back to main, calle ret is = ", cret)
+
+}

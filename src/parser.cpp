@@ -8,6 +8,7 @@
 #include "../include/parser.hpp"
 #include <cassert>
 #include <iterator>
+#include "preprocess.cpp"
 
 using namespace Pietra;
 using namespace Pietra::Ast;
@@ -1082,11 +1083,31 @@ Decl* parse_comptime(Lexer* lexer){
         include_me(package_name); // Push the package in the packages        
         return nullptr;
     }
-    else if(lexer->token.name == cstr("run")){
-        assert(0 && "unimplemented");
+    else if(lexer->token.name == cstr("run")){        
         lexer->nextToken();
-        SVec<Stmt*> block = stmt_opt_curly_block(lexer);
-        // Preprocess::eval_block(block);
+        if(lexer->token.isKind(TK_dqstring)){
+            // Run file 
+            const char* file_path = lexer->token.string;
+            lexer->nextToken();
+            // build the file ast 
+            //SVec<Decl*> parser_loop(Lexer* lexer){
+            Lexer* preprocess_file_lexer = Lexer::open_at_file(file_path);
+            SVec<Decl*> preprocess_svec_ast = parser_loop(preprocess_file_lexer);
+            delete preprocess_file_lexer;
+
+            std::vector<Decl*> preprocess_ast;
+            for(Decl* node: preprocess_svec_ast){
+                preprocess_ast.push_back(node);
+            }    
+            Result file_result = Preprocess::run_ast(preprocess_ast);            
+            printf("PREPROCESS FILE RESULT: %s\n", file_result.to_string().c_str());
+        }
+        else {
+            // run block 
+            SVec<Stmt*> block = stmt_opt_curly_block(lexer);
+            Result block_result = Preprocess::prep_block(block, Preprocess::theContext);
+            printf("PREPROCESS BLOCK %s\n", block_result.to_string().c_str());        
+        }
         return nullptr;
     }
     else {
