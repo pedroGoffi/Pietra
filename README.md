@@ -1,210 +1,339 @@
-# Pietra Lang README
+# **Pietra Lang Documentation**
 
 ## Introduction
 
-Pietra Lang is a statically-typed, compiled programming language designed to provide high performance, low-level control, and flexibility. It is primarily used for system programming and offers features like custom memory allocation, type specifications, and direct manipulation of hardware resources.
-
-The language syntax is inspired by C-style languages but incorporates additional features like flags for customization, custom memory allocators, and specialized memory management tools. Pietra Lang is highly optimized for performance while keeping the syntax clean and expressive.
-
-Please note that **Pietra Lang is still under construction**. While many features are functional, some advanced functionalities are under active development, including LLVM compilation, Windows portation, self-hosting, and floating types.
+**Pietra Lang** is a programming language designed to handle both compile-time and runtime operations efficiently. It features a clear, concise syntax that supports basic constructs, variable declarations, functions, control flow, preprocessing, and built-in functions.
 
 ---
 
-## Key Features
+## **Table of Contents**
 
-- **Low-Level Memory Management**: Pietra Lang offers direct control over memory allocation and deallocation, allowing the use of custom allocators with the `@flag("new_allocator")` directive.
-  
-- **Type Safety**: The language enforces strict type safety to avoid common pitfalls like type mismatches and undefined behaviors.
+1. **Getting Started**
+   - Installation
+   - Running Pietra Code
 
-- **Expression Parsing**: Pietra Lang provides powerful expressions and allows custom parsers to define how expressions are evaluated.
-  
-- **Custom Flags**: With custom flags like `@flag("struct_reassign")` and `@flag("new_allocator")`, Pietra Lang can be extended with specific behavior that the user can define.
+2. **Syntax Overview**
+   - Variables and Constants
+   - Functions
+   - Control Flow
+   - Arrays and Collections
 
-- **Cross-Platform Support**: The language is designed to be cross-platform, making it suitable for a variety of hardware architectures and operating systems.
+3. **Preprocessing**
+   - Built-in Preprocessing Functions
+   - Preprocessing Constants and Values
+   - Comptime Code
 
-- **Custom Memory Allocators**: Pietra Lang supports custom memory allocators, which can be enabled using specific flags. This allows users to manage memory in a way that best suits their application's needs.
+4. **Built-in Functions**
+   - `print`
+   - `make_array`
+   - `str`
+   - `int`
+   - `buffer_append`
+   - `buffer_clear`
+   - `buffer_size`
+   - `buffer_get`
+
+5. **Advanced Concepts**
+   - Macros and Constants
+   - Error Handling
+   - Performance Optimizations
+
+6. **Examples**
+   - Basic Example
+   - Working with Arrays
+   - Implementing Factorial
+
+7. **Package System**
+   - Creating and Using Packages
+   - Importing External Packages
 
 ---
 
-## Getting Started
+## **1. Getting Started**
 
-To get started with Pietra Lang, follow these steps:
+### Installation
 
-1. **Install Pietra Lang**:  
-   Follow the instructions in the installation guide to set up the Pietra Lang compiler and runtime environment.
+To use Pietra Lang, you'll need to install the language runtime and compiler. The installation process varies by platform.
 
-2. **Create a New Project**:  
-   Create a new `.pi` file, and start writing your code with the basic syntax.
+#### Example:
+1. Clone the Pietra Lang repository.
+2. Build the compiler using the provided makefile.
+3. Install any required dependencies.
 
-3. **Compile and Run**:  
-   Use the Pietra Lang compiler to compile your `.pi` files and execute them directly or create executables.
+### Running Pietra Code
 
----
-
-## Language Syntax
-
-### Variables and Types
-
-Pietra Lang supports several primitive types, including `i8`, `i32`, `i64`, `f32`, `f64`, and `bool`. You can define variables using the following syntax:
-
-```pi
-my_integer: i32 = 10;
-my_float: f32 = 3.14;
-my_boolean: bool = true;
+You can run Pietra code by specifying the path to your `.pi` file:
+```bash
+pietra run path_to_file.pi
 ```
 
-### Functions and Methods
+---
 
-Functions are declared using the `::` operator, and methods are tied to structs and defined inside `impl` blocks. Here's an example of a function:
+## **2. Syntax Overview**
+
+### Variables and Constants
+
+In Pietra Lang, variables are declared using the `:=` operator:
+```pi
+myvar := 10
+```
+Variables are dynamically typed, meaning the type is inferred from the assigned value.
+
+To define constants, use the `const` keyword:
+```pi
+const PI := 3.14159
+```
+
+### Functions
+
+Functions in Pietra Lang are declared using the following syntax:
+```pi
+function_name :: (param: type) -> return_type {
+    // Function body
+}
+```
+
+Example of a simple function:
+```pi
+add :: (a: i64, b: i64) -> i64 {
+    return a + b
+}
+```
+
+You can also use a function that doesn’t return anything by using `None` as the return type.
+
+### Control Flow
+
+#### Conditional Statements
+
+Use the `if` statement for conditionals:
+```pi
+if condition {
+    // Code block
+}
+```
+
+Example:
+```pi
+if x > 10 {
+    print("x is greater than 10")
+}
+```
+
+#### Loops
+
+Pietra Lang supports `while` loops for iteration:
+```pi
+while condition {
+    // Code block
+}
+```
+
+Example:
+```pi
+i := 0
+while i < 5 {
+    print(i)
+    i = i + 1
+}
+```
+
+### Arrays and Collections
+
+Arrays are created using `make_array` and elements can be added using the `.push()` method:
+```pi
+arr := make_array()
+arr.push("Hello")
+arr.push("World")
+```
+
+To retrieve the array’s string representation, use the `.repr()` method:
+```pi
+arr_repr := arr.repr()
+```
+
+To access the last element, use `.end()`:
+```pi
+last_elem := arr.end()
+```
+
+---
+
+## **3. Preprocessing**
+
+### Built-in Preprocessing fields
+- is_error check if a result is error 
+- is_none  check if a result is none
+- error    get the error message, if no error it will be str(result)
+- **Observation**: those fields are not allocated but in preprocessing visit node method checked
+
+Example:
+```pi
+f := factorial(5)
+if f.is_none {
+    print("!F is none")
+}
+if f.is_error {
+    print("[FACTORIAL ERROR]: ", f.error)
+}
+
+print(f)
+```
+
+### Macros
+
+You can be defined using macros:
+```pi
+MACRONAME :: MACROVALUE
+```
+
+### Comptime Code
+
+Code that should run during compilation (comptime) can be annotated with a comment:
+```pi
+// NOTE: This code will only run at compile-time
+```
+
+You can also define compile-time behavior using special constructs or functions.
+
+---
+
+## **4. Built-in Functions in preprocess stage**
+
+Pietra Lang comes with several built-in functions for handling basic operations.
+
+- **`print`**: Prints the values passed to it.
+  ```pi
+  print("Hello, world")
+  ```
+
+- **`make_array`**: Creates a new empty array.
+  ```pi
+  arr := make_array(optional_args)
+  ```
+
+- **`str`**: Converts a value to a string.
+  ```pi
+  str_val := str(123)  // "123"
+  ```
+
+- **`int`**: Converts a value to an integer.
+  ```pi
+  int_val := int("123")  // 123
+  ```
+
+- **`buffer_append`**: Appends data to a buffer.
+  ```pi
+  buffer_append(buf, "data")
+  ```
+
+- **`buffer_clear`**: Clears the buffer.
+  ```pi
+  buffer_clear(buf)
+  ```
+
+- **`buffer_size`**: Returns the size of the buffer.
+  ```pi
+  buf_size := buffer_size(buf)
+  ```
+
+- **`buffer_get`**: Retrieves data from the buffer.
+  ```pi
+  data := buffer_get(buf)
+  ```
+
+---
+
+## **5. Advanced Concepts**
+
+### Macros and Constants
+
+Macros in Pietra Lang are like constants, but they are expanded at compile-time:
+```pi
+MACRO_X :: 100
+```
+
+These macros allow you to create reusable values or pieces of code that are substituted during compilation.
+
+### Error Handling in preprocessing stage
+
+Pietra Lang does not have traditional exceptions but handles errors using return values like `None`:
+```pi
+if result.is_none {
+    print("An error occurred.")
+}
+```
+
+### Performance Optimizations
+
+Preprocessing can also help optimize certain parts of your code during the compile-time, reducing the runtime overhead. Macros and constant folding are two examples of compile-time optimizations.
+
+---
+
+## **6. Examples**
+
+### Basic Example
 
 ```pi
 main :: () {
-    var: i32 = 10;
-    print(var);
+    x := 10
+    y := 20
+    result := add(x, y)
+    print("Result of addition:", result)
 }
 ```
 
-Methods are defined within `impl` blocks. For example, the following defines a method for a custom struct:
+### Working with Arrays
 
 ```pi
-MyStruct :: {
-    value: i32
-}
-
-impl MyStruct {
-    method :: (self: *Self) -> i32 {
-        return self.value;
-    }
-}
-```
-
-### Memory Allocation
-
-Pietra Lang allows you to allocate memory dynamically using the `new` expression. This works with the `new_allocator` flag for custom memory management.
-
-```pi
-@flag("new_allocator")
 main :: () {
-    // Allocate memory for 10 integers
-    my_array: *i32 = new i32[10];
+    arr := make_array()
+    arr.push("Hello")
+    arr.push("World")
+    print(arr.repr())  // Outputs: ['Hello', 'World']
 }
 ```
 
-You can define your custom allocator like this:
+### Implementing Factorial
 
 ```pi
-
-@flag("new_allocator")
-new_allocator :: (item_nbytes: i64, list_items: i64): *any {    
-    return std.allocate(list_items * item_nbytes);
-}
-```
-
-### Custom Flags
-
-Custom flags in Pietra Lang allow users to modify or extend the behavior of the language. Flags like `@flag("struct_reassign")` or `@flag("new_allocator")` can be used to introduce specific behavior into the program's execution or compilation.
-
-For example, the `@flag("new_allocator")` flag is used to define a custom allocator for the `new` expression, allowing developers to control memory management strategies.
-
-```pi
-@flag("struct_reassign")
-struct_reassign :: (dst: *i8, src: *i8, size: i64) {
-    i: i64 = 0;
-    while i < size {
-        dst[i] = src[i];
-        i = i + 1;
+factorial :: (x: i64) -> i64 {
+    result := 1
+    i:= 1
+    while i < x + 1{
+        result := result * i
+        i = i + 1
     }
-    return dst;
+    return result
 }
-```
 
-The `@flag("new_allocator")` can also be used to implement memory allocation logic based on custom requirements.
-
-### Built-in Functions
-
-Pietra Lang includes several built-in functions to support various tasks, including memory manipulation, type checking, and random number generation.
-
-Here’s a list of some built-in functions:
-
-- `std.allocate(size: i64)`: Allocates memory of the given size.
-- `std.memcpy(dst: *i8, src: *i8, size: i64)`: Copies memory from `src` to `dst`.
-- `std.strlen(str: *i8)`: Returns the length of the string `str`.
-- `std.rand()`: Generates a random integer.
-
-### Random Number Generation
-
-Pietra Lang also includes support for random number generation:
-
-```pi
-RAND_MAX :: 32767;
-
-impl std rand() -> i64 {
-    return (random_next = std.rand_from(random_next));
-}
-```
-
-This function can be used to generate random numbers, either for general use or within specified ranges:
-
-```pi
-random_range :: (begin: i64, end: i64) {
-    return std.rand() % (end + 1 - begin) + begin;
+main :: () {
+    fact := factorial(5)
+    print("Factorial of 5 is", fact)  // Outputs: 120
 }
 ```
 
 ---
 
-## Not Yet Implemented Features
+## **7. Package System**
 
-### LLVM Compilation
+### Creating and Using Packages
 
-The ability to compile Pietra Lang code to LLVM intermediate representation (IR) is **not yet implemented**. This feature would enable developers to optimize and compile Pietra Lang code using LLVM backends for various architectures. This feature is currently under development and will be available in future versions.
-
-### Windows Portation
-
-The current version of Pietra Lang primarily supports Linux-based environments. A **Windows portation** is planned but not yet available. Future releases will aim to support Windows as a target platform for Pietra Lang development.
-
-### Self-Hosting
-
-Self-hosting, or the ability to compile the Pietra Lang compiler itself using Pietra Lang code, is **not yet implemented**. This feature is crucial for making Pietra Lang a fully self-sustained language, and it is on the roadmap for future releases.
-
-### Floating Point Types
-
-Support for floating point types like `f32` and `f64` is currently **under development**. The current implementation of Pietra Lang supports basic integer types, but floating-point operations, such as addition, subtraction, multiplication, and division with `f32` and `f64` types, are expected to be introduced in the future.
-
----
-
-## Advanced Usage
-
-### String Interning
-
-Pietra Lang supports string interning for efficient string comparisons and memory usage. The `intern_range` function allows for string interning by storing unique strings in a list:
-
+Pietra Lang supports creating packages and importing them into your main code. To create a package, place your `.pi` files in a specific directory. Then, import them into your code using:
 ```pi
-intern_range :: (begin: cstr, end: cstr): *i8 {
-    node: mut *ll_node = intern_strings.head;
-    while node.value {
-        if std.cstrncmp(begin, node.value, end - begin) == 0 {
-            return node.value;
-        }
-        node = node.next;
-    }
-    string: *i8 = std.allocate(end - begin + 1);
-    std.memcpy(string, begin, end - begin);
-    string[end - begin + 1] = 0;
-    intern_strings.push(string);
-    return string;
-}
+#package "package_name"
 ```
 
-This improves the efficiency of string handling in Pietra Lang.
+### Importing External Packages
+
+To use an external package, you can import it in the following way:
+```pi
+#run "package path"
+```
 
 ---
 
-## Conclusion
+## **Conclusion**
 
-Pietra Lang provides a powerful combination of low-level control, performance optimization, and flexible features. With its custom memory allocators, type-safe design, and flexible expression parsing, Pietra Lang is a robust choice for system-level programming tasks.
-
-Although some features like LLVM compilation, Windows portation, self-hosting, and floating point types are **not yet implemented**, they are actively being developed and will be available in future versions of the language.
-
-By using flags like `new_allocator` and advanced features like memory manipulation and random number generation, developers can tailor their programs to meet specific needs, optimizing performance and resource usage.
+Pietra Lang is designed to be simple yet powerful, offering flexibility in both runtime and compile-time processing. With support for macros, preprocessing, and built-in functions, it allows developers to write efficient and readable code. The language is particularly well-suited for scenarios where performance optimizations and compile-time evaluations are crucial.
 
