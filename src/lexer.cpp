@@ -835,7 +835,7 @@ void resolver_log(SrcLocation loc, const char* fmt, ...){
 }
 
 
-void setDebug(bool state){
+void setResolverDebug(bool state){
 	resolver_debug = state;
 }
 MAKE_ERROR_MSG(syntax_error, 	"SYNTAX ERROR")

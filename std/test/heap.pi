@@ -62,8 +62,7 @@ Heap_Chunks_dump :: (list: *Heap_Chunks) {
         std.puts(": PTR ") 
         std.puti(chunks.start)
         std.puts(", SIZE = ")
-        std.puti(chunks.size)
-        dump("\n")
+        dump(chunks.size)
 
         i = i + 1 
     }

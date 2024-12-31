@@ -1561,7 +1561,7 @@ void makeLabel() {
         
     }
     
-    void compile_ast(SVec<Decl*> ast, COMPILER_TARGET target){        
+    void compile_ast(SVec<Decl*> ast, COMPILER_TARGET target, const char* output_file){
         
         P_SET_CTXOUT("pietra.asm")
         
@@ -1636,7 +1636,7 @@ void makeLabel() {
                 case CT_LINUX:
                 {
                     system(strf("nasm -felf64 pietra.asm"));                        
-                    system(strf("ld pietra.o -o pietra.bin"));
+                    system(strf("ld pietra.o -o %s", output_file));
                     system(strf("rm pietra.o"));
                     break;                    
                 }

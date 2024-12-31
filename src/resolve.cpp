@@ -186,18 +186,11 @@ namespace Pietra::Resolver{
         Sym* sym = nullptr;              
         if(ctx.currentProcedure){
             sym = ctx.getLocalScope()->find_sym(name);
-            if(sym) {
-                resolver_log({"\tSYM_GET LOCAL", 0}, "SYM-GET %s of type %s\n", sym->name, sym->type->repr());
-                return sym;
-            }
+            if(sym) return sym;
         }
         
         sym = ctx.getGlobalScope()->find_sym(name);
-        if(sym) {
-            resolver_log({"\tSYM_GET GLOBAL", 0}, "SYM-GET %s of type %s\n", sym->name, sym->type->repr());
-            return sym;
-        }
-        
+        if(sym) return sym;        
         return nullptr;
     }
     Sym* sym_getlval(const char* name){
@@ -613,13 +606,7 @@ namespace Pietra::Resolver{
         }        
         return operand_rvalue(type->resolvedTy);
     }
-    Operand resolve_name(const char* name){
-        if(Procedure* p = ctx.getCurrentProcedure()){
-            printf("RESOLVE NAME %s WITH CURRENT PROC %s\n", name, p->name);
-        }
-        else {
-            printf("RESOLVE NAME: %s\n", name);
-        }
+    Operand resolve_name(const char* name){    
         Sym* sym = sym_get(name);                
         if(!sym){
             resolver_error({"", 0}, "[ERROR]: the name '%s' is not declared in this scope.\n", name);            

@@ -1098,14 +1098,15 @@ Decl* parse_comptime(Lexer* lexer){
             std::vector<Decl*> preprocess_ast;
             for(Decl* node: preprocess_svec_ast){
                 preprocess_ast.push_back(node);
+         
             }    
-            Result file_result = Preprocess::run_ast(preprocess_ast);            
+            Result file_result = prep_run_ast(preprocess_ast);            
             printf("PREPROCESS FILE RESULT: %s\n", file_result.to_string().c_str());
         }
         else {
             // run block 
             SVec<Stmt*> block = stmt_opt_curly_block(lexer);
-            Result block_result = Preprocess::prep_block(block, Preprocess::theContext);
+            Result block_result = prep_block(block, theContext);
             printf("PREPROCESS BLOCK %s\n", block_result.to_string().c_str());        
         }
         return nullptr;

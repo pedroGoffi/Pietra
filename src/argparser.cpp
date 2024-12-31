@@ -76,13 +76,14 @@ public:
 
     // Function to show the help message
     void show_help() const {
-        std::cout << "Usage:\n";
+        printf("Usage:\n");    
         for (const auto& [arg, data] : arguments_) {
-            std::cout << "  " << arg;
+            printf("  %s", arg.c_str());
             if (!data.is_flag) {
-                std::cout << " <value>";
+                printf(" <value>");                
             }
-            std::cout << " - " << data.help << "\n";
+            printf(" - %s\n", data.help.c_str());
+            
         }
     }
 
