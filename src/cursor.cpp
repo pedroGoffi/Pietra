@@ -3,7 +3,7 @@
 #include "../include/cursor.hpp"
 #include "../include/arena.hpp"
 #include "../include/file.hpp"
-#include "parser.cpp"
+
 using namespace Pietra;
 
 

@@ -16,10 +16,10 @@ MEM_POLL :: {
 }
 impl MEM_POLL {    
     constructor :: (self: *Self){
-        self.blocks     = sbrk(MEM_POLL_BLOCKS_CAP)
+        self.blocks = sbrk(MEM_POLL_BLOCKS_CAP)
         i: i64 = 0;
         while i < MEM_POLL_NUM_BLOCKS {
-            self.blocks[i] = sbrk(MEM_POLL_PAGE_SIZE)
+            self.blocks[i]  = sbrk(MEM_POLL_PAGE_SIZE)
             i = i + 1;
         }
         self.size = 0
@@ -57,8 +57,10 @@ std_MEM_POLL: MEM_POLL
 impl std allocate   :: (nbytes: i64): *any 
     return std_MEM_POLL.allocate(nbytes)
     
+
 impl std swap_ptr   :: (p1: *any, p2: *any) {
     tmp: *any = *p1;
     *p1 = *p2;
     *p2 = tmp;
 }
+

@@ -1,0 +1,11 @@
+use std::test{vector}
+
+
+main :: (){
+    vec: Vector;
+    vec.push(420)
+    
+    dump(vec.size())
+
+    
+}

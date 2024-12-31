@@ -28,6 +28,7 @@ Type self_ty        = {.kind = TYPE_SELF,   .name = Core::cstr("Self"), .ismut =
 
 
 
+
 TypeField* init_typefield(const char* name, Type* type){
     TypeField* tf = Core::arena_alloc<TypeField>();
     tf->name = name;
@@ -39,6 +40,11 @@ Type* type_init(TypeKind kind, bool ismut = false){
     t->kind     = kind;
     t->ismut    = ismut;
     return t;
+}
+
+Type* type_none(){
+    // type none is a compiler only 
+    return &unresolved_ty;
 }
 Type* type_void(){
   return &void_ty;

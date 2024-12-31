@@ -1,128 +1,183 @@
-#ifndef BRIGGE
-#define BRIGGE
+#ifndef BRIDGE_HPP
+#define BRIDGE_HPP
 #include "arena.hpp"
 #include "smallVec.hpp"
+#include <stack>
 #include "type.hpp"
 #include "interns.hpp"
 #include <map>
+#include "resolve.hpp"
+#include <string>
+
 
 using namespace Pietra::Core;
 using namespace Pietra::Ast;
+using namespace Pietra::Resolver;
 /*
-Bridge idea is to make the AST code to lower level making it easier to compile to llvm or assembly x86_64
+Bridge idea is to make the AST code to lower level, making it easier to compile to LLVM or assembly x86_64
 */
-namespace Pietra::CBridge {    
-    bool checkNameRedefinition(const char* str);
-    void raiseException(const char* description);
 
-    struct CConstexpr{
-        const char* name;
-        // TODO: constexpr arguments
-        Expr*       expr;
+namespace Pietra::CBridge {
 
-        static CConstexpr* New(const char* name, Expr* expr){
-            CConstexpr* ce = arena_alloc<CConstexpr>();            
-            ce->name = name;
-            ce->expr = expr;
-            return ce;
-        }
-    };
+    namespace Constants {
+        struct ConstantExpression {
+            const char* name;
+            Expr* expr;
 
-    struct CVar {      
-      const char *name;
-      Type *type;
-      Expr *init;
-      bool isGlobal = false;
-      int stackOffset;              
-    };
+            static ConstantExpression* Create(const char* name, Expr* expr);
+            void display() const;
+        };
+    }
 
+    namespace Variables {
+        struct Variable {
+            const char* name;
+            Type* type;
+            Expr* initializer;
+            bool isGlobal = false;
+            bool isParameter = false;
+            int stackOffset;
 
-    struct CProc{
-        const char*     name;        
-        bool            isRecursive;
-        size_t          stackAllocation;        
-        Type*           type;
-        SVec<CVar*>     *params = arena_alloc<SVec<CVar*>>();
-        SVec<CVar*>     *locals = arena_alloc<SVec<CVar*>>();
+            Variable(const char* name, Type* type, Expr* initializer, bool isGlobal = false, bool isParameter = false, int stackOffset = 0);
+            void display() const;
+        };
+    }
 
-        int             tmp_vars_offset;
-        SVec<CVar*>     tmp_vars;
+    namespace Procedures {
+        using namespace Variables;
 
+        struct Procedure {
+            const char*         name;
+            bool                isRecursive;
+            size_t              stackAllocation;
+            Type*               returnType;
+            SVec<Variable*>*    parameters      = arena_alloc<SVec<Variable*>>();
+            SVec<Variable*>*    localVariables  = arena_alloc<SVec<Variable*>>();
+            ScopeManager*       scope;
+            bool                is_used = false;
 
-        size_t calcStackAllocation();
-        CVar* get_tmp_var(const char* name);
-        void push_tmp_var(CVar* var);
-        void forget_tmp_vars();
-        CVar* init_tmp_var(const char* name, Type* type);
-        CVar* find_var_from(const char* str, SVec<CVar*> *list);
-        CVar* find_local(const char* name);
-        CVar* find_param(const char* name);
-        bool checkNameColision(const char* name);
-        void allocateLocalVar(CVar* &var, bool isParam);
-    };
-        
-    enum CStateKind {
-        C_NONE,
-        C_GET_ADDR,          
-        C_GOT_PROC
-    };
-    struct CState{        
-        CStateKind kind;
+            ScopeManager*& getScope();
+            
+            Procedure(const char* name, Type* returnType);
+            size_t calculateStackAllocation();
+            Variable* findVariableInList(const char* str, SVec<Variable*>* list);
+            Variable* findLocalVariable(const char* name);
+            Variable* findParameter(const char* name);
+            bool hasNameCollision(const char* name);
+            void allocateLocalVariable(Variable*& var, bool isParameter);
+            void display() const;
+        };
+    }
 
-        CState& operator=(CState& other){
-            this->set(other.kind);
-            return *this;
-        }
-        bool operator==(CState& other){
-            return *this == other.kind;
-        }
-        bool operator!=(CState& other){
-            return *this != other.kind;
-        }        
+    namespace State {
+        enum CompilerStateKind {
+            S_NONE,
+            S_GETADDR,
+            S_PROCEDURE
+        };
 
-        bool operator==(CStateKind other_kind){
-            return this->kind == other_kind;
-        }
-        bool operator!=(CStateKind other_kind){
-            return this->kind != other_kind;
-        }        
-        
+        struct CompilerState {
+            CompilerStateKind stateKind;
 
-        bool expect(CStateKind k){
-            if(this->is(k)){
-                this->set(C_NONE);
-                return true;
-            }
-            return false;
-        }
-        void set(CStateKind k){
-            this->kind = k;
-        }
-        bool is(CStateKind k){
-            return this->kind == k;
-        }
-    };    
-
-    struct X86Context {
-        CState              state;          // State of the compiler
-        FILE*               OUT;            // Output channel
-        SVec<CProc*>        Cps;            // Compiled procs
-        CProc*              Cp;             // Current proc
-        SVec<std::string>   Strs;           // Strings
-        CVar                GVars;          // Global vars        
-
-        std::map<const char*, int> enumMap;        
-        CState   ACtx;   // Assembly context
+            CompilerState(CompilerStateKind stateKind);
+            CompilerState();
+            bool operator==(CompilerState& other);
+            bool operator!=(CompilerState& other);
+            CompilerState& set(CompilerStateKind newKind);
+            bool is(CompilerStateKind kind) const;
+            void reset();
+            void display() const;
 
         
-    };
-    
-    int CreateGlobalString(std::string str);
-    int CreateGlobalString(const char* str);
-    CVar* CreateVar(const char* name, Type* type, Expr* init, bool isGlobal, bool isParam);
-    int* get_enum(const char* str);
-    void set_enum(const char* str, int val);
-    CProc* GetProc(const char* name);
-    CProc* CreateProc(const char* name, Type* type);    
+            static CompilerState& None();
+            static CompilerState& GetAddress();
+            static CompilerState& GotProcedure();
+            
+        };
+    }
+
+    namespace Context {
+        using namespace Procedures;
+        using namespace Variables;
+
+        struct AssemblyContext {
+            Type*                                   self = nullptr;
+            State::CompilerState                    compilerState;
+            SVec<Procedure*>                        compiledProcedures;
+            FILE*                                   outputChannel;                    
+            Procedure*                              currentProcedure;
+            SVec<Variable*>                         globalVariables;
+            std::map<const char*, int>              enumMap;
+            SVec<Constants::ConstantExpression*>    constantExpressions;
+            std::vector<Procedure*>                 tracebackProcedures;                    
+
+            
+            ScopeManager* scope;
+
+
+            
+            ScopeManager* getGlobalScope();
+            ScopeManager* getLocalScope();
+            
+            void currentProcedureRewind();
+            Constants::ConstantExpression* getConstantExpression(const char* name);
+            void addConstantExpression(Constants::ConstantExpression* expr);            
+            AssemblyContext();
+            void setSelf(Type* ty);
+            Type* getSelf();
+            void clearSelf();
+            Procedure* getCurrentProcedure();
+            void clearCurrentProcedure();
+            void setCurrentProcedure(Procedure* proc);
+            void addProcedure(Procedure* proc);
+            void allocateVariableInCurrentProcedure(Variable* var, bool isParameter);
+            Variable* getGlobalVariables(const char* name);
+            void allocateGlobalVariable(Variable* var);            
+            Procedure* findProcedureByName(const char* name);
+        };
+    }
+
+    // TypeDefinition class
+    namespace TypeDefinitions {
+        class TypeDefinition {
+        public:
+            std::string typeName;
+            Type* type;
+
+            TypeDefinition(const std::string& name, Type* ty);
+            void display() const;
+            bool isEqual(const TypeDefinition& other) const;
+        };
+    }
+
+    // TypeDefinitionManager class to manage all TypeDefinitions
+    namespace TypeDefinitions {
+        class TypeDefinitionManager {
+        private:
+            std::map<std::string, TypeDefinition*> typeDefs; // A map to store type definitions by name
+
+        public:
+            void addTypeDefinition(const std::string& name, Type* type);
+            TypeDefinition* getTypeDefinition(const std::string& name);
+            void removeTypeDefinition(const std::string& name);
+            void displayAllTypeDefinitions() const;
+            void clearAllTypeDefinitions();
+            ~TypeDefinitionManager();
+        };
+    }
+
+    namespace Factory {
+        using namespace Variables;
+        using namespace Procedures;
+
+        int createGlobalString(SVec<const char*>& list, const char* str);
+        Variable* createVariable(const char* name, Type* type, Expr* initializer, bool isGlobal, bool isParameter);
+        int* getEnumValue(const char* str);
+        void setEnumValue(const char* str, int val);        
+        Procedure* createProcedure(const char* name, Type* returnType);
+        Constants::ConstantExpression* createConstantExpression(const char* name, Expr* expr);
+    }
 }
-#endif /*BRIGGE*/
+
+
+#endif /* BRIDGE_HPP */

@@ -6,27 +6,21 @@ AF_INET     :: 2
 SOCK_STREAM :: 1
 
 SocketAddrData :: {
-    __d1: i64 // 8
-    __d2: i32 // 12
+    __d1: i64 // 8    
 }
 SocketAddr :: {
   sa_family:  i16
   sa_data:    SocketAddrData
 }
+
 SocketAddr_in :: {
   sin_family: i16 
   sin_port:   i16
   sin_addr:   i32 
-  sin_zero:   i64 
+  sin_zero:   SocketAddrData
 }
 
-assert :: (v: i64, msg: *i8){
-  if not v 
-  {
-    std.puts(msg)
-    exit(1)
-  }
-}
+
 
 use std{bits}
 htons :: (s: i64): i64 

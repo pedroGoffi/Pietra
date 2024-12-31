@@ -1,0 +1,75 @@
+#package "pietra.test.vector"
+use std{malloc}
+
+
+SIZE_MAX :: 18446744073709551615
+MIN :: (a: i64, b: i64) {
+    if a < b {
+        return a 
+    }
+    return b
+}
+
+MAX :: (a: i64, b: i64) {
+    if a > b {
+        return a 
+    }
+    return b
+}
+CLAMP_MIN :: (x: i64, min: i64) {
+    return MAX(x, min)
+}
+
+Vector :: {
+    m_data: mut *any
+    m_size: i64 
+    m_cap:  i64
+}
+
+
+
+impl Vector grow :: (self: *Self, new_size: i64) : void  {
+
+    
+    std.assert(self.m_cap < (SIZE_MAX - 1) / 2, "vector.grow: self.m_cap < (SIZE_MAX - 1) / 2")    
+    new_cap: i64 = CLAMP_MIN(2 * self.m_cap, MAX(new_size, 16))
+    std.assert(new_size < new_cap, "vector.grow: new_size < new_cap")
+    
+    
+    if self.m_cap == 0 {
+        self.m_size = 0
+        self.m_cap  = new_size
+        self.m_data = malloc(new_size)
+    }
+    else {
+        self.m_size = new_size
+        self.m_cap  = new_cap
+        self.m_data = malloc(self.m_data, new_cap)    
+    }
+}
+
+impl Vector check_if_fits :: (self: *Self, size: i64)     : i64  {}
+
+impl Vector push :: (self: *Self, item: any) : void  {
+    if self.m_size > self.m_cap {
+        self.grow(8)
+    }
+
+    self.m_data[self.m_size] = item;
+    self.m_size = self.m_size + 1;
+}
+
+impl Vector back :: (self: *Self): mut *any {
+    std.assert(self.m_size > 0, "vector.back: self.m_size > 0")
+    return self.m_data[self.m_size - 1]
+}
+
+impl Vector pop_back :: (self: *Self): any  {
+        
+    self.back() = 0;    
+    self.m_size = self.m_size - 1
+}
+
+impl Vector size :: (self: *Self): i64 {
+    return self.m_size
+}

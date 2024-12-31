@@ -47,6 +47,7 @@ namespace Pietra::Ast {
     
     struct Expr{
         ExprKind kind;
+        SrcLocation loc;
         union {
             uint64_t    int_lit;
             double      float_lit;
@@ -150,6 +151,7 @@ namespace Pietra::Ast {
     };    
     struct Stmt{
         StmtKind kind;
+        SrcLocation loc;
         union {
             StmtWhile*  stmt_while;
             struct {
@@ -186,6 +188,7 @@ namespace Pietra::Ast {
     
     struct TypeSpec{
         Token               token;
+        SrcLocation loc;
         TypeSpecKind        kind;
         bool                mutablity;
         TypeSpec*           base;    
@@ -214,6 +217,7 @@ namespace Pietra::Ast {
     struct ProcParam{
         const char* name;
         bool        isVararg;
+        SrcLocation loc;
         TypeSpec*   type;
         Expr*       init;
     };
@@ -246,6 +250,7 @@ namespace Pietra::Ast {
     enum aggregateKind { AGG_NONE,  AGG_STRUCT, AGG_UNION };
     struct Decl{
         DeclKind    kind;
+        SrcLocation loc;
         const char* name;
         SVec<Note*> notes;
         union {

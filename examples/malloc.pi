@@ -9,7 +9,7 @@ main :: (){
     std.puts("TABLES BEFORE FREE\n")
     malloc_show_info()
     free(ptr);
-    std.puts("TABLES AFTER FREE\n")
+    std.puts("\nTABLES AFTER FREE\n")
     malloc_show_info()
 }
 

@@ -77,6 +77,7 @@ namespace Pietra::Ast {
     };
     TypeField* init_typefield(const char* name, Type* type);
     Type* type_init(TypeKind kind, bool ismut);
+    Type* type_none();
     Type* type_int(int size, bool ismut);
     Type* type_void();
     Type* type_any();

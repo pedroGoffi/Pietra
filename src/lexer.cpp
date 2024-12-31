@@ -3,7 +3,9 @@
 #include "../include/lexer.hpp"
 #include "../include/srcLocation.hpp"
 #include <cstdarg>
+#include "file.cpp"
 #include "interns.cpp"
+bool resolver_debug = true;
 
 
 void initInternKeywords() {
@@ -818,18 +820,28 @@ void error(SrcLocation loc, const char* fmt, ...) {
 	printf("\n\n");
 	va_end(args);
 }
-void syntax_error(SrcLocation loc, const char* fmt, ...) {
+
+
+void resolver_log(SrcLocation loc, const char* fmt, ...){
+	if(!resolver_debug) return;
 	if (loc.name == nullptr) {
-		loc = loc_builtin;
+		loc = SrcLocation("RESOLVER LOG", 0);
 	}
-	va_list args;
+	va_list args;	
 	va_start(args, fmt);
-	printf("FILE %s\n\t(%d: %d): [SYNTAX ERROR]: ", loc.name, loc.lineNumber, loc.lineOffset);
-	vprintf(fmt, args);
-	printf("\n\n");
+	printf("%s (%d: %d): resolver log: ", loc.name, loc.lineNumber, loc.lineOffset);
+	vprintf(fmt, args);	
 	va_end(args);
-	exit(1);
 }
+
+
+void setDebug(bool state){
+	resolver_debug = state;
+}
+MAKE_ERROR_MSG(syntax_error, 	"SYNTAX ERROR")
+MAKE_ERROR_MSG(compiler_error, 	"COMPILER ERROR")
+MAKE_ERROR_MSG(resolver_error, 	"RESOLVER ERROR");
+
 
 SVec<const char*> included_packages;
 bool is_included(const char* str){

@@ -10,25 +10,35 @@ impl ll_list constructor :: (self: *Self){
     head.next               = self.end        
     self.size               = 0
 }
-impl ll_list push :: (self: *Self, item: any){    
-    ptr: mut *ll_node   = self.end
-    ptr.value           = item    
-    ptr                 = ptr.next = std.allocate(sizeof(ll_node))            
-    self.end            = ptr
-    self.size           = self.size + 1
+impl ll_list push :: (self: *Self, item: any) {
+    new_node: *ll_node = std.allocate(sizeof(ll_node))
+    end_node: *ll_node
+    new_node.value = item
+    new_node.next = nullptr
+
+    if (self.size == 0) {
+        self.head = new_node
+        self.end = new_node
+    } else {
+        end_node = self.end
+        end_node.next = new_node
+        self.end = new_node
+    }
+
+    self.size = self.size + 1
 }
 impl ll_list at :: (self: *Self, index: i64): *any {
-    if self.size < index {
+    if self.size <= index {
         std.puts("[ERROR]: ll_list.at index out of range\n")
-        exit(1)        
+        exit(1)
     }
 
     node: mut *ll_node = self.head
     i: i64 = 0
-    while i < index {                    
+    while i < index {
         node = node.next
-        i    = i + 1
-    }    
+        i = i + 1
+    }
     return &node.value
 }
 init_ll_list_ptr :: (): *ll_list {
@@ -75,12 +85,19 @@ impl ll_list sort_by :: (self: *Self, sort_func: proc(i64, i64)){
     }
 }
 
+impl ll_list iter :: (self: *Self, func: proc(*any): *any): null {
+    node: mut *ll_node = self.head
+    while node != nullptr {
+        func(node.value)
+        node = node.next
+    }
+}
 impl ll_list map :: (self: *Self, func: proc(any): any): *ll_list{
     ret: *ll_list = std.allocate(sizeof(ll_list))
     node: mut *ll_node = self.head
     while node.value 
     {
-        got_v: i64 = func(node.value)
+        got_v: *any = func(node.value)
         ret.push(got_v)
         node = node.next
     }

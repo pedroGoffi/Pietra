@@ -5,7 +5,6 @@
 #include "file.cpp"
 #include "interns.cpp"
 #include "package.cpp"
-#include "../include/preprocess.hpp"
 #include "../include/parser.hpp"
 #include <cassert>
 #include <iterator>
@@ -30,7 +29,7 @@ Expr* literal_expr_assign(Lexer* lexer, const char* name){
         lexer->nextToken();
         init = expr(lexer);
     }    
-    return Utils::expr_assign(name, ts, init);
+    return Utils::expr_assign(lexer->getLocation(), name, ts, init);
 
 }
 Expr* new_expr(Lexer* lexer){
@@ -42,7 +41,7 @@ Expr* new_expr(Lexer* lexer){
         assert(lexer->expect(TK_rbracket));        
     }
     else {
-        list_items_number = Utils::expr_int(1);
+        list_items_number = Utils::expr_int(lexer->getLocation(), 1);
     }
     TypeSpec* type = typespec(lexer);
     SVec<Expr*> args;
@@ -50,13 +49,14 @@ Expr* new_expr(Lexer* lexer){
         args = expr_list(lexer);        
         assert(lexer->expect(TK_rparen));        
     }        
-    return Utils::expr_new(type, list_items_number, args);    
+    return Utils::expr_new(lexer->getLocation(), type, list_items_number, args);    
 }
 Expr* literal_expr(Lexer* lexer){    
     if(lexer->token.isKind(TK_name)){
         if(lexer->token.name == switch_keyword){
             Stmt* st_switch = stmt_switch(lexer);
             return Utils::expr_switch(
+                lexer->getLocation(), 
                 st_switch->stmt_switch.cond, 
                 st_switch->stmt_switch.cases,                  
                 st_switch->stmt_switch.has_default,
@@ -71,25 +71,25 @@ Expr* literal_expr(Lexer* lexer){
             return literal_expr_assign(lexer, name);
         }
         else {
-            return Utils::expr_name(name);
+            return Utils::expr_name(lexer->getLocation(), name);
         }
     } else if(lexer->token.isKind(TK_int)){
         uint64_t i64 = lexer->token.i64;
         lexer->nextToken();
-        return Utils::expr_int(i64);    
+        return Utils::expr_int(lexer->getLocation(), i64);    
     } else if(lexer->token.isKind(TK_float)){
         double f64 = lexer->token.f64;
         lexer->nextToken();
-        return Utils::expr_float(f64);
+        return Utils::expr_float(lexer->getLocation(), f64);
     } else if(lexer->token.isKind(TK_dqstring)){
         const char* str = lexer->token.string;
         lexer->nextToken();
-        return Utils::expr_string(str);
+        return Utils::expr_string(lexer->getLocation(), str);
     } else if(lexer->token.isKind(TK_sqstring)){
         const char* str = lexer->token.string;
         lexer->nextToken();        
         char character = *str;
-        return Utils::expr_int(character);
+        return Utils::expr_int(lexer->getLocation(), character);
 
     } else if(lexer->token.isKind(TK_lparen)){
         lexer->nextToken();
@@ -97,7 +97,7 @@ Expr* literal_expr(Lexer* lexer){
             TypeSpec* ts = typespec(lexer);
             assert(lexer->expect(TK_rparen));
             Expr* base = unary_expr(lexer);
-            return Utils::expr_cast(ts, base);
+            return Utils::expr_cast(lexer->getLocation(), ts, base);
         }
         else {
             Expr* e = expr(lexer);
@@ -127,9 +127,8 @@ Expr* base_expr(Lexer* lexer){
     while(is_base_expr(lexer)){
         if(lexer->token.isKind(TK_dot)){
             lexer->nextToken();
-            Expr* child = literal_expr(lexer);
-            
-            base = Utils::expr_field_access(base, child);
+            Expr* child = literal_expr(lexer);            
+            base = Utils::expr_field_access(lexer->getLocation(), base, child);
         }  else if(lexer->token.isKind(TK_lbracket)){
             lexer->nextToken();
 
@@ -141,7 +140,7 @@ Expr* base_expr(Lexer* lexer){
             assert(lexer->token.isKind(TK_rbracket));
             lexer->nextToken();
 
-            base = Utils::expr_array_index(base, arr_field);
+            base = Utils::expr_array_index(lexer->getLocation(), base, arr_field);
 
         } else if(lexer->token.isKind(TK_lparen)){
             lexer->nextToken();
@@ -151,9 +150,13 @@ Expr* base_expr(Lexer* lexer){
                 args = expr_list(lexer);
             }
 
-            assert(lexer->token.isKind(TK_rparen));
+            if(!lexer->token.isKind(TK_rparen)){
+                syntax_error(lexer->getLocation(), "Expected ')' on closing of procedure call: got %s.\n", lexer->token.name);
+                lexer->nextToken();
+                return nullptr;
+            }
             lexer->nextToken();
-            base = Utils::expr_call(base, args);
+            base = Utils::expr_call(lexer->getLocation(), base, args);
 
         }
         else {
@@ -177,7 +180,7 @@ Expr* unary_expr(Lexer* lexer){
     while(is_unary_expr(lexer)){
         TokenKind kind = lexer->token.kind;
         lexer->nextToken();                
-        return Utils::expr_unary(kind, unary_expr(lexer));
+        return Utils::expr_unary(lexer->getLocation(), kind, unary_expr(lexer));
     }    
 
 
@@ -198,7 +201,7 @@ Expr* mult_expr(Lexer* lexer){
         lexer->nextToken();
         Expr* rhs = unary_expr(lexer);
 
-        unary = Utils::expr_binary(kind, unary, rhs);
+        unary = Utils::expr_binary(lexer->getLocation(), kind, unary, rhs);
     }
     return unary;
 }
@@ -216,7 +219,7 @@ Expr* add_expr(Lexer* lexer){
         lexer->nextToken();
         Expr* rhs = mult_expr(lexer);
 
-        mult = Utils::expr_binary(kind, mult, rhs);
+        mult = Utils::expr_binary(lexer->getLocation(), kind, mult, rhs);
 
     }
     return mult;
@@ -236,7 +239,7 @@ Expr* cmp_expr(Lexer* lexer){
         lexer->nextToken();
         Expr* rhs = add_expr(lexer);
 
-        add = Utils::expr_binary(kind, add, rhs);
+        add = Utils::expr_binary(lexer->getLocation(), kind, add, rhs);
     }
     return add;
 }
@@ -252,7 +255,7 @@ Expr* logic_expr(Lexer* lexer){
     if(lexer->token.name == cstr("not")){   
         TokenKind kind = TK_not;
         lexer->nextToken();
-        return Utils::expr_unary(kind, logic_expr(lexer));
+        return Utils::expr_unary(lexer->getLocation(), kind, logic_expr(lexer));
     }
 
     Expr* cmp = cmp_expr(lexer);
@@ -263,7 +266,7 @@ Expr* logic_expr(Lexer* lexer){
         }
         lexer->nextToken();
         Expr* rhs = cmp_expr(lexer);
-        cmp = Utils::expr_binary(kind, cmp, rhs);
+        cmp = Utils::expr_binary(lexer->getLocation(), kind, cmp, rhs);
     }
     return cmp;
 }
@@ -281,7 +284,7 @@ Expr* ternary_expr(Lexer* lexer){
         lexer->nextToken();
         Expr* otherwise = ternary_expr(lexer);
         
-        logic = Utils::expr_ternary(logic, then, otherwise);
+        logic = Utils::expr_ternary(lexer->getLocation(), logic, then, otherwise);
     }
     // TODO: implement lexing of ?? operator
     // else if(lexer->token.isKind(TK_DQUESTION)){
@@ -297,7 +300,7 @@ Expr* cast_expr(Lexer* lexer){
     if(lexer->token.name == cstr("as")){
         lexer->nextToken();
         TypeSpec* ts = typespec(lexer);
-        return Utils::expr_cast(ts, logic);
+        return Utils::expr_cast(lexer->getLocation(), ts, logic);
     }
     return logic;
 }
@@ -315,7 +318,7 @@ Expr* assign_expr(Lexer* lexer){
         TokenKind kind = lexer->token.kind;
         lexer->nextToken();
         Expr* rhs = expr(lexer);
-        cast = Utils::expr_binary(kind, cast, rhs);
+        cast = Utils::expr_binary(lexer->getLocation(), kind, cast, rhs);
     }
     return cast;
 }
@@ -336,7 +339,7 @@ Expr* expr_lambda(Lexer* lexer){
 
     SVec<Stmt*> block = stmt_opt_curly_block(lexer);
 
-    return Utils::expr_lambda(params, ret, block);    
+    return Utils::expr_lambda(lexer->getLocation(), params, ret, block);    
 }
 Expr* expr(Lexer* lexer){
     if(lexer->token.name == cstr("proc")){
@@ -348,7 +351,11 @@ SVec<Expr*> expr_list(Lexer* lexer){
     SVec<Expr*> list;
     do {
         if(list.len() > 0){
-            assert(lexer->token.isKind(TK_comma));
+            if(!lexer->token.isKind(TK_comma)){
+                syntax_error(lexer->getLocation(), "Expected ',' between expression list, got: %s.\n", lexer->token.name);
+                lexer->nextToken();
+                return {};
+            }
             lexer->nextToken();
         }
         list.push(expr(lexer));
@@ -528,6 +535,7 @@ SwitchCasePattern* switch_case_pattern(Lexer* lexer){
     else {
         
         syntax_error(lexer->getLocation(), "unknown switch case pattern token kind");
+        lexer->nextToken();
         return nullptr;
     }
 
@@ -712,6 +720,8 @@ ProcParam* proc_param(Lexer* lexer){
 
     if(!lexer->token.isKind(TK_colon)){
         syntax_error(lexer->getLocation(), "Expected ':', got \"%s\"\n", lexer->token.name);
+        lexer->nextToken();
+        return nullptr;
     }
     lexer->nextToken();
     TypeSpec* type = typespec(lexer);
@@ -722,14 +732,14 @@ ProcParam* proc_param(Lexer* lexer){
         init = expr(lexer);
     } 
 
-    return Utils::proc_param(name, type, init);
+    return Utils::proc_param(lexer->getLocation(), name, type, init);
 }
 SVec<ProcParam*> proc_params(Lexer* lexer){
     SVec<ProcParam*> params;
     if(!lexer->token.isKind(TK_lparen)){
-        printf("-> %s\n", lexer->getPtr());
-        printf("[ERROR] parser.\n");
-        exit(1);
+        syntax_error(lexer->getLocation(), "Expected '{' got '%s'\n", lexer->token.name);        
+        lexer->nextToken();
+        return {};
     }
     lexer->nextToken();
     while(!lexer->token.isKind(TK_rparen)){
@@ -775,7 +785,7 @@ Decl* decl_proc(Lexer* lexer, const char* name){
     } else {    
         block = stmt_opt_curly_block(lexer);
     }
-    return Utils::decl_proc(name, params, ret, block, is_complete, isVarargs);
+    return Utils::decl_proc(lexer->getLocation(), name, params, ret, block, is_complete, isVarargs);
 }
 
 AggregateItem* aggregate_item(Lexer* lexer){
@@ -821,7 +831,7 @@ Decl* decl_aggregate(Lexer* lexer, const char* name, aggregateKind kind){
     assert(lexer->token.isKind(TK_rcurly));
     lexer->nextToken();
     
-    return Utils::decl_aggregate(name, kind, items);
+    return Utils::decl_aggregate(lexer->getLocation(), name, kind, items);
 }
 Decl* decl_struct(Lexer* lexer, const char* name){
     if(lexer->token.name == cstr("struct")) lexer->nextToken();
@@ -857,7 +867,7 @@ Decl* decl_enum(Lexer* lexer, const char* name){
     assert(lexer->token.isKind(TK_rcurly));    
     lexer->nextToken();
 
-    return Utils::decl_enum(name, items);
+    return Utils::decl_enum(lexer->getLocation(), name, items);
 
 }
 Decl* decl_base(Lexer* lexer, const char* name, SVec<Note*> notes){
@@ -871,7 +881,7 @@ Decl* decl_base(Lexer* lexer, const char* name, SVec<Note*> notes){
     } else if(lexer->token.name == cstr("enum")){
         decl = decl_enum(lexer, name);
     } else {                  
-        decl = Utils::decl_constexpr(name, expr(lexer));
+        decl = Utils::decl_constexpr(lexer->getLocation(), name, expr(lexer));
     }    
 
     assert(decl);
@@ -888,7 +898,7 @@ Decl* decl_type(Lexer* lexer){
     assert(lexer->token.isKind(TK_scoperes));
     lexer->nextToken();
     TypeSpec* type = typespec(lexer);
-    return Utils::decl_type(name, type);
+    return Utils::decl_type(lexer->getLocation(), name, type);
 }
 SVec<const char*> use_module_names(Lexer* lexer){    
     if(!lexer->token.isKind(TK_name)) return {};    
@@ -973,7 +983,7 @@ Decl* decl_use(Lexer* lexer){
         }                
         //stream_rewind();                            
     }
-    return Utils::decl_use(module, use_all, rename);
+    return Utils::decl_use(lexer->getLocation(), module, use_all, rename);
 }
 
 SVec<Expr*> note_args(Lexer* lexer){
@@ -1045,7 +1055,7 @@ Decl* decl_impl(Lexer* lexer){
     lexer->nextToken();
     SVec<Decl*> body = parse_impl_body(lexer);
     
-    return Utils::decl_impl(target, body);
+    return Utils::decl_impl(lexer->getLocation(), target, body);
 }
 Decl* parse_comptime(Lexer* lexer){    
     if(!lexer->token.isKind(TK_name)){
@@ -1073,9 +1083,10 @@ Decl* parse_comptime(Lexer* lexer){
         return nullptr;
     }
     else if(lexer->token.name == cstr("run")){
+        assert(0 && "unimplemented");
         lexer->nextToken();
         SVec<Stmt*> block = stmt_opt_curly_block(lexer);
-        Preprocess::eval_block(block);
+        // Preprocess::eval_block(block);
         return nullptr;
     }
     else {
@@ -1125,7 +1136,7 @@ Decl* decl(Lexer* lexer){
             lexer->nextToken();
             init = expr(lexer);
         }
-        return Utils::decl_var(name, type, init);
+        return Utils::decl_var(lexer->getLocation(), name, type, init);
     }
     else {
         printf("[ERR]: expected declaration, but got: %s\n", lexer->token.name);

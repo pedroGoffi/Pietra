@@ -1,3 +1,13 @@
 #package "pietra.time"
 use std::core{types}
+use std::core{struct_timespec}
 
+impl std time_now_ms :: (): i64 {
+    t: time_t;
+    return time(&t)
+}
+
+impl std sleep :: (duration_ms: i64): null {    
+    end_time: i64 = std.time_now_ms() + duration_ms    
+    while std.time_now_ms() < end_time;
+}

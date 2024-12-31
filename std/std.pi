@@ -10,3 +10,25 @@ use std{math}
 
 
 
+
+
+impl std panic :: (message: cstr) {
+    std.puts("Panic: ")
+    std.puts(message)
+    std.puts("\n")
+    exit(1)
+}
+
+impl std assert :: (condition: i64, message: *i8){
+  if not condition 
+  {
+    std.puts("Assertion failed: ")
+    std.puts(message)
+    exit(1)
+  }
+}
+
+dump :: (value: i64) {
+  std.puti(value)
+  std.puts("\n")
+}

@@ -1,13 +1,31 @@
-.vscode/*
+# Ignore build directories
+build/
+debug/
+release/
+
+# Ignore CMake files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
+
+# Ignore IDE/editor specific files
+.idea/
+.vscode/
+.cache/
+pi
+pietra.asm 
+pietra.bin 
+pietra.obj
+TODOS.txt
+# Ignore object and binary files
+*.obj
 *.bin
 *.asm
-o
-pi
-pietra.asm
-pietra.bin 
-.mise.toml
 
-.cache/* 
-.build/*
-.debug/*
-.release/*
+# Ignore personal or temporary files
+*.swp
+*~
+
+# Ignore logs and temporary files
+*.log

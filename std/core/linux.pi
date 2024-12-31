@@ -360,6 +360,7 @@ sbrk :: (size: i64): *any
     brk(heap_ptr)    
     return heap_ptr - size;
 }
+
 open :: (filename: cstr, flags: i64, mode: i64): i64 {    
     return syscall(mode, flags, filename, SYS_open)    
 }
@@ -372,7 +373,7 @@ openat :: (dirfd: i64, pathname: imut *i8, flags: imut i64, mode: imut i64): mut
 socket :: (domain: i64, type: i64, protocol: i64): i64 { 
     return syscall(protocol, type, domain, SYS_socket);
 }
-accept :: (sockfd: i64, addr: *any, addrlen: *i64): i64 {
+accept :: (sockfd: i64, addr: *any, addrlen: *i64): i64 {    
     return syscall(addrlen, addr, sockfd, SYS_accept);
 }
 bind :: (sockfd: i64, addr: *any, addrlen: i64): i64 {
@@ -390,6 +391,10 @@ execve :: (pathname: cstr, argv: *cstr, envp: *cstr): i64 {
 close :: (fd: i64) {
     return syscall(fd, SYS_close)    
 }
-time :: (t: time_t): time_t {
+time :: (t: *time_t): time_t {
     return syscall(t, SYS_time)
+}
+
+cpu_pause :: (): i64 {
+    return syscall(SYS_pause)
 }

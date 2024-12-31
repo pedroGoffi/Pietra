@@ -1,0 +1,12 @@
+use std{std}
+use std{time}
+
+main :: (){    
+    sleep_secs: i64 = -1
+    std.puts("i'll sleep for ")
+    std.puti(sleep_secs)
+    std.puts(" seconds.\n")
+
+    std.sleep(sleep_secs)
+    std.puts("Im back :D\n")
+}

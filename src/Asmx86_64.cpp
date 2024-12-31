@@ -1,32 +1,14 @@
 #ifndef ASMPLANG
 #define ASMPLANG
-
 #include "../include/Asmx86_64.hpp"
-#include "./lexer.cpp"
-#include "pprint.cpp"
-#include "resolve.cpp"
-#include "ast.cpp"
-#include "bridge.cpp"
-#include <algorithm>
-#include <cmath>
-#include <cstdio>
-#include <cstdlib>
-#include <map>
+#include "context.cpp"
 
-#define WARN_ONCE(...)                      \
-    {                                       \
-        static bool __x = false;            \
-        if(!__x){                           \
-            printf(__VA_ARGS__);            \
-            __x = true;                     \
-        }                                   \
-    }               
 #define VARIADIC_ARGS_CAP 4096
+
 const char* AGGREGATE_CONSTRUCTOR_WORD  = Core::cstr("constructor");
 const char* AGGREGATE_DELETER_WORD      = Core::cstr("delete");
 const char* keyword_asm                 = Core::cstr("asm");
 const char* keyword_syscall             = Core::cstr("syscall");
-const char* keyword_dump                = Core::cstr("dump");
 const char* keyword_warn                = Core::cstr("warn");
 const char* keyword_extern              = Core::cstr("extern");
 const char* keyword_main                = Core::cstr("main");
@@ -36,20 +18,22 @@ const char* keyword_main                = Core::cstr("main");
 #   define __OUT stdout
 #   define P_SET_CTXOUT(filename) 
 #else 
-#   define __OUT ctx.OUT
+#   define __OUT ctx.outputChannel
 
-#   define P_SET_CTXOUT(filename)   \
-    ctx.OUT = fopen(filename, "w"); \
-    assert(ctx.OUT);
+#   define P_SET_CTXOUT(filename)               \
+    ctx.outputChannel = fopen(filename, "w");   \
+    assert(ctx.outputChannel);
 #endif
 
-#define printf(...)  fprintf(ctx.OUT, __VA_ARGS__)
-#define printc(...)  printf("\t"); printf(__VA_ARGS__)
-#define println(...) printf("\t"); printf(__VA_ARGS__); printf("\n");
-#define printlb(...) printf(__VA_ARGS__); printf(":\n")
-#define err(...)     fprintf(stderr, __VA_ARGS__)
+#undef  printf
+#define printf(...)     fprintf(ctx.outputChannel, __VA_ARGS__)
+#define printc(...)     printf("\t"); printf(__VA_ARGS__)
+#define println(...)    printf("\t"); printf(__VA_ARGS__); printf("\n");
+#define printlb(...)    printf(__VA_ARGS__); printf(":\n")
+#define err(...)        fprintf(stderr, __VA_ARGS__)
 
 namespace Pietra::Asm {
+    using namespace Resolver;
 
 using namespace Pietra;
 using namespace Ast;
@@ -63,61 +47,9 @@ const char *argreg32[] = {"edi", "esi", "edx", "r10d", "r8d", "r9d"};
 const char *argreg64[] = {"rdi", "rsi", "rdx", "r10",  "r8",  "r9"};
 #define MAX_ARGREG 7
 
-X86Context ctx;
-Decl* cp;
+
 int buffer_size = 0;
 SVec<Sym*> post_declared_compile;
-
-const char* BUILTIN_DUMP = 
-    "dump:\n"
-    "\tpush  rbp\n"
-    "\tmov   rbp, rsp\n"
-    "\tsub   rsp, 64\n"
-    "\tmov   QWORD  [rbp-56], rdi\n"
-    "\tmov   QWORD  [rbp-8], 1\n"
-    "\tmov   eax, 32\n"
-    "\tsub   rax, QWORD  [rbp-8]\n"
-    "\tmov   BYTE  [rbp-48+rax], 10\n"
-    ".L2:\n"
-    "\tmov   rcx, QWORD  [rbp-56]\n"
-    "\tmov   rdx, -3689348814741910323\n"
-    "\tmov   rax, rcx\n"
-    "\tmul   rdx\n"
-    "\tshr   rdx, 3\n"
-    "\tmov   rax, rdx\n"
-    "\tsal   rax, 2\n"
-    "\tadd   rax, rdx\n"
-    "\tadd   rax, rax\n"
-    "\tsub   rcx, rax\n"
-    "\tmov   rdx, rcx\n"
-    "\tmov   eax, edx\n"
-    "\tlea   edx, [rax+48]\n"
-    "\tmov   eax, 31\n"
-    "\tsub   rax, QWORD  [rbp-8]\n"
-    "\tmov   BYTE  [rbp-48+rax], dl\n"
-    "\tadd   QWORD  [rbp-8], 1\n"
-    "\tmov   rax, QWORD  [rbp-56]\n"
-    "\tmov   rdx, -3689348814741910323\n"
-    "\tmul   rdx\n"
-    "\tmov   rax, rdx\n"
-    "\tshr   rax, 3\n"
-    "\tmov   QWORD  [rbp-56], rax\n"
-    "\tcmp   QWORD  [rbp-56], 0\n"
-    "\tjne   .L2\n"
-    "\tmov   eax, 32\n"
-    "\tsub   rax, QWORD  [rbp-8]\n"
-    "\tlea   rdx, [rbp-48]\n"
-    "\tlea   rcx, [rdx+rax]\n"
-    "\tmov   rax, QWORD  [rbp-8]\n"
-    "\tmov   rdx, rax\n"
-    "\tmov   rsi, rcx\n"
-    "\tmov   edi, 1\n"
-    "\tmov   rax, 1\n"
-    "\tsyscall\n"
-    "\tnop\n"
-    "\tleave\n"
-    "\tret\n"
-    ;
 
 
 int count(){
@@ -131,7 +63,7 @@ void makeLabel() {
     makeLabel(count());
 }
 
-    Type* compile_unary(TokenKind kind, Expr* e, CState& state){
+    Type* compile_unary(TokenKind kind, Expr* e, State::CompilerState& state){
         switch(kind){  
             case TK_not: {
                 Type* ty = compile_expr(e, state);
@@ -151,7 +83,7 @@ void makeLabel() {
             }          
 
             case TK_and:   {                
-                Type* type = compile_expr(e, state_getaddr);
+                Type* type = compile_expr(e, State::CompilerState::GetAddress());
                 return type_ptr(type, type->ismut);
             }  
 
@@ -166,8 +98,8 @@ void makeLabel() {
                 exit(1);                
         }
     }
-    Type* compile_eq(Expr* lhs, Expr* rhs, CState& state){
-        Type* lhs_t = compile_expr(lhs, state_getaddr);                        
+    Type* compile_eq(Expr* lhs, Expr* rhs, State::CompilerState& state){
+        Type* lhs_t = compile_expr(lhs, State::CompilerState::GetAddress());                        
         if(lhs_t->name){
             if(Sym* sym = sym_get(lhs_t->name)){                
                 // NOTE:
@@ -181,7 +113,7 @@ void makeLabel() {
                 if(sym->kind == Resolver::SYM_AGGREGATE){
                     if(Sym* __eq = sym->impls.find("__eq__")){
                         push("rax", lhs_t); 
-                        compile_expr(rhs, state_none);
+                        compile_expr(rhs, State::CompilerState::None());
                         println("mov %s, rax\n", argreg64[1]);
                         pop(argreg64[0]);
                         // Get the addr and call the method (lhs).__eq__                    
@@ -191,17 +123,17 @@ void makeLabel() {
                     else if (struct_reassigner){
                         // call function(dst, src, dst.size)        
                         int dst_size = sym->type->size;
-                        Expr* base = Utils::expr_name(STRUCT_REASSIGN_FLAG);
+                        Expr* base = Utils::expr_name(lhs->loc, STRUCT_REASSIGN_FLAG);
                         SVec<Expr*> args;
                         
-                        args.push(Utils::expr_unary(TK_and, lhs));
-                        args.push(Utils::expr_unary(TK_and, rhs));                                                                        
-                        args.push(Utils::expr_int(dst_size));
-                        Expr* call = Utils::expr_call(base, args);
+                        args.push(Utils::expr_unary(lhs->loc, TK_and, lhs));
+                        args.push(Utils::expr_unary(lhs->loc, TK_and, rhs));                                                                        
+                        args.push(Utils::expr_int(lhs->loc, dst_size));
+                        Expr* call = Utils::expr_call(lhs->loc, base, args);
                         println(";; Calling std.config `%s`", struct_reassigner->name);
 
                         // NOTE: this will be compiled to struct_reassign(lhs, rhs, sizeof(lhs))
-                        return compile_expr(call, state_getaddr);                        
+                        return compile_expr(call, State::CompilerState::GetAddress());                        
                     }
                     else {
                         // Call std.memcpy 
@@ -217,13 +149,13 @@ void makeLabel() {
         push("rax", lhs_t);        
         Type* rhs_t = compile_expr(rhs, state);        
         if(rhs_t->kind == TYPE_STRUCT or rhs_t->kind == TYPE_UNION){
-            rhs_t = compile_expr(rhs, state_getaddr);
+            rhs_t = compile_expr(rhs, State::CompilerState::GetAddress());
         }
         store(lhs_t, rhs_t);        
         return lhs_t;
             
     }
-    Type* compile_binary(TokenKind kind, Ast::Expr* lhs, Ast::Expr* rhs, CState& state){        
+    Type* compile_binary(TokenKind kind, Ast::Expr* lhs, Ast::Expr* rhs, State::CompilerState& state){        
         switch(kind){            
             case TK_andand:{
                 int end_fail    = count();
@@ -231,10 +163,10 @@ void makeLabel() {
                 int end         = count();
 
 
-                Type* lhs_t = compile_expr(lhs, state_none);
+                Type* lhs_t = compile_expr(lhs, State::CompilerState::None());
                 cmp_zero(lhs_t);
                 println("je .L%i", end_fail);
-                Type* rhs_t = compile_expr(rhs, state_none);
+                Type* rhs_t = compile_expr(rhs, State::CompilerState::None());
                 cmp_zero(rhs_t);
                 println("je .L%i", end_fail);
 
@@ -248,10 +180,10 @@ void makeLabel() {
                 return lhs_t;
             }
             case TK_oror: {
-                Type* lhs_t = compile_expr(lhs, state_none);
+                Type* lhs_t = compile_expr(lhs, State::CompilerState::None());
                 cmp_zero(lhs_t);
                 push("rax", lhs_t);
-                Type* rhs_t = compile_expr(rhs, state_none);
+                Type* rhs_t = compile_expr(rhs, State::CompilerState::None());
                 cmp_zero(rhs_t);
                 pop("rbx");
                 println("add rax, rbx");                       
@@ -316,11 +248,11 @@ void makeLabel() {
                 if(lhs_t->name){
                     if(Sym* sym = sym_get(lhs_t->name)){
                         if(Sym* __add = sym->impls.find("__add__")){                            
-                            WARN_ONCE("[WARN]: TODO move structs without pass by addr.\n");
+                            // WARN_ONCE("[WARN]: TODO move structs without pass by addr.\n");
                             // @stack = rhs lhs
-                            compile_expr(lhs, state_getaddr);                                                                                                                 
+                            compile_expr(lhs, State::CompilerState::GetAddress());                                                                                                                 
                             push("rax", lhs_t);
-                            compile_expr(rhs, state_getaddr);                                                                                                                                             
+                            compile_expr(rhs, State::CompilerState::GetAddress());                                                                                                                                             
                             println("mov %s, rax", argreg64[1]);
                             pop(argreg64[0]);
                             println("call %s", __add->name);                            
@@ -387,7 +319,7 @@ void makeLabel() {
                 }
                 else {
                     err("Couldn't compile this binary.\n");                    
-                    pPrint::expr(Utils::expr_binary(kind, lhs, rhs));                    
+                    pPrint::expr(Utils::expr_binary(lhs->loc, kind, lhs, rhs));                    
                     exit(1);                    
                 }
                 println("mov rax, rcx");
@@ -397,17 +329,12 @@ void makeLabel() {
         }        
 
         err("[ERROR]: Couldn't compile the following expression.\n");
-        pPrint::expr(Utils::expr_binary(kind, lhs, rhs));
+        pPrint::expr(Utils::expr_binary(lhs->loc, kind, lhs, rhs));
         exit(1);
     }
    
-    CProc* get_cp(){
-        assert(cp);
-        CProc* p = GetProc(cp->name);
-        assert(p);
-        return p;
-    }
-    Type* lea(CVar* var){
+    
+    Type* lea(Variables::Variable* var){
         if(var->isGlobal){
             println("lea rax, G%s", var->name);
             return type_ptr(var->type, var->type->ismut);
@@ -420,7 +347,7 @@ void makeLabel() {
         }
     }
 
-    Type* mov(CVar* var){
+    Type* mov(Variables::Variable* var){
         if(var->isGlobal){
             println("mov rax, G%s", var->name);
             return type_ptr(var->type, var->type->ismut);
@@ -456,7 +383,7 @@ void makeLabel() {
             default:    return "rdi";
         }
     }
-    Type* load_word_size_from_stack(CVar* var, int offset){
+    Type* load_word_size_from_stack(Variables::Variable* var, int offset){
         println("mov rax, %s [rbp - %i]", get_word_size(var->type->size), offset);
         return var->type;
     }
@@ -620,49 +547,48 @@ void makeLabel() {
             return type->base;
         }
     }
-    Type* load(CVar* var, CState& state){
-        if(state != state_getaddr){
+    Type* load(Variables::Variable* var, State::CompilerState& state){
+        if(state != State::CompilerState::GetAddress()){
             return lea(var);            
         }
         return load(var->type);
     }
     
-    void compile_aggregate_constructor(CVar* var, Sym* constructor){
+    void compile_aggregate_constructor(Variables::Variable* var, Sym* constructor){
         // TODO: make the variable childs call for its constructor        
-        Expr* base  = Utils::expr_name(var->name);                    
-        compile_expr(base, state_none);
+        Expr* base  = Utils::expr_name({}, var->name);                    
+        compile_expr(base, State::CompilerState::None());
         println("mov rdi, rax");        
-        Expr* e     = Utils::expr_field_access(base, Utils::expr_name(AGGREGATE_CONSTRUCTOR_WORD));
-        compile_expr(e, state_none);                            
+        Expr* e     = Utils::expr_field_access({}, base, Utils::expr_name({}, AGGREGATE_CONSTRUCTOR_WORD));
+        compile_expr(e, State::CompilerState::None());                            
         println("call rax");        
     }
 
-    Type* compile_init_var(const char* name, Type* type, Expr *init, bool isGlobal, CState &state){
+    Type* compile_init_var(const char* name, Type* type, Expr *init, bool isGlobal, State::CompilerState& state){
         assert(!isGlobal && "global variables should be preprocessed in the resolver");
-        if(state != state_none){
-            err("[ERR]: init var with state != state_none.\n");
+        if(state != State::CompilerState::None()){
+            err("[ERR]: init var with state != None.\n");
             exit(1);
         }
         
-
-        
-        
-        assert(cp);
-        CProc* proc = GetProc(cp->name);
+        Procedures::Procedure* proc = ctx.getCurrentProcedure();                
         assert(proc);
+        //
+        //Procedures::Procedure* proc = ctx.findProcedureByName(cp->name);
+        //assert(proc);
         
-        CVar* var = proc->find_param(name);
+        Variables::Variable* var = proc->findParameter(name);
         if(!var){
-            var = proc->find_local(name);
+            var = proc->findLocalVariable(name);
         }
         
 
         if(!var){
             err("------------------------\n");
-            for(CVar* v: *proc->locals){
+            for(Variables::Variable* v: *proc->localVariables){
                 err("inside %s got locals = %s\n", proc->name, v->name);
             }
-            for(CVar* v: *proc->params){
+            for(Variables::Variable* v: *proc->parameters){
                 err("inside %s got params = %s\n", proc->name, v->name);
             }
                         
@@ -679,18 +605,18 @@ void makeLabel() {
             }            
         }        
         if(init){                     
-            Expr* eq = Utils::expr_binary(TK_eq, Utils::expr_name(var->name), init);            
-            compile_expr(eq, state_none);                        
+            Expr* eq = Utils::expr_binary(init->loc, TK_eq, Utils::expr_name(init->loc, var->name), init);            
+            compile_expr(eq, State::CompilerState::None());                        
         }           
         return var->type;        
     }
-    Type* compile_call(Expr* base, SVec<Expr*> args, CState& state){                    
+    Type* compile_call(Expr* base, SVec<Expr*> args, State::CompilerState& state){                    
         if(base->kind == EXPR_NAME){            
             if(base->name == keyword_asm){
                 println(";; NOTE: inline asm here.\n");
                 for(Expr* arg: args){
                     if(arg->kind != Ast::EXPR_STRING){
-                        compile_expr(arg, state_none);
+                        compile_expr(arg, State::CompilerState::None());
                     }
                     else {
                         const char* str = arg->string_lit;
@@ -715,7 +641,7 @@ void makeLabel() {
 
                 Expr* e;
                 if(sym->kind == Resolver::SYM_TYPE or sym->kind == Resolver::SYM_AGGREGATE or sym->kind == Resolver::SYM_VAR){
-                    e = Utils::expr_int(sym->type->size);
+                    e = Utils::expr_int(arg->loc, sym->type->size);
                 }
                                 
                 else {                    
@@ -728,7 +654,7 @@ void makeLabel() {
                     assert(0);
                 }
 
-                return compile_expr(e, state_none);
+                return compile_expr(e, State::CompilerState::None());
             }
     
             if(base->name == keyword_syscall){
@@ -748,23 +674,16 @@ void makeLabel() {
                 compile_expr(args.back(), state);
                 println("syscall");
                 return type_int(64, true);
-            }                        
-            else if(base->name == keyword_dump){
-                assert(args.len() == 1);
-                compile_expr(args.at(0), state_none);
-                println("mov rdi, rax");
-                println("call dump");
-                return type_void();
-            }
+            }                                    
         }
         if(args.len() >= 0){
                 
-            Type* base_t = compile_expr(base, state_none);        
+            Type* base_t = compile_expr(base, State::CompilerState::None());        
             bool isVa  = false;
             int  vaPos = 0;
             if(base_t->kind == TYPE_PROC){
                 isVa  = base_t->proc.is_vararg;
-                vaPos = base_t->proc.params.len();
+                vaPos = base_t->proc.params.len() - 1;
             }            
                         
             if(!isVa){
@@ -780,13 +699,13 @@ void makeLabel() {
                 if(arg->kind == EXPR_NAME){                        
                     if(Sym* sym = sym_get(arg->name)){
                         if(sym->type->kind == Ast::TYPE_STRUCT or sym->type->kind == Ast::TYPE_UNION){                            
-                            t = compile_expr(arg, state_getaddr);
+                            t = compile_expr(arg, State::CompilerState::GetAddress());
                             push("rax", type_ptr(t, t->ismut));
                             continue;
                         }
                     }
                 }
-                t = compile_expr(arg, state_none);
+                t = compile_expr(arg, State::CompilerState::None());
                 push("rax", type_ptr(t, t->ismut));                
             }                   
             
@@ -801,7 +720,7 @@ void makeLabel() {
                 if(isVa and (argPos >= vaPos)) {                        
                     for(int i = vaPos - 1; i < args.len(); i++){
                         Expr* va_arg = args.at(i);                        
-                        compile_expr(va_arg, state_none);
+                        compile_expr(va_arg, State::CompilerState::None());
                         println("mov qword [INTERNAL__va_stack + %i], rax", va_offset);
                         va_offset += sizeof(void*);
                     }                  
@@ -819,14 +738,14 @@ void makeLabel() {
             }
             else {                
                 
-                compile_expr(base, state_none);
+                compile_expr(base, State::CompilerState::None());
             }           
             
             println("call rax");
             return base_t;
         }
         else {                                    
-            Type* base_t = compile_expr(base, state_none);        
+            Type* base_t = compile_expr(base, State::CompilerState::None());        
             if(base_t->kind != TYPE_PROC){
                 err("Expected base_t to be procedure but got %s", base_t->repr());
                 exit(1);
@@ -836,64 +755,60 @@ void makeLabel() {
         }
         
     }
-    Type* compile_name(const char* name, CState& state){                        
+    Type* compile_name(const char* name, State::CompilerState& state){                        
         // Check for procedures
-        if(CProc* cp = GetProc(name)){            
+        
+        if(Procedures::Procedure* cp = ctx.findProcedureByName(name)){            
             println("mov rax, %s", cp->name);            
-            assert(cp->type);             
-            return cp->type;
+            assert(cp->returnType);             
+            return cp->returnType;
         }        
         
-        // Check for globals
-        if(CVar* global = find_global(name)){
+        // Check for globals        
+        if(Variables::Variable* global = ctx.getGlobalVariables(name)){
             lea(global);
-            if(state != state_getaddr){
+            if(state != State::CompilerState::GetAddress()){
                 load(global->type);
             }
             return global->type;
         }
 
         // Check for parameters
-        
-        if(cp){
-            CProc* proc = GetProc(cp->name);
-
-            if(!proc){
-                err("got no proc %s\n", cp->name);
-                exit(1);
-            }
-            if(CVar* param = proc->find_param(name)){
+        Procedures::Procedure* proc = ctx.getCurrentProcedure();
+        if(proc){                    
+            if(Variables::Variable* param = proc->findParameter(name)){
                 makeLabel();
                 lea(param);
-                if(state != state_getaddr){
+                if(state != State::CompilerState::GetAddress()){
                     load(param->type);
                 }
                 return param->type;
             }
-            if(CVar* local = proc->find_local(name)){                
+            if(Variables::Variable* local = proc->findLocalVariable(name)){                
                 makeLabel();
                 lea(local);          
                 // TODO: Load if the state is not get_addr and if the local variable is not a non-pointer to a struct object                
-                if(state != state_getaddr){                                    
+                if(state != State::CompilerState::GetAddress()){                                    
                     load(local->type);                    
                 }
                 
                 return local->type;
-            }      
-            if(CConstexpr* ce = CBridge::find_constexpr(name)){
-                return compile_expr(ce->expr, state);
-            }
-        }            
+            }                  
+        }   
+               
+        if(Constants::ConstantExpression* ce = ctx.getConstantExpression(name)){
+            return compile_expr(ce->expr, state);
+        }  
         // Check for types 
-        if(Type* type = type_get(name)){            
-            return type;            
+        if(TypeDefinitions::TypeDefinition* tf = typedefs.getTypeDefinition(name)){            
+            return tf->type;            
         }
     
         err("[ERR]: name '%s' not found in this scope.\n", name);
         exit(1);
     }
 
-    Type* compile_index_offset(Type* ty, CState& state){
+    Type* compile_index_offset(Type* ty, State::CompilerState& state){
         // Here we expects 1 element on the stack that is the pointer to the type
         // the index must be in the rax register
         assert(ty->base);
@@ -908,26 +823,26 @@ void makeLabel() {
             println("add rax, rbx");               
         }
 
-        if(state != state_getaddr){
+        if(state != State::CompilerState::GetAddress()){
             return load(ty->base);
         }
         else {
             return ty;
         }
     }
-    Type* compile_index(Expr* base, Expr* index, CState& state){
-        Type* tb = compile_expr(base, state_none);
+    Type* compile_index(Expr* base, Expr* index, State::CompilerState& state){
+        Type* tb = compile_expr(base, State::CompilerState::None());
         if(!tb->base){
             err("[ERROR]: Tring to get the index of a non-pointer type.\n");
             exit(1);
         }
         push("rax", tb);
 
-        Type* in = compile_expr(index, state_none);                
+        Type* in = compile_expr(index, State::CompilerState::None());                
         int base_sz = tb->base->size;
         return compile_index_offset(tb, state);        
     }
-    Type* compile_field(Expr* parent, Expr* children, CState& state){    
+    Type* compile_field(Expr* parent, Expr* children, State::CompilerState& state){    
         // Check if we are trying to get the field of an enumeration        
         if(Sym* sym = sym_get(parent->name)){
             if(sym->kind == Resolver::SYM_ENUM){                
@@ -942,7 +857,7 @@ void makeLabel() {
         
 
 
-        Type* p = compile_expr(parent, state_getaddr);        
+        Type* p = compile_expr(parent, State::CompilerState::GetAddress());        
         if(p->kind == Ast::TYPE_PTR){
             if(p->base->kind == Ast::TYPE_STRUCT){
                 load(p);
@@ -978,7 +893,7 @@ void makeLabel() {
                         // rax: lea 
                         println("add rax, %zu", offset);
                     }
-                    if(state != state_getaddr){
+                    if(state != State::CompilerState::GetAddress()){
                         load(p);
                     }
                     return field->type;
@@ -992,7 +907,7 @@ void makeLabel() {
         err("[ERR]: get field children must be <str>.\n");
         exit(1);                        
     }
-    Type* compile_cast(TypeSpec* ts, Expr* expr, CState& state){
+    Type* compile_cast(TypeSpec* ts, Expr* expr, State::CompilerState& state){
         assert(ts->resolvedTy);
         Type* ty = ts->resolvedTy;
         compile_expr(expr, state);
@@ -1001,18 +916,18 @@ void makeLabel() {
     Type* compile_ternary(Expr* cond, Expr* then, Expr* otherwise){        
         // rax -> 1, 0
         println(";; ----------------------------------\n");
-        cmp_zero(compile_expr(cond, state_none));
+        cmp_zero(compile_expr(cond, State::CompilerState::None()));
         int end_addr = count();
         int else_addr = count();        
         println("je .L%i", else_addr);
-        Type* lhs = compile_expr(then, state_none);
+        Type* lhs = compile_expr(then, State::CompilerState::None());
         println("jmp .L%i\n", end_addr);
         makeLabel(else_addr);
-        compile_expr(otherwise, state_none);
+        compile_expr(otherwise, State::CompilerState::None());
         makeLabel(end_addr);
         return lhs;   
     }
-    Type* compile_expr_switch(Expr* e, CState& state){
+    Type* compile_expr_switch(Expr* e, State::CompilerState& state){
         assert(e->kind == EXPR_SWITCH);
         Expr* cond = e->expr_switch.cond;
         
@@ -1033,16 +948,18 @@ void makeLabel() {
             for(SwitchCasePattern* pt: c->patterns){
                 if(pt->begin != pt->end){
                     Expr* lt = Utils::expr_binary(
+                        {},
                         TK_less,
-                        Utils::expr_int(pt->begin),
+                        Utils::expr_int({}, pt->begin),
                         cond);
 
                     Expr* gt = Utils::expr_binary(
+                        {},
                         TK_greater,
-                        Utils::expr_int(pt->begin),
+                        Utils::expr_int({},pt->begin),
                         cond);
 
-                    Expr* lt_and_gt = Utils::expr_binary(TK_and, lt, gt);
+                    Expr* lt_and_gt = Utils::expr_binary({}, TK_and, lt, gt);
                     Type* cond_t = compile_expr(lt_and_gt, state);
                     cmp_zero(cond_t);
                     println("jne .L%i", begin);
@@ -1080,14 +997,15 @@ void makeLabel() {
         post_declared_compile.push(lambda);
         
         SVec<Expr*> args;
-            args.push(Utils::expr_name(lambda->name));
+            args.push(Utils::expr_name(e->loc, lambda->name));
 
         Expr* call = Utils::expr_call(
-            Utils::expr_name(lambda->name),
+            e->loc,
+            Utils::expr_name(e->loc, lambda->name),
             args
         );
         
-        return compile_expr(Utils::expr_name(lambda->name), state_none);
+        return compile_expr(Utils::expr_name(e->loc, lambda->name), State::CompilerState::None());
     }
     Type* compile_new(Expr*& e){
         if(!new_allocator){
@@ -1120,14 +1038,15 @@ void makeLabel() {
                 list_items  -> rsi | argreg64[1]                        
         */        
         SVec<Expr*> call_args;
-            /* rdi -> */ call_args.push(Utils::expr_int(rty->size));     // item nbytes
+            /* rdi -> */ call_args.push(Utils::expr_int(e->loc, rty->size));     // item nbytes
             /* rsi -> */ call_args.push(size);                               // list size
         
         Expr* new_call = Utils::expr_call(
-            Utils::expr_name(s->name),
+            e->loc,
+            Utils::expr_name(e->loc, s->name),
             call_args
         );
-        Type* ptr_ty = compile_expr(new_call, state_none);
+        Type* ptr_ty = compile_expr(new_call, State::CompilerState::None());
         if(args.len() == 0) return ptr_ty;
         if(type->kind != Ast::TYPESPEC_NAME){
             err("[ERROR]: Compiling typespec in `new` operator expects type name, got: %s.\n", type->resolvedTy->repr());
@@ -1159,7 +1078,7 @@ void makeLabel() {
         
         // stack = ... ptr                
         for(Expr*& arg: args){
-            /* rax -- nth-arg */Type* arg_ty = compile_expr(arg, state_none);
+            /* rax -- nth-arg */Type* arg_ty = compile_expr(arg, State::CompilerState::None());
             push(rax_reg_from_size(arg_ty->size), arg_ty);
         }
         // stack = ... ptr ...args
@@ -1180,7 +1099,7 @@ void makeLabel() {
         return ptr_ty;
     }
 
-    Type* compile_expr(Expr* e, CState& state){                
+    Type* compile_expr(Expr* e, State::CompilerState& state){                
         //static int i = 0;
         
         switch(e->kind){
@@ -1190,7 +1109,7 @@ void makeLabel() {
                 return type_int(64, true);
             case EXPR_STRING:   {
                 makeLabel();
-                int str_id = CreateGlobalString(e->string_lit);
+                int str_id = Factory::createGlobalString(global_strings, e->string_lit);
                 println("mov rax, S%i", str_id);                
                 return type_string(false);
             }                
@@ -1204,7 +1123,7 @@ void makeLabel() {
                     e->init_var.type->resolvedTy,
                     e->init_var.rhs,
                     false,
-                    state
+                    State::CompilerState::None()
                 );            
             case EXPR_SWITCH:       return compile_expr_switch(e, state);
             case EXPR_CALL:         return compile_call(e->call.base, e->call.args, state);
@@ -1225,10 +1144,10 @@ void makeLabel() {
     }
     Type* compile_is_between(Expr* cond, int begin, int end){        
         println("; compile_is_between");
-        Expr* low       = Utils::expr_binary(TK_less, cond, Utils::expr_int(begin));
-        Expr* high      = Utils::expr_binary(TK_greater, cond, Utils::expr_int(end));
-        Expr* logic     = Utils::expr_binary(TK_or, low, high);
-        return compile_expr(logic, state_none);        
+        Expr* low       = Utils::expr_binary(cond->loc, TK_less, cond, Utils::expr_int(cond->loc, begin));
+        Expr* high      = Utils::expr_binary(cond->loc, TK_greater, cond, Utils::expr_int(cond->loc, end));
+        Expr* logic     = Utils::expr_binary(cond->loc, TK_or, low, high);
+        return compile_expr(logic, State::CompilerState::None());        
     }
     void compile_switch_case(Stmt* s){        
         if(DEBUG_MODE){
@@ -1254,7 +1173,7 @@ void makeLabel() {
                         cmp_zero(ty);                                                                        
                     }
                     else {
-                        compile_expr(s->stmt_switch.cond, state_none);
+                        compile_expr(s->stmt_switch.cond, State::CompilerState::None());
                         println("cmp rax, %i\n", p->begin);
                     }
                     
@@ -1280,7 +1199,7 @@ void makeLabel() {
                                 Expr* e = d_enum->expr;
                                 if(e->kind == EXPR_INT){
                                     int int_val = e->int_lit;                                
-                                    compile_expr(s->stmt_switch.cond, state_none);
+                                    compile_expr(s->stmt_switch.cond, State::CompilerState::None());
                                     println("cmp rax, %i\n", int_val);
                                     println("jne .L%i", case_end_addr);
                                     continue;
@@ -1299,13 +1218,14 @@ void makeLabel() {
 
                                     SVec<Expr*> args;
                                     args.push(s->stmt_switch.cond);
-                                    args.push(Utils::expr_string(e->string_lit));
+                                    args.push(Utils::expr_string(e->loc, e->string_lit));
                                     Expr* str_cmp_expr = Utils::expr_call(
-                                        Utils::expr_name(scmp->decl->name),
+                                        e->loc,
+                                        Utils::expr_name(e->loc, scmp->decl->name),
                                         args
                                     );
 
-                                    compile_expr(str_cmp_expr, state_none);                                    
+                                    compile_expr(str_cmp_expr, State::CompilerState::None());                                    
                                     // Expected @stack [... bool]
                                     println("cmp rax, 0");
                                     println("jne .L%i", case_end_addr);
@@ -1319,7 +1239,7 @@ void makeLabel() {
                     
                     else {
                         if(not p->string){                            
-                            compile_expr(s->stmt_switch.cond, state_none);
+                            compile_expr(s->stmt_switch.cond, State::CompilerState::None());
                             println("cmp rax, 0\n");
                             println("jne .L%i", case_end_addr);
                             continue;
@@ -1337,13 +1257,14 @@ void makeLabel() {
 
                         SVec<Expr*> args;
                         args.push(s->stmt_switch.cond);
-                        args.push(Utils::expr_string(p->string));
+                        args.push(Utils::expr_string({}, p->string));
                         Expr* str_cmp_expr = Utils::expr_call(
-                            Utils::expr_name(scmp->decl->name),
+                            {},
+                            Utils::expr_name({}, scmp->decl->name),
                             args
                         );
 
-                        compile_expr(str_cmp_expr, state_none);                        
+                        compile_expr(str_cmp_expr, State::CompilerState::None());                        
                         // Expected @stack [... bool]
                         println("cmp rax, 0");
                         println("je .L%i", case_end_addr);
@@ -1351,9 +1272,9 @@ void makeLabel() {
                     }                    
                     assert(p->name);
                     Sym* sym = sym_get(p->name);                        
-                    if(CConstexpr* ce = CBridge::find_constexpr(sym->name)){
+                    if(Constants::ConstantExpression* ce = ctx.getConstantExpression(sym->name)){
                         if(ce->expr->kind == EXPR_INT){
-                            compile_expr(s->stmt_switch.cond, state_none);
+                            compile_expr(s->stmt_switch.cond, State::CompilerState::None());
                             println("cmp rax, %li\n", ce->expr->int_lit);
                             println("jne .L%i", case_end_addr);                            
                             goto compile_body;
@@ -1382,47 +1303,15 @@ void makeLabel() {
     void compile_stmt(Stmt* stmt){
         switch(stmt->kind){
             case Ast::STMT_EXPR:    {
-                compile_expr(stmt->expr, state_none);                
+                compile_expr(stmt->expr, State::CompilerState::None());                
             } break;
-            case Ast::STMT_FOR: {
-                if(!stmt->stmt_for.init and !stmt->stmt_for.cond and !stmt->stmt_for.inc){
-                    // Infinite loop
-                    int begin = count();
-                    makeLabel(begin);
-                    compile_block(stmt->stmt_for.block);
-                    println("jmp .L%i", begin);
-                    break;
-                }
-
-                if(stmt->stmt_for.init){
-                    static int for_depth = 0;
-                    Expr* init = stmt->stmt_for.init;
-                    assert(init->kind == Ast::EXPR_INIT_VAR);
-                    assert(init->init_var.type);
-                    assert(init->init_var.type->resolvedTy);
-                    
-                    CProc* proc = get_cp();
-                    CVar* tmp_var = proc->init_tmp_var(init->init_var.name, init->init_var.type->resolvedTy);
-                    for_depth++;                    
-                    {
-                        int end = count();
-                        err("init offset = %i\n", tmp_var->stackOffset);
-                    }
-                    for_depth--;
-
-                    if(for_depth == 0){
-                        proc->forget_tmp_vars();
-                    }
-
-                    exit(1);
-                }
-
-                assert(0);
+            case Ast::STMT_FOR: {                
+                assert(0 && "unimplemented");
             };
             case Ast::STMT_IF:  {                
                 int if_end   = count();
                 {
-                    Type* cond = compile_expr(stmt->stmt_if.if_clause->cond, state_none);
+                    Type* cond = compile_expr(stmt->stmt_if.if_clause->cond, State::CompilerState::None());
                     cmp_zero(cond);
                     println("je .L%i", if_end);
                     compile_block(stmt->stmt_if.if_clause->block);
@@ -1434,7 +1323,7 @@ void makeLabel() {
                     for(IfClause* elif: stmt->stmt_if.elif_clauses){
                         int elif_end = count();                        
                         
-                        Type* cond = compile_expr(elif->cond, state_none);
+                        Type* cond = compile_expr(elif->cond, State::CompilerState::None());
                         cmp_zero(cond);
                         println("je .L%i", elif_end);
                         compile_block(elif->block);                        
@@ -1464,14 +1353,14 @@ void makeLabel() {
                 makeLabel(begin);
                 if(stmt->stmt_while->is_doWhile){
                     compile_block(stmt->stmt_while->block);
-                    Type* ty = compile_expr(stmt->stmt_while->cond, state_none);
+                    Type* ty = compile_expr(stmt->stmt_while->cond, State::CompilerState::None());
                     cmp_zero(ty);
                     println("je .L%i", end);
                     println("jmp .L%i", begin);                    
                 }
                 else {                    
                     
-                    Type* ty = compile_expr(stmt->stmt_while->cond, state_none);
+                    Type* ty = compile_expr(stmt->stmt_while->cond, State::CompilerState::None());
                     cmp_zero(ty);
                     println("je .L%i", end);
                     compile_block(stmt->stmt_while->block);
@@ -1480,8 +1369,9 @@ void makeLabel() {
                 makeLabel(end);
             } break;
             case Ast::STMT_RETURN:  {
-                CProc* proc = get_cp();
-                compile_expr(stmt->expr, state_none);
+                Procedures::Procedure* proc = ctx.getCurrentProcedure();
+                assert(proc);
+                compile_expr(stmt->expr, State::CompilerState::None());
                 println("jmp .PE.%s", proc->name);
               
             } break;
@@ -1496,22 +1386,20 @@ void makeLabel() {
             compile_stmt(stmt);
     }
     
-    void compile_cproc_params(CProc *cp, SVec<ProcParam*> params){        
-         //TODO: i guess         
-    }
-    void compile_variable_deleter(CVar* var, Sym* del){
+    void compile_variable_deleter(Variables::Variable* var, Sym* del){
         if(var->type->kind == TYPE_PTR) return;
         err("deleter of %s\n", var->name);
         Expr* e = Utils::expr_field_access(
-            Utils::expr_name(var->name), 
-            Utils::expr_name(AGGREGATE_DELETER_WORD));
+            {},
+            Utils::expr_name({}, var->name), 
+            Utils::expr_name({}, AGGREGATE_DELETER_WORD));
                         
-        compile_expr(e, state_none);
+        compile_expr(e, State::CompilerState::None());
         println("call rax");
     }
-    void compile_decl_proc(Decl* d){        
+    void compile_decl_proc(Decl* d){                
         if(d->proc.is_internal) return;
-        if(d->name == keyword_dump) return;
+        
         for(Note* note: d->notes){
             if(note->name == keyword_warn){
                 for(Expr* arg: note->args){
@@ -1532,13 +1420,13 @@ void makeLabel() {
             }
         }
 
-        CProc* proc = GetProc(d->name);        
-        cp = d;
+        Procedures::Procedure* proc = ctx.findProcedureByName(d->name);                
+        ctx.setCurrentProcedure(proc);
         if(!proc){
             err("Got no proc in proc %s\n", d->name);
             exit(1);
         }
-        compile_cproc_params(proc, d->proc.params);
+        
 
         printf("%s:\n", proc->name);
         printlb(".PB.%s", proc->name);
@@ -1549,10 +1437,10 @@ void makeLabel() {
             println("sub rsp, %zu", proc->stackAllocation);
         }
 
-        assert(proc->params->len() < MAX_ARGREG);
+        assert(proc->parameters->len() < MAX_ARGREG);
         {
             int id = 0;
-            for(CVar* param: *proc->params){
+            for(Variables::Variable* param: *proc->parameters){
                 // Force struct objects to be pointer
                 if(param->type->kind != TYPE_PTR and (param->type->kind == TYPE_STRUCT or param->type->kind == Ast::TYPE_UNION)){
                     param->type = type_ptr(param->type, param->type->ismut);
@@ -1563,9 +1451,9 @@ void makeLabel() {
         compile_block(d->proc.block);        
         println("mov rax, 0");
         printlb(".PE.%s", proc->name);
-        CProc* p = GetProc(cp->name);
+        Procedures::Procedure* p = ctx.findProcedureByName(d->name);
         assert(p);        
-        for(CVar* local: *p->locals){            
+        for(Variables::Variable* local: *p->localVariables){            
             if(local->type->kind != TYPE_PTR){                
                 Sym* local_type_sym = sym_get(local->type->name);
                 if(local_type_sym){
@@ -1584,7 +1472,7 @@ void makeLabel() {
                                     if(stack_offset > 0){
                                         lea(local);
                                         println("add rax, %i", stack_offset)
-                                        load(local, state_none);
+                                        load(local, State::CompilerState::None());
                                         // println("mov rax, [rax]")
                                     }
                                     else {
@@ -1593,10 +1481,11 @@ void makeLabel() {
                                     }
 
                                     // Dummy allocation
-                                    CVar* child_var = new CVar {
+                                    Variables::Variable* child_var = new Variables::Variable {
                                         child_sym->name,
                                         child_sym->type,
                                         nullptr,
+                                        false,
                                         false,
                                         stack_offset                                    
                                     };
@@ -1612,6 +1501,7 @@ void makeLabel() {
         }        
         println("leave");
         println("ret");                
+        ctx.clearCurrentProcedure();
     }
     void compile_decl_impl(Decl* &decl){        
         for(Decl* node: decl->impl.body){
@@ -1641,10 +1531,10 @@ void makeLabel() {
     }
 
     void compile_segment_data(){                
-        if(Strs.len() > 0){
+        if(global_strings.len() > 0){
             printf("segment .data\n");
             int id = 0;
-            for(std::string str: Strs){
+            for(std::string str: global_strings){
                 printc("S%i: db ", id++);
                 for(char c: str){
                     printf("%zu, ", (size_t)c);
@@ -1657,8 +1547,8 @@ void makeLabel() {
     void compile_segment_bss(){
         printf("segment .bss\n");
         println("__heap_end__: resq 1");        
-        if(buffer_size > 0 or globals.len() > 0){                        
-            for(CVar* global: globals){
+        if(buffer_size > 0 or ctx.globalVariables.len() > 0){                        
+            for(Variables::Variable* global: ctx.globalVariables){
                     printc("G%s: resb %i\n", global->name, global->type->calcSize());
             }
         }
@@ -1670,8 +1560,9 @@ void makeLabel() {
         
         
     }
-
-    void compile_ast(SVec<Decl*> ast){
+    
+    void compile_ast(SVec<Decl*> ast, COMPILER_TARGET target){        
+        
         P_SET_CTXOUT("pietra.asm")
         
 
@@ -1679,9 +1570,9 @@ void makeLabel() {
         printf("segment .text\n");
         println("global _start:");
 
-        printf("%s", BUILTIN_DUMP);
-        
-        for(Decl* decl: ast){
+    
+                
+        for(Decl* decl: ast){            
             compile_decl(decl);
         }
         for(Sym* post: post_declared_compile){
@@ -1691,7 +1582,7 @@ void makeLabel() {
         }
 
         printlb("_start");
-        CProc* pmain = GetProc(keyword_main);
+        Procedures::Procedure* pmain = ctx.findProcedureByName(keyword_main);
         if(!pmain){
             err("[ERROR]: Expected the 'main' procedure to be declared\n");
             exit(1);
@@ -1701,12 +1592,12 @@ void makeLabel() {
         println("mov rdi, 0");
         println("syscall");        
         println("mov [__heap_end__], rax")
-        for(CVar* global: globals){
+        for(Variables::Variable* global: ctx.globalVariables){
             assert(global->isGlobal);
-            if(global->init){
+            if(global->initializer){
                 lea(global);
                 push("rax", global->type);
-                compile_expr(global->init, state_none);
+                compile_expr(global->initializer, State::CompilerState::None());
                 store();
             }
 
@@ -1720,9 +1611,9 @@ void makeLabel() {
                 }                
             }            
         }
-        if(pmain->params->len() != 0)
+        if(pmain->parameters->len() != 0)
         {
-            assert(pmain->params->len() == 2);
+            assert(pmain->parameters->len() == 2);
             println("mov %s, [rsp]", argreg64[0]);
             println("mov %s, rsp", argreg64[1]);
             println("add %s, 8\n", argreg64[1]);
@@ -1734,15 +1625,30 @@ void makeLabel() {
         println("syscall");
         compile_segment_data();
         compile_segment_bss();                
-        fclose(ctx.OUT);
+        fclose(ctx.outputChannel);
         
         if(DEBUG_MODE){            
             err("[NOTE]: Compilation succesfuly.\n");            
         }
         else {
-            system(strf("nasm -felf64 pietra.asm"));                        
-            system(strf("ld pietra.o -o pietra.bin"));
-            system(strf("rm pietra.o"));
+            switch(target){
+                default:
+                case CT_LINUX:
+                {
+                    system(strf("nasm -felf64 pietra.asm"));                        
+                    system(strf("ld pietra.o -o pietra.bin"));
+                    system(strf("rm pietra.o"));
+                    break;                    
+                }
+                case CT_WINDOWS:
+                {
+                    printf("[WARN]: compiler target as windows hasn't been deployed yet, proceed with caution.\n");
+                    system(strf("nasm -fwin64 pietra.asm -nostartfiles"));
+                    system(strf("gcc pietra.obj -o pietra.exe -lkernel32 -luser32"));
+                    system(strf("del pietra.obj"));
+                    break;
+                }
+            }            
         }        
     }    
 }

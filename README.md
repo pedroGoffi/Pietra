@@ -6,7 +6,9 @@ Pietra Lang is a statically-typed, compiled programming language designed to pro
 
 The language syntax is inspired by C-style languages but incorporates additional features like flags for customization, custom memory allocators, and specialized memory management tools. Pietra Lang is highly optimized for performance while keeping the syntax clean and expressive.
 
-Currently, some features are still under development, including LLVM compilation, Windows portation, self-hosting, and floating types.
+Please note that **Pietra Lang is still under construction**. While many features are functional, some advanced functionalities are under active development, including LLVM compilation, Windows portation, self-hosting, and floating types.
+
+---
 
 ## Key Features
 
@@ -19,6 +21,8 @@ Currently, some features are still under development, including LLVM compilation
 - **Custom Flags**: With custom flags like `@flag("struct_reassign")` and `@flag("new_allocator")`, Pietra Lang can be extended with specific behavior that the user can define.
 
 - **Cross-Platform Support**: The language is designed to be cross-platform, making it suitable for a variety of hardware architectures and operating systems.
+
+- **Custom Memory Allocators**: Pietra Lang supports custom memory allocators, which can be enabled using specific flags. This allows users to manage memory in a way that best suits their application's needs.
 
 ---
 
@@ -89,6 +93,7 @@ main :: () {
 You can define your custom allocator like this:
 
 ```pi
+
 @flag("new_allocator")
 new_allocator :: (item_nbytes: i64, list_items: i64): *any {    
     return std.allocate(list_items * item_nbytes);
@@ -202,3 +207,4 @@ Pietra Lang provides a powerful combination of low-level control, performance op
 Although some features like LLVM compilation, Windows portation, self-hosting, and floating point types are **not yet implemented**, they are actively being developed and will be available in future versions of the language.
 
 By using flags like `new_allocator` and advanced features like memory manipulation and random number generation, developers can tailor their programs to meet specific needs, optimizing performance and resource usage.
+

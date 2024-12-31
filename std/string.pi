@@ -65,6 +65,8 @@ impl std puts    :: (str: cstr){
 }    
 
 
+
+
 impl std putc :: (c: i64){
     tmp: *i8 = " "; 
     tmp[0] = c;            
@@ -81,8 +83,7 @@ impl std puti :: (i: i64){
     std.fdputi(__fd_stdout, i)
 }
 
-impl std memset :: (ptr: *i8, val: i64, size: i64): *i8{
-    // The memset() function returns a pointer to the memory area s.
+impl std memset :: (ptr: mut *i8, val: i64, size: i64): *i8 {
     i: i64 = 0
     while i < size {
         ptr[i] = val
@@ -223,14 +224,14 @@ impl std cstrndup :: (s: imut *i8, n: i64): *i8 {
     // The  strdup()  function returns a pointer to a new string which is a duplicate of the string s.                  
     // Memory for the new string is obtained with std.allocate
     i: i64 = 0    
-    ret: mut *i8 = std.allocate(n)
+    cstrndup_ret: mut *i8 = std.allocate(n)
     // loop the s string and assign to ret adrres + offset of i
     while i < n {
-        ret[i] = s[i]
+        cstrndup_ret[i] = s[i]
         i = i + 1
     }
-    ret[i] = '\0'     
-    return ret    
+    cstrndup_ret[i] = '\0'     
+    return cstrndup_ret
 }
 impl std cstrdup :: (s: imut *i8): mut *i8 return std.cstrndup(s, std.strlen(s))
 impl std cstrpcpy :: (dst: *i8, src: *i8): *i8 {
@@ -300,14 +301,13 @@ impl std countdelim :: (_str: *i8, delim: *i8): i64
 {
     count: i64 = 0
     str: mut *i8 = _str
-    begin: mut *i8  = str
+    begin_delim: mut *i8  = str
     offset: i64 
-
     
     do {
-        begin       = str
+        begin_delim       = str
         str         = std.cstrtok(str, delim) 
-        offset      = str - begin - 1         
+        offset      = str - begin_delim - 1         
         count       = count + 1                                            
     } while offset > 0
     

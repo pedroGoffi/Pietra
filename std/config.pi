@@ -3,6 +3,7 @@ use std{std}
 use std{list}
 
 
+
 @string_comparator  
 string_comparator  :: (s1: cstr, s2: cstr): i64 {
     if not s1 return false

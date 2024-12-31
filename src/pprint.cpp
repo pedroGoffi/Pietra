@@ -69,9 +69,12 @@ namespace Pietra::pPrint{
         }
     }
     void expr(Expr* e){
-        if(!e) return;
+        if(!e) {
+            pprint("<expr = nullptr>");
+            return;
+        }
 
-      
+        printf("expr-kind = %i\n", e->kind);
         switch(e->kind){
             CASE(EXPR_INT, 
                 pprint("%li", e->int_lit);
@@ -99,6 +102,9 @@ namespace Pietra::pPrint{
                 pprint("%lf", e->float_lit);                
             )
             CASE(EXPR_NAME,
+                if(!e->name){
+                    pprint("expr.name with nullptr.\n");
+                }
                 pprint("%s", e->name);                
             )
             CASE(EXPR_NEW,                
@@ -132,9 +138,9 @@ namespace Pietra::pPrint{
             CASE(EXPR_FIELD,                
                 pprint("(");
                 expr(e->field_acc.parent);
-                pprint(".");
-                expr(e->field_acc.children);
-                pprint(")");
+                //pprint(".");
+                //expr(e->field_acc.children);
+                //pprint(")");
                 
             )
             CASE(EXPR_CALL,

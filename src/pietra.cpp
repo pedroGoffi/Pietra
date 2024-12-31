@@ -9,19 +9,16 @@
 #include "pprint.cpp"
 #include "resolve.cpp"
 #include "type.cpp"
-#include "preprocess.cpp"
+#include "context.cpp"
 #include "Asmx86_64.cpp"
 //#include "llvm.cpp"
 
 
 
-void init_flags(){                     
-    init_or_get_flag(FLAG_NAME_IMPLICIT_CAST, true);
-}
 
-int Pietra::Main(int argc, char** argv){              
-    init_flags();    
+int Pietra::Main(int argc, char** argv){
     assert(argc == 2);
+    Pietra::Asm::COMPILER_TARGET target = {Pietra::Asm::COMPILER_TARGET::CT_LINUX};
     initInternKeywords();
     declare_built_in();          
     PPackage* package = PPackage::from(argv[1]);        
@@ -29,9 +26,11 @@ int Pietra::Main(int argc, char** argv){
         printf("[ERROR]: Could not find the package %s\n", argv[1]);
         exit(1);
     }    
+    
+    setDebug(false);
     SVec<Decl*> ast = resolve_package(package);
-       
-    Asm::compile_ast(ast);
+    
+    Asm::compile_ast(ast, target);
     //LLVMCompiler::compile_ast(ast);        
     
     if (DEBUG_MODE) printf("Pietra compiled successfuly.\n");

@@ -296,7 +296,7 @@ compile_decl_proc :: (name: *i8, proc: *DeclProc){
     {
         sub_reg_by_i64("rsp", current_proc.stack_allocation)
     }
-    compile_block(proc.block)
+    compile_block(proc.blocks)
     commit("\tmov rax, 0\n")
     commit(".PE.")  commit(name) commit(":\n")
 

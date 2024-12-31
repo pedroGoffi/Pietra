@@ -29,20 +29,17 @@ main :: (){
     len: i64 = 10
     arr: *i64 = allocate_array(len)
     i: i64 = 0;
-
-    ptr_foreach(arr, len, proc(index: i64, item: any){
-        arr[index] = std.random_range(0, 100)
-    })
-    //arr[0] = std.random_range(0, 100)
-    //arr[1] = std.random_range(0, 100)
-    //arr[2] = std.random_range(0, 100)
-    //arr[3] = std.random_range(0, 100)
-    //arr[4] = std.random_range(0, 100)
-    //arr[5] = std.random_range(0, 100)
-    //arr[6] = std.random_range(0, 100)
-    //arr[7] = std.random_range(0, 100)
-    //arr[8] = std.random_range(0, 100)
-    //arr[9] = std.random_range(0, 100)
+    
+    arr[0] = std.random_range(0, 100)
+    arr[1] = std.random_range(0, 100)
+    arr[2] = std.random_range(0, 100)
+    arr[3] = std.random_range(0, 100)
+    arr[4] = std.random_range(0, 100)
+    arr[5] = std.random_range(0, 100)
+    arr[6] = std.random_range(0, 100)
+    arr[7] = std.random_range(0, 100)
+    arr[8] = std.random_range(0, 100)
+    arr[9] = std.random_range(0, 100)
     
     ptr_array_sort(arr, len)
 

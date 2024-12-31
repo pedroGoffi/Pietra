@@ -30,52 +30,5 @@ impl http send_html_to_fd :: (fd: i64, html: *i8)
     http.commit_payload(fd)
 }
 
-
-HTTP_SERVER :: 
-{
-    addr:           mut SocketAddr_in
-    cli:            mut SocketAddr_in
-    addrlen:        mut i32
-    cli_handle:     mut proc(i64): i64
-    clilen:         mut i32
-    sockfd:         mut i32
-    connfd:         mut i32
-}
 SERVER_ERROR :: -1
-impl HTTP_SERVER constructor :: (ip: i64, port: i64): *Self {
-    serv: *HTTP_SERVER      = std.allocate(sizeof(HTTP_SERVER))
-    serv.addrlen            = sizeof(SocketAddr_in)
-    serv.clilen             = sizeof(SocketAddr_in)
-    serv.sockfd             = socket(AF_INET, SOCK_STREAM, 0)
-    addr: *SocketAddr_in    = &serv.addr
-    addr.sin_family         = AF_INET
-    addr.sin_addr           = ip    
-    addr.sin_port           = htons(port)
-    
-    std.puts("[]: Initializing the server\n")
-    std.puts("\t||>[]: Binding the server            .. ")
-    if not bind(serv.sockfd, addr, sizeof(SocketAddr_in)) == 0  return SERVER_ERROR
-    std.puts("OK\n")
-    
-    std.puts("\t||>[]: Starting listening            .. ")
-    if not listen(serv.sockfd, HTTP_SERVER_BACKLOG) == 0        return SERVER_ERROR
-    std.puts("OK\n")
-    
-    std.puts("\t||>[]: Awaiting to accept the Client .. ")
-    serv.connfd = accept(serv.sockfd, &serv.cli, &serv.clilen)
-    std.puts("OK\n")
-    std.puts("||[*]: Server initialized and bound with the client!\n")
-    std.puts("---------------------------------------\n")    
-    return serv
-}
-
-impl HTTP_SERVER close :: (self: *Self)
-{
-    close(self.connfd)
-    close(self.sockfd)
-}
-
-impl HTTP_SERVER send_html :: (self: *Self, html_data: *i8){
-    http.send_html_to_fd(self.connfd, html_data)
-}
 

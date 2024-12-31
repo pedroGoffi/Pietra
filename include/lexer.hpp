@@ -7,6 +7,21 @@
 #include <filesystem>
 #define PIETRA_EXTENSION ".pi"
 
+#define DEFINE_ERROR_MSG(_error_kind) \
+void _error_kind(SrcLocation loc, const char* fmt, ...);
+
+#define MAKE_ERROR_MSG(_error_kind, _error_message)                              								\
+void _error_kind(SrcLocation loc, const char* fmt, ...) {                        								\
+    if (loc.name == NULL) {                                                      								\
+        loc = loc_builtin;                                                       								\
+    }                                                                            								\
+    va_list args;                                                                								\
+    va_start(args, fmt);                                                         								\
+    printf("~%s (line:%d: column:%d): [" _error_message "] ", loc.name, loc.lineNumber, loc.lineOffset); \
+    vprintf(fmt, args);                                                          			 					\
+    va_end(args);																								\
+	exit(1);                                                               	 		  							\
+}
 
 const char* new_keyword;
 const char* and_keyword;
@@ -230,7 +245,12 @@ public:
 
 const char* tokenKindRepr(TokenKind kind);
 void error(SrcLocation loc, const char* fmt, ...);
-void syntax_error(SrcLocation loc, const char* fmt, ...);
+DEFINE_ERROR_MSG(syntax_error)
+DEFINE_ERROR_MSG(compiler_error)
+DEFINE_ERROR_MSG(resolver_error);
+
+void resolver_log(SrcLocation loc, const char* fmt, ...);
+void setDebug(bool state);
 #define fatal_error(...) (error(__VA_ARGS__), exit(1))
 #define error_here(...) (error(token.pos, __VA_ARGS__))
 #define warning_here(...) (error(token.pos, __VA_ARGS__))

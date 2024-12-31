@@ -1,283 +1,359 @@
-#ifndef CPP_BRIDGE
-#define CPP_BRIDGE
+#ifndef BRIDGE_CPP
+#define BRIDGE_CPP
 #include "../include/bridge.hpp"
-#include <cstring>
 
 
-namespace Pietra::CBridge{
-    X86Context          ctx;
-    SVec<const char*>   DefinedNames;
-    SVec<CConstexpr*>   constexprs;
-    CState state_none       = {.kind=C_NONE};
-    CState state_getaddr    = {.kind=C_GET_ADDR};    
-    CState state_got_proc   = {.kind=C_GOT_PROC};
+
+
+
+namespace Pietra::CBridge {
+    using namespace Variables;
+    using namespace Context;
+    
+    using namespace Constants;
+    using namespace State;
+    // --- Constants ---
+    // ConstantExpression Constructor
+    Constants::ConstantExpression* Constants::ConstantExpression::Create(const char* name, Expr* expr) {
+        ConstantExpression* ce = arena_alloc<ConstantExpression>();
+        ce->name = name;
+        ce->expr = expr;
+        return ce;
+    }
+
+    // --- Variables ---
+    // Variable Constructor
+    Variables::Variable::Variable(const char* name, Type* type, Expr* initializer, bool isGlobal, bool isParameter, int stackOffset)
+        : name(name), type(type), initializer(initializer), isGlobal(isGlobal), isParameter(isParameter), stackOffset(stackOffset) {}
+
+    // Display method for Variable
+    void Variables::Variable::display() const {
+        printf("Variable: %s, Type: %p, IsGlobal: %s\n", name, type, isGlobal ? "Yes" : "No");
+    }
+
+    // --- Procedures ---
+    // Procedure Constructor
+    
+
+
+    Procedures::Procedure::Procedure(const char* name, Type* returnType)
+        : name(name), returnType(returnType), isRecursive(false), stackAllocation(0) {}
+
+
     
     
-    bool checkNameRedefinition(const char* str){
-        for(const char* name: DefinedNames){
-            if(name == str) 
-                return true;
+    ScopeManager*& Procedures::Procedure::getScope(){ return this->scope; }
+    // Calculate Stack Allocation
+    size_t Procedures::Procedure::calculateStackAllocation() {
+        // Placeholder for actual implementation
+        return 0;
+    }
+
+    // Find Variable in List
+    Variables::Variable* Procedures::Procedure::findVariableInList(const char* str, SVec<Variables::Variable*>* list) {
+        str = cstr(str);
+        for (auto* var : *list) {            
+            if (cstr(var->name) == str) {                
+                return var;
+            }        
         }
-        return false;
-    }
-    void raiseException(const char* description){
-        printf("[ERR]: %s\n", description);
-        exit(1);        
-    }    
-    size_t CProc::calcStackAllocation(){
-        size_t alloc = 0;
-        
-        for(CVar* var: *this->locals) alloc += var->type->size;
-        for(CVar* var: *this->params) alloc += var->type->size;
-        printf("calc sa = %zu\n", alloc);
-        return alloc;
-        
+        return nullptr;
     }
 
-    CVar* CProc::init_tmp_var(const char* name, Type* type){        
-        if(this->tmp_vars_offset == 0){
-            this->tmp_vars_offset = calcStackAllocation();
+    // Find Local Variable
+    Variables::Variable* Procedures::Procedure::findLocalVariable(const char* name) {
+        return findVariableInList(name, this->localVariables);
+    }
+
+    // Find Parameter
+    Variables::Variable* Procedures::Procedure::findParameter(const char* name) {
+        return findVariableInList(name, this->parameters);
+    }
+
+    // Check Name Collision
+    bool Procedures::Procedure::hasNameCollision(const char* name) {
+        return findLocalVariable(name) != nullptr || findParameter(name) != nullptr;
+    }
+
+    // Allocate Local Variable
+    void Procedures::Procedure::allocateLocalVariable(Variables::Variable*& var, bool isParameter) {
+        this->stackAllocation += var->type->size;
+        var->stackOffset = this->stackAllocation;
+        if (isParameter) {            
+            this->parameters->push(var);
+        } else {
+            this->localVariables->push(var);
         }
-        
+    }
 
-        CVar* var = arena_alloc<CVar>();    
-        var->name = name;        
-        var->type = type;        
-        var->stackOffset = this->tmp_vars_offset;        
-        this->tmp_vars_offset += var->type->calcSize();        
-        var->isGlobal = false;        
-        return var;
+    // Display method for Procedure
+    void Procedures::Procedure::display() const {
+        printf("Procedure: %s, IsRecursive: %s\n", name, isRecursive ? "Yes" : "No");
+    }
+
+    // --- State ---
+    // CompilerState Constructor
+    State::CompilerState::CompilerState(CompilerStateKind stateKind) : stateKind(stateKind) {}
+    State::CompilerState::CompilerState() : stateKind(S_NONE) {}
+
+    // Comparison Operators for CompilerState
+    bool State::CompilerState::operator==(CompilerState& other) {
+        return this->is(other.stateKind);
+    }
+
+    bool State::CompilerState::operator!=(CompilerState& other) {
+        return !this->is(other.stateKind);
+    }
+
+    // Set method for CompilerState
+    State::CompilerState& State::CompilerState::set(CompilerStateKind newKind) {
+        stateKind = newKind;
+        return *this;
+    }
+
+    // Check if state is of given kind
+    bool State::CompilerState::is(CompilerStateKind kind) const {
+        return stateKind == kind;
+    }
+
+    // Reset method for CompilerState
+    void State::CompilerState::reset() {
+        stateKind = S_NONE;
+    }
+
+    // Display method for CompilerState
+    void State::CompilerState::display() const {
+        printf("CompilerState: %d\n", stateKind);
+    }
+
+    static CompilerState state_none = CompilerState(S_NONE);
+    static CompilerState state_getaddr = CompilerState(S_GETADDR);
+    static CompilerState state_proc = CompilerState(S_PROCEDURE);
+    CompilerState& State::CompilerState::None(){
+        return state_none;
+    }
+    CompilerState& State::CompilerState::GetAddress(){
+        return state_getaddr;
+    }
+    CompilerState& State::CompilerState::GotProcedure(){
+        return state_proc;
+    }
+    // --- Context ---
+    // AssemblyContext Constructor   
+    ScopeManager* Context::AssemblyContext::getGlobalScope(){
+        return this->scope;
     }
     
-    CVar* CProc::get_tmp_var(const char* name){
-        for(CVar* var: this->tmp_vars){
-            if(var){                
-                if(var->name == name){
-                    return var;                
-                }
+    void Context::AssemblyContext::currentProcedureRewind(){
+        if(!this->tracebackProcedures.empty()){
+            Procedure* last_traceback_procedure = this->tracebackProcedures.back();
+            assert(last_traceback_procedure);
+            this->tracebackProcedures.pop_back();
+            this->setCurrentProcedure(last_traceback_procedure);
+
+        }
+    }
+        
+    ScopeManager* Context::AssemblyContext::getLocalScope(){
+        return this->currentProcedure->getScope();
+    }
+
+    Constants::ConstantExpression* Context::AssemblyContext::getConstantExpression(const char* name){
+        name = cstr(name);
+        for(Constants::ConstantExpression* ce: this->constantExpressions){
+            if(ce->name == name) return ce;
+        }
+        return nullptr;
+    }
+    void Context::AssemblyContext::addConstantExpression(Constants::ConstantExpression* expr){
+        if(this->getConstantExpression(expr->name)){
+            printf("duplicated constexpr.\n");
+        }
+
+        this->constantExpressions.push(expr);
+        ;
+    }
+
+    
+
+    Context::AssemblyContext::AssemblyContext()
+        : currentProcedure(nullptr), globalVariables({}), outputChannel(stdout), scope(new ScopeManager) {}
+
+    // Set the type of the AssemblyContext's "self"
+    void Context::AssemblyContext::setSelf(Type* ty) {
+        this->self = ty;
+    }
+
+    // Get the type of the AssemblyContext's "self"
+    Type* Context::AssemblyContext::getSelf() {
+        return this->self;
+    }
+
+    // Clear the "self" in AssemblyContext
+    void Context::AssemblyContext::clearSelf() {
+        this->self = nullptr;
+    }
+
+    // Get the current procedure in the context
+    Procedure* Context::AssemblyContext::getCurrentProcedure() {
+        return this->currentProcedure;
+    }
+
+    // Clear the current procedure in the context
+    void Context::AssemblyContext::clearCurrentProcedure() {
+        this->setCurrentProcedure(nullptr);
+    }
+
+    // Set the current procedure in the context
+    void Context::AssemblyContext::setCurrentProcedure(Procedure* proc) {
+        this->currentProcedure = proc;
+    }
+
+    // Add a procedure to the context
+    void Context::AssemblyContext::addProcedure(Procedure* proc) {    
+        proc->getScope() = new ScopeManager;        
+        this->compiledProcedures.push(proc);
+        this->setCurrentProcedure(proc);
+        this->tracebackProcedures.push_back(proc);
+    }
+
+    // Allocate a variable in the current procedure
+    void Context::AssemblyContext::allocateVariableInCurrentProcedure(Variable* var, bool isParameter) {
+        assert(this->currentProcedure);
+        this->currentProcedure->allocateLocalVariable(var, isParameter);
+    }
+
+    // Get a global variable by name
+    Variable* Context::AssemblyContext::getGlobalVariables(const char* name) {
+        name = cstr(name);
+        for (Variable* var : this->globalVariables) {
+            if (var->name == name) {
+                return var;
             }
         }
         return nullptr;
     }
 
-    void CProc::push_tmp_var(CVar* var){
-        assert(ctx.Cp);
-        assert(!this->get_tmp_var(var->name));
-        this->tmp_vars.push(var);
-    }
-    void CProc::forget_tmp_vars(){
-        this->tmp_vars.reset();
-        this->tmp_vars_offset = 0;
-    }
-    
-
-    CVar* CProc::find_var_from(const char* str, SVec<CVar*> *list) {
-        assert(list);
-        for(CVar* var: *list){
-            if(var->name == str) 
-                return var;
-        }
-        return nullptr;
-    }
-    CVar* CProc::find_local(const char* name){
-        return this->find_var_from(name, this->locals);
-    }
-    CVar* CProc::find_param(const char* name){
-        return this->find_var_from(name, this->params);
+    // Allocate a global variable
+    void Context::AssemblyContext::allocateGlobalVariable(Variable* var) {
+        this->globalVariables.push(var);
+        
     }
 
-    bool CProc::checkNameColision(const char* name){
-        return  checkNameRedefinition(name)     or 
-                this->find_local(name) != nullptr   or
-                this->find_param(name) != nullptr
-                ;
-    }
-    void CProc::allocateLocalVar(CVar* &var, bool isParam){
-        if(checkNameColision(var->name)){
-            raiseException(strf("local var with name colision: %s\n", var->name));            
-        }
-        
-        this->stackAllocation += var->type->calcSize();
-        
-        var->stackOffset = this->stackAllocation;
-        
-        if(isParam){
-            this->params->push(var);
-        }
-        else {
-            this->locals->push(var);
-        }
-                
-    }
-    
-        
-    
-    // NOTE: it returns the String location in the array
-    SVec<const char*> Strs;
-    int CreateGlobalString(const char* str){
-        int id = Strs.len();
-        Strs.push(str);        
-        return id;
-    }
-    CProc* GetProc(const char* name){                
-        for(CProc* proc: ctx.Cps){            
-            if(proc->name == name) {
-                ctx.Cp = proc;
+
+
+    // Find procedure by name (currently returning nullptr)
+    Procedure* Context::AssemblyContext::findProcedureByName(const char* name) {
+        for(Procedures::Procedure* proc: this->compiledProcedures){
+            if(proc->name == name){
                 return proc;
             }
         }
         return nullptr;
     }
-    CProc* CreateProc(const char* name, Type* type){                        
-        if(checkNameRedefinition(name)){
-            raiseException(strf("name redeclaration of procedure %s", name));            
-        }
-        CProc* cp = arena_alloc<CProc>();
-        cp->name = Core::cstr(name);            
-        cp->type = type;
-        cp->locals = arena_alloc<SVec<CVar*>>();
-        cp->params = arena_alloc<SVec<CVar*>>();
 
-        ctx.Cp = cp;
-        DefinedNames.push(cp->name);
-        ctx.Cps.push(cp);
-        return cp;            
-    }
-    SVec<CVar*> globals;
-    CVar* find_global(const char* name){
-        for(CVar* var: globals){
-            if(var->name == name) return var;
-        }
-        return nullptr;
-    }
-    void push_global(CVar* var){
-        assert(!find_global(var->name));
-        globals.push(var);
+    // --- TypeDefinitions ---
+    // TypeDefinition Constructor
+    TypeDefinitions::TypeDefinition::TypeDefinition(const std::string& name, Type* ty)
+        : typeName(name), type(ty) {}
+
+    // Display method for TypeDefinition
+    void TypeDefinitions::TypeDefinition::display() const {
+        printf("TypeDefinition: %s, Type: %p\n", typeName.c_str(), type);
     }
 
-    CVar* CreateVar(const char* name, Type* type, Expr* init, bool isGlobal = false, bool isParam = false){        
-        if(checkNameRedefinition(name)){
-            raiseException(strf("name redeclaration of variable %s", name));
-        }
-        CVar* var = arena_alloc<CVar>();
-        var->name = Core::cstr(name);
-        var->name = name;
-        var->type = type;
-        var->init = init;
-        var->isGlobal = isGlobal;
-        
+    // Compare two TypeDefinitions
+    bool TypeDefinitions::TypeDefinition::isEqual(const TypeDefinition& other) const {
+        return typeName == other.typeName && type == other.type;
+    }
 
-        if(isGlobal){
-            push_global(var);
+    // --- TypeDefinitionManager ---
+    // Add a TypeDefinition to the manager
+    void TypeDefinitions::TypeDefinitionManager::addTypeDefinition(const std::string& name, Type* type) {
+        if (typeDefs.find(name) == typeDefs.end()) {
+            typeDefs[name] = new TypeDefinition(name, type);
+        } else {
+            printf("TypeDefinition with name '%s' already exists!\n", name.c_str());
         }
-        else {
-            assert(ctx.Cp);
-            ctx.Cp->allocateLocalVar(var, isParam);
+    }
+
+    // Get a TypeDefinition by name
+    TypeDefinitions::TypeDefinition* TypeDefinitions::TypeDefinitionManager::getTypeDefinition(const std::string& name) {
+        auto it = typeDefs.find(name);
+        if (it != typeDefs.end()) {
+            return it->second;
         }
         
-        return var;
-    }    
-    int* get_enum(const char* str){
-        if(ctx.enumMap.find(str) != ctx.enumMap.end()){
-            return &ctx.enumMap[str];
-        }
-
         return nullptr;
     }
-    void set_enum(const char* str, int value){
-        if(get_enum(str)){
-            printf("[ERROR]: constexpr redeclaraton %s.\n", str);
-            exit(1);
-        }
 
-        ctx.enumMap[str] = value;
+    // Remove a TypeDefinition by name
+    void TypeDefinitions::TypeDefinitionManager::removeTypeDefinition(const std::string& name) {
+        auto it = typeDefs.find(name);
+        if (it != typeDefs.end()) {
+            delete it->second;
+            typeDefs.erase(it);
+        } else {
+            printf("TypeDefinition with name '%s' not found to remove!\n", name.c_str());
+        }
     }
+
+    // Display all TypeDefinitions
+    void TypeDefinitions::TypeDefinitionManager::displayAllTypeDefinitions() const {
+        for (const auto& pair : typeDefs) {
+            pair.second->display();
+        }
+    }
+
+    // Clear all TypeDefinitions
+    void TypeDefinitions::TypeDefinitionManager::clearAllTypeDefinitions() {
+        for (auto& pair : typeDefs) {
+            delete pair.second;
+        }
+        typeDefs.clear();
+    }
+
+    // Destructor to clean up memory
+    TypeDefinitions::TypeDefinitionManager::~TypeDefinitionManager() {
+        clearAllTypeDefinitions();
+    }
+
+    // --- Factory ---
+    // Create a global string
     
-    
-
-    Type*   tmp_self = nullptr;
-    void set_self_t(Type* t){
-        tmp_self = t;
-    }
-    void reset_self_t(){
-        tmp_self = nullptr;
-    }
-    std::map<const char*, Type*> aliasM;
-    Type* type_get(const char* name){
-        name = Core::cstr(name);
-        if(aliasM.find(name) != aliasM.end()){
-            return aliasM[name];
-        }
-
-        return nullptr;
-    }
-    void type_set(const char* name, Type* type){
-        name = Core::cstr(name);
-        assert(!type_get(name));
-        aliasM[name] = type;
-    }
-    CConstexpr* find_constexpr(const char* name){
-        for(auto& ce: constexprs){
-            if(ce->name == name) return ce;
-        }
-        return nullptr;
-    }
-    void save_constexpr(const char* name, Expr* expr){
-        assert(!find_constexpr(name));
-        assert(!checkNameRedefinition(name));
-
-        CConstexpr* ce = CConstexpr::New(name, expr);
-        constexprs.push(ce);
-        DefinedNames.push(name);
-    }
-    std::vector<CBridge::CProc*> cproc_save;
-    void save_cp(){
-        cproc_save.push_back(CBridge::ctx.Cp);
-    }    
-    void cp_rewind(){
-        if(cproc_save.size() > 0){
-            CBridge::ctx.Cp = cproc_save.back();
-            cproc_save.pop_back();
-        }
+    int Factory::createGlobalString(SVec<const char*>& list, const char* str) {
+        list.push(str);
+        return list.len() - 1;
     }
 
-    struct Flag {
-        const char*     name;
-        bool            state;        
-    };
-    #define IF_FLAG(__flag_str__, ...) if(CBridge::get_flag(__flag_str__)->state != false) {__VA_ARGS__}
-    // FLAGS
-    #define FLAG_NAME_IMPLICIT_CAST Core::cstr("-wImplictCast")    
-    ///
-    SVec<Flag*> flags;    
-    Flag* get_flag(const char* name){
-        name = Core::cstr(name);
-        for(Flag* flag: flags){            
-            if(flag->name == name) return flag;
-        }
+    // Create a variable
+    Variable* Factory::createVariable(const char* name, Type* type, Expr* initializer, bool isGlobal, bool isParameter) {
+        return new Variable(name, type, initializer, isGlobal, isParameter);
+        
+    }
 
+    // Get an enum value
+    int* Factory::getEnumValue(const char* str) {
         return nullptr;
     }
 
-    Flag* init_or_get_flag(const char* name, bool init_as = false){
-        name = Core::cstr(name);
-        Flag* f = get_flag(name);
-        if(f) return f;
-
-
-        f = arena_alloc<Flag>();
-        f->name  = name;
-        f->state = init_as;
-        flags.push(f);
-        return f;
-    }
-
-    void set_flag(const char* name, bool state){
-        name = Core::cstr(name);
-        Flag* flag = get_flag(name);        
-        flag->state = state;        
+    // Set an enum value
+    void Factory::setEnumValue(const char* str, int val) {
     }
 
     
+
+    // Create a new procedure
+    Procedure* Factory::createProcedure(const char* name, Type* returnType) {
+        return new Procedure(name, returnType);
+    }
+
+    // Create a constant expression
+    Constants::ConstantExpression* Factory::createConstantExpression(const char* name, Expr* expr) {
+        return new Constants::ConstantExpression{cstr(name), expr};
+    }
 }
-#endif /*CPP_BRIDGE*/
+
+
+
+#endif /*BRIDGE_CPP*/

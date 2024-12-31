@@ -7,6 +7,7 @@
 #include <map>
 #include "../src/interns.cpp"
 #include "bridge.hpp"
+#include "ast.hpp"
 
 using namespace Pietra;
 using namespace Pietra::Resolver;
@@ -20,13 +21,13 @@ namespace Pietra::Asm {
     void store();
     void store(Type* lhs, Type* rhs);
     
-    void compile_init_var(const char* name, TypeSpec* type, Expr* init, bool is_global, CState state);
+    void compile_init_var(const char* name, TypeSpec* type, Expr* init, bool is_global, State::CompilerState state);
     void opt_load();
     const char* get_word_size(int size);
-    Type* compile_expr(Expr* expr, CState& state);
-        Type* compile_lea(CVar* local);
-        Type* compile_binary(TokenKind kind, Ast::Expr* lhs, Ast::Expr* rhs, CState& state);
-        Type* compile_modify_var(CVar* var, Ast::Expr* expr);
+    Type* compile_expr(Expr* expr, State::CompilerState& state);
+        Type* compile_lea(Variables::Variable* local);
+        Type* compile_binary(TokenKind kind, Ast::Expr* lhs, Ast::Expr* rhs, State::CompilerState& state);
+        Type* compile_modify_var(Variables::Variable* var, Ast::Expr* expr);
         void compile_cmp_zero(Type* type);
         Type* compile_logic_expr(TokenKind kind, Expr* lhs, Expr* rhs);
         Type* compile_assign_var_expr(Expr* var_expr, Expr* rhs);
@@ -36,12 +37,12 @@ namespace Pietra::Asm {
     void compile_block(SVec<Stmt*> block);
     void compile_decl(Decl* decl);        
         void compile_decl_proc(Decl* decl);
-            void compile_proc_params(CProc* cp);
+            void compile_proc_params(Procedures::Procedure* cp);
         
     void compile_ast(SVec<Decl*> ast);
     void compile_segment_data();
     void compile_segment_bss();
-    
+    enum COMPILER_TARGET {CT_LINUX, CT_WINDOWS};
 }
 
 

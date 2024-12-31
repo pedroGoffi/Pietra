@@ -38,18 +38,11 @@ Heap_Chunk_Swap :: (c1: *Heap_Chunk, c2: *Heap_Chunk){
 
 Heap_Chunk_Insert :: (chunks: *Heap_Chunks, chunk: *Heap_Chunk) { 
     chunks.chunks[chunks.size] = chunk;
-    chunks.size = chunks.size + 1;    
-    dump 
+    chunks.size = chunks.size + 1;        
 }
 Heap_Chunk_At :: (list: *Heap_Chunks, index: i64){
     return list.chunks[index]
 }
-
-//    assert(index < list->count);
-//    for (size_t i = index; i < list->count - 1; ++i) {
-//      list->chunks[i] = list->chunks[i + 1];
-//    }
-//    list->count -= 1;
 
 Heap_Chunk_Remove :: (list: *Heap_Chunks, index: i64) {    
     std.assert(index < list.size, "Heap_Chunk_Remove: index < list.size")
@@ -69,7 +62,8 @@ Heap_Chunks_dump :: (list: *Heap_Chunks) {
         std.puts(": PTR ") 
         std.puti(chunks.start)
         std.puts(", SIZE = ")
-        dump(chunks.size)
+        std.puti(chunks.size)
+        dump("\n")
 
         i = i + 1 
     }

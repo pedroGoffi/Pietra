@@ -3,13 +3,86 @@ use std{socket}
 use std{math}
 use std{http}
 use std{stat}
+use std{malloc}
 
 INADDR_ANY    :: 0
 LOCAL_HOST_IP :: 16777343 // af_inet("127.0.0.1")
-SERVER_PORT   :: 6969
+SERVER_PORT   :: 8069
+
+addrlen:    i32 = sizeof(SocketAddr_in)
+clilen:     i32 = sizeof(SocketAddr_in)
+sock_fd:    i32 = socket(AF_INET, SOCK_STREAM, 0)
+cli_fd:     i32 = 0
+cli:        SocketAddr_in 
+
+BUFFER_SIZE :: 4096
+read_size: i64 = 0
+
+defer := proc(){
+    close(cli_fd)
+    close(sock_fd)
+}
+
+sync_server_main :: () {    
+    buffer: *cstr = std.allocate(BUFFER_SIZE)
+
+    
+    
+    std.puts("[SERV]: INIT\n")
+    
+    while true {        
+        std.memset(buffer, 0, BUFFER_SIZE)
+        dump(cli_fd)
+        read_size = read(cli_fd, &buffer, BUFFER_SIZE)
+        
+        if read_size == 0 {
+            std.puts("[SERV]: CLIENT DISCONNECTED\n")
+            return defer()
+        }
+
+        elif read_size < 0 {
+            std.puts("[SERV]: READ ERROR\n")
+            return defer()
+        }
+
+        else {
+            std.puts("[SERV]: RECEIVED:\n\n")
+            std.puts(buffer)
+        }
+    }
 
 
-main :: (){    
-  server: *HTTP_SERVER = HTTP_SERVER.new(LOCAL_HOST_IP, SERVER_PORT)  
-  server.send_html(map_file("examples/server_html.html"))
+}
+main :: (): i64 {     
+    if sock_fd == 0 {
+        std.puts("Failed to create a socket.\n")
+        return -1
+    }
+
+    serv_addr: SocketAddr_in
+    serv_addr.sin_family       = AF_INET;
+    serv_addr.sin_addr         = INADDR_ANY;
+    serv_addr.sin_port         = htons(SERVER_PORT);
+
+            
+    if bind(sock_fd, &serv_addr, sizeof(SocketAddr_in)) < 0  {
+        std.puts("Failed bind to initialize server\n")
+        close(sock_fd)
+        return -1
+    }
+            
+    if not listen(sock_fd, 3) == 0   {
+        std.puts("Failed to listen initialize server\n")
+        return -1
+    }
+
+    std.puts("Awaiting client connection on: http://127.0.0.1:") std.puti(SERVER_PORT) std.puts("\n")
+    std.memset(&cli, 0, sizeof(SocketAddr_in))
+    cli_fd = accept(sock_fd, &cli, &clilen)        
+    if cli_fd < 0 {
+        std.puts("Failed to accept client: ") std.puti(-cli_fd) std.puts("\n")
+        return -1
+    }
+    std.puts("Got client connection\n")
+    sync_server_main()
 }

@@ -21,8 +21,8 @@ impl Va_list next :: (self: *Self){
     self.__va_ptr   = self.__va_ptr   + 8
 }
 
-impl Va_list has_value:: (self: *Self){    
-    return self.__va_stack[self.__va_index] != self.__va_end    
+impl Va_list has_value:: (self: *Self){
+    return self.__va_stack[self.__va_index] != self.__va_end
     
 }
 
@@ -79,12 +79,14 @@ __parse_printf_param :: (dst: mut*mut*i8, fmt: mut *i8, va_ptr: *Va_list){
     exit(1)
     
 }
-__parse_printf_format :: (fmt: mut *i8, va: *Va_list): *i8{
+__parse_printf_format :: (fmt: mut *i8, va: *Va_list): *i8{    
     stream := new [1] i8
     tmp_buffer := new [2] i8
+
+    asm(".LoopBegin:")
     while *fmt 
     {
-        asm(".LoopBegin:")
+        
         if *fmt == '%'{
             fmt = fmt + 1
             fmt = fmt + __parse_printf_param(&stream, fmt, va)
