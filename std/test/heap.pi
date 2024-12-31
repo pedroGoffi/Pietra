@@ -1,0 +1,107 @@
+#package "pietra.test.heap"
+HEAP_CAP            :: 640000
+HEAP_ALLOCED_CAP    :: 640000
+
+Heap_Chunk :: {
+    start: mut *void 
+    size: i64 
+}
+
+impl Heap_Chunk constructor :: (self: *Self){
+    self.start = std.allocate(HEAP_CAP)
+    self.size = 0     
+}
+
+impl Heap_Chunk Ptr :: (self: *Self): *void {
+    return self.start
+}
+
+Heap_Chunks :: {
+    chunks: mut* mut* Heap_Chunk   
+    size: i64 
+}
+
+
+impl Heap_Chunks constructor :: (self: *Self) {
+    self.chunks = std.allocate(HEAP_ALLOCED_CAP)
+    self.size = 0
+
+}
+
+Heap_Chunk_Swap :: (c1: *Heap_Chunk, c2: *Heap_Chunk){
+    tmp: *Heap_Chunk    = new Heap_Chunk;
+    tmp.start           = c1.start;
+    tmp.size            = c1.size;
+    *c2 = *c1;
+    *c1 = *tmp;
+}
+
+Heap_Chunk_Insert :: (chunks: *Heap_Chunks, chunk: *Heap_Chunk) { 
+    chunks.chunks[chunks.size] = chunk;
+    chunks.size = chunks.size + 1;    
+    dump 
+}
+Heap_Chunk_At :: (list: *Heap_Chunks, index: i64){
+    return list.chunks[index]
+}
+
+//    assert(index < list->count);
+//    for (size_t i = index; i < list->count - 1; ++i) {
+//      list->chunks[i] = list->chunks[i + 1];
+//    }
+//    list->count -= 1;
+
+Heap_Chunk_Remove :: (list: *Heap_Chunks, index: i64) {    
+    std.assert(index < list.size, "Heap_Chunk_Remove: index < list.size")
+    while index < list.size - 1 {
+        std.memcpy(list.chunks[index], list.chunks[index + 1], sizeof(Heap_Chunk))        
+        index = index + 1
+    }
+    list.size = list.size - 1
+}
+
+Heap_Chunks_dump :: (list: *Heap_Chunks) {
+    i: i64 = 0
+    while i < list.size {        
+        chunks: *Heap_Chunk = *(Heap_Chunk_At(list, i) as **Heap_Chunk);        
+        std.puts("  ") 
+        std.puti(i) 
+        std.puts(": PTR ") 
+        std.puti(chunks.start)
+        std.puts(", SIZE = ")
+        dump(chunks.size)
+
+        i = i + 1 
+    }
+}
+Heap_Chunk_Find :: (list: *Heap_Chunks, ptr: *void) {
+    i: i64 = 0 
+    while i < list.size {        
+        chunk: *Heap_Chunk = Heap_Chunk_At(list, i)
+        if *chunk.start == ptr {        
+            return i
+        }
+        i = i + 1
+    }
+    return -1
+}
+Heap :: {
+    data:   mut *void    
+    ptr:    mut *void
+    size:   i64 
+}
+
+impl Heap constructor :: (self: *Self){
+    self.data = self.ptr = std.allocate(HEAP_CAP)
+    self.size = 0
+}
+
+
+Heap_Linear_Allocate :: (heap: *Heap, offset: i64): mut *void {
+    ptr: *void = heap.ptr 
+    std.assert(heap.size + offset < HEAP_CAP, "heap.size + offset < HEAP_CAP")
+
+    heap.ptr = heap.ptr + offset
+    return ptr
+}
+
