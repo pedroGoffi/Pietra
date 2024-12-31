@@ -1,0 +1,5 @@
+#package "pietra.malloc"
+
+use std{std}
+use std::test{malloc}
+

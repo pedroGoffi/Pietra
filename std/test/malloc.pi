@@ -1,0 +1,95 @@
+#package "pietra.test.malloc"
+
+use std{std}
+use std::test{heap}
+
+
+
+heap:               Heap
+allocated_chunks:   Heap_Chunks
+freed_chunks:       Heap_Chunks
+
+
+make_heap_chunk :: (ptr: *void, size: i64): *Heap_Chunk {
+    chunk: *Heap_Chunk = new Heap_Chunk
+    chunk.start = ptr 
+    chunk.size = size    
+    return chunk
+}
+
+malloc  :: (nbytes: i64){
+    if nbytes <= 0 return nullptr 
+
+    i: i64 = 0;
+    while i < freed_chunks.size {        
+        chunk: *Heap_Chunk = *(Heap_Chunk_At(&freed_chunks, i) as **Heap_Chunk);        
+        if chunk.size > nbytes  {     
+            Heap_Chunk_Remove(&freed_chunks, i);
+            ptr: *any = chunk.start             
+            tail: i64 = chunk.size - nbytes
+
+            Heap_Chunk_Insert(&allocated_chunks, make_heap_chunk(ptr, nbytes))
+            if tail > 0 {
+                Heap_Chunk_Insert(&freed_chunks, make_heap_chunk(ptr +  nbytes, tail))
+            }
+
+            return ptr
+        }
+        i = i + 1
+    }
+    return nullptr
+    std.assert(heap.size + nbytes < HEAP_CAP, "malloc: heap.size + nbytes < HEAP_CAP");
+    ptr: *void = heap.data + heap.size;
+    heap.size = heap.size = nbytes;
+    Heap_Chunk_Insert(&allocated_chunks, make_heap_chunk(ptr, nbytes))
+    return ptr;
+}
+
+free    :: (ptr: *void){
+    if not ptr return -1
+
+    index: imut i64 = Heap_Chunk_Find(&allocated_chunks, ptr);
+    std.assert(index > -1, "free: index >= 0")
+    chunk: *Heap_Chunk = allocated_chunks.chunks[index]
+    Heap_Chunk_Insert(&freed_chunks, chunk)
+    Heap_Chunk_Remove(&allocated_chunks, index)
+    
+    return 0
+}
+realloc :: (ptr: *void, new_size: i64): *void {
+    if(ptr == nullptr){
+        return malloc(new_size)
+    }
+
+    if(new_size == 0){
+        free(ptr)
+        return nullptr
+    }
+
+    
+    new_ptr: *void = malloc(new_size)
+    if(new_ptr == nullptr){
+        return nullptr
+    }
+    std.memcpy(new_ptr, ptr, new_size)
+    free(ptr)
+    return new_ptr;
+}
+
+
+malloc_show_info :: () {
+    std.puts("Allocated chunks\n")
+    Heap_Chunks_dump(&allocated_chunks);
+
+    std.puts("Freed chunks\n")
+    Heap_Chunks_dump(&freed_chunks);
+
+}
+
+malloc_init_chunks :: () {
+    chunk: *Heap_Chunk = make_heap_chunk(heap.data, HEAP_CAP)
+    Heap_Chunk_Insert(&freed_chunks, chunk)    
+}
+
+// this is just a hack to call a function outside main
+pre_main_initialize_malloc_chunks: void = malloc_init_chunks()
