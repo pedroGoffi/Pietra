@@ -31,15 +31,52 @@ Result evaluate_name_expr(Expr* expr, CTContext& context) {
     return context.get_variable(std::string(expr->name));  // Retrieve variable from context
 }
 
+Result* get_field_addr(Expr* expr, CTContext& context){
+    Result parent = evaluate_expr(expr->field_acc.parent, context);        
+    Expr* field_expr = expr->field_acc.children;
+    assert(field_expr->kind == EXPR_NAME);
+    const char* field = field_expr->name;
+    
+        
+    if(CTObject** object_ptr = parent.get<CTObject*>()){
+        CTObject* object = *object_ptr;        
+        if(Result* field_result = object->get_field(field)) {
+            return field_result;
+        }
+        
+        return nullptr;
+    }
+
+    
+    //if(Decl** decl_ptr = parent.get<Decl*>()){
+    //    Decl* decl = *decl_ptr;
+    //    if(decl->kind == DECL_ENUM) return evaluate_field_decl_enum(decl, field, context);        
+    //}
+
+    printf("GOT %s\n", parent.to_string().c_str());
+    assert(0 && "address not found");
+}
+
 Result evaluate_reassing(Expr* expr, CTContext& context){
     Expr* lhs   = expr->binary.left;
     Result rhs  = evaluate_expr(expr->binary.right, context);
-
     if(lhs->kind == EXPR_NAME) {
         context.add_variable(lhs->name, rhs);
         return rhs;
     }
+    if(lhs->kind == EXPR_FIELD) {
+        Result* addr = get_field_addr(expr->binary.left, context);
+        if(!addr){
+            printf("addr not found bruh\n");
+            return Result("reassign field error");
+        }
+
+        *addr = rhs;
+        return *addr;
+    }
+
     else {
+        printf("LHS = %zu\n", expr->binary.left->kind);
         return Result("Failed to reassign");
     }
 }
@@ -169,6 +206,32 @@ Result evaluate_binary_expr(Expr* expr, CTContext& context) {
         return Result("Error: unknown operator");
     }
 }
+void setup_aggregate_object(CTObject* object, Decl* decl){
+    for(AggregateItem* item: decl->aggregate.items){
+        for(const char* field: item->field.names){            
+            Result* field_result = nullptr;
+
+            if(item->field.init){
+                assert(0 && "TODO");
+            }
+            else {
+                field_result = new Result(Value("None"));
+            }            
+            object->add_field(std::string(field), field_result);
+        }
+        
+    }
+}
+Result evaluate_call_aggr(Decl* decl, std::vector<Result> args, CTContext& context) {
+    assert(decl->kind == DECL_AGGREGATE);
+    Result agg = context.get_variable(decl->name);
+
+    CTObject* object = new CTObject();
+    setup_aggregate_object(object, decl);
+
+    
+    return Result(object);
+}
 Result evaluate_decl_call(Decl* decl, std::vector<Result> args, CTContext& context) {    
     assert(decl->kind == DECL_PROC);
 
@@ -220,27 +283,46 @@ Result evaluate_call_expr(Expr* expr, CTContext& context) {
 
     if(CTFunction** func_ptr = base.get<CTFunction*>()){
         CTFunction* func = *func_ptr;
-
-        assert(func);
-        
+        assert(func);        
         return func->call(args, context);
     } 
     else if(Decl** decl_ptr = base.get<Decl*>()){
         Decl* decl = *decl_ptr;
-        assert(decl->kind == DECL_PROC);
+        
+        if(decl->kind == DECL_PROC)         return evaluate_decl_call(decl, args, context);    
+        if(decl->kind == DECL_AGGREGATE)    return evaluate_call_aggr(decl, args, context);
+        
+        
 
-
-        return evaluate_decl_call(decl, args, context);    
+        return Result("cant handle this declaration in a call context: " + std::string(decl->name));
+        
     }
-
     else if(CTObject::methodFunc* method = base.get<CTObject::methodFunc>()){
         return (*method)(args, context);
     }
+    
     else {
         printf("ERR: %s\n", base.to_string().c_str());
         assert(0 && "bad func");
     }
     return Result();
+}
+
+Result evaluate_field_decl_enum(Decl* decl, const char* field, CTContext& context){
+    assert(decl->kind == DECL_ENUM);
+    uint64_t    iota = 0;
+    bool        found = false;
+    for(EnumItem* item: decl->enumeration.items){        
+        if(item->name == field){                        
+            found = true;
+            break;
+        }
+        iota++;
+    } 
+
+    if(!found) return Result("enum item not found");
+
+    return Result(iota);
 }
 
 Result evaluate_field_expr(Expr* expr, CTContext& context){
@@ -255,15 +337,23 @@ Result evaluate_field_expr(Expr* expr, CTContext& context){
     } else if(field == cstr("error")) {
         return Result(parent.to_string());
     }
-    
-    CTObject** object_ptr = parent.get<CTObject*>();
-    if(object_ptr){
+        
+    if(CTObject** object_ptr = parent.get<CTObject*>()){
         CTObject* object = *object_ptr;
-        if(CTObject::methodFunc func = object->get_method(field)){
-            return Result(func);
+        if(CTObject::methodFunc func = object->get_method(field)) return Result(func);
+        if(Result* field_result = object->get_field(field)) {            
+            return *field_result;
         }
+
+        printf("IDK BRUH\n");
+        assert(0);
+    }
+    if(Decl** decl_ptr = parent.get<Decl*>()){
+        Decl* decl = *decl_ptr;
+        if(decl->kind == DECL_ENUM) return evaluate_field_decl_enum(decl, field, context);        
     }
 
+    printf("GOT %s\n", parent.to_string().c_str());
     assert(0 && "field not found");
 }
 Result evaluate_init_var_expr(Expr* expr, CTContext& context) {
@@ -477,13 +567,20 @@ Result handle_proc_decl(Decl* decl, CTContext& context) {
 }
 // Handle aggregate (struct/union) declarations
 Result handle_aggregate_decl(Decl* decl, CTContext& context) {
-    printf("unimplemented %s\n", __func__);
-    return Result("Success: Aggregate '" + std::string(decl->name) + "' declared.");
+    // Just declare the structure
+    context.add_variable(decl->name, Result(decl));
+    return Result();
 }
 // Handle enumeration declarations
 Result handle_enum_decl(Decl* decl, CTContext& context) {
-    printf("unimplemented %s\n", __func__);
-    return Result("Success: Enumeration '" + std::string(decl->name) + "' declared.");
+    uint64_t iota = 0;
+    // declare the enumeration
+    context.add_variable(decl->name, Result(decl));
+    for(EnumItem* item: decl->enumeration.items){
+        assert(!item->init);
+        context.add_variable(item->name, Result(iota++));
+    }    
+    return Result();
 }
 // Handle type alias declarations
 Result handle_type_alias_decl(Decl* decl, CTContext& context) {

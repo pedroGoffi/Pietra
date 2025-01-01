@@ -5,7 +5,7 @@
 #include <sstream> // For std::ostringstream
 
 // Result class implementation
-Result::Result() : success(false), value("") {}
+Result::Result() : success(true), value("") {}
 
 Result::Result(Value v) : success(true), value(v) {}
 

@@ -86,11 +86,27 @@ public:
     }
 
     // Virtual to_string method for debugging or printing
-    virtual std::string to_string() const = 0;
+    
+    void add_field(std::string name, Result* result){
+        assert(!this->get_field(name));
+        this->unsafe_set_field(name, result);
+    }
+    void unsafe_set_field(std::string name, Result* result){
+        this->fields[name] = result;
+    }
+    Result* get_field(std::string name){
+        if(this->fields.find(name) != this->fields.end()){
+            return this->fields[name];
+        }
+        return nullptr;
+    }    
 
+    std::string to_string() const { return "object"; }
 protected:
     // Map to register methods for the object
     std::unordered_map<std::string, methodFunc> methods;
+    std::unordered_map<std::string, Result*>     fields;
+    
 };
 
 
@@ -173,7 +189,7 @@ public:
     Result m_size(std::vector<Result> args, CTContext& context){
         return Result(data.size());
     }
-    std::string to_string() const override {
+    std::string to_string() const {
         std::ostringstream oss;
         oss << "[";
 
