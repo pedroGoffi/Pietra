@@ -1560,7 +1560,20 @@ void makeLabel() {
         
         
     }
-    
+    Asm::COMPILER_TARGET get_current_platform_compiler_target(){
+    #ifdef _WIN32
+        return Asm::COMPILER_TARGET::CT_WINDOWS;
+    #elif __linux__
+        return Asm::COMPILER_TARGET::CT_LINUX;
+    #elif __APPLE__
+        fprintf(stderr, "[ERROR]: Unsupported OS target.\n")
+        abort();
+    #else
+        return Asm::COMPILER_TARGET::CT_LINUX;
+    #endif
+        assert(0 && "unreachable");
+    }    
+
     void compile_ast(SVec<Decl*> ast, COMPILER_TARGET target, const char* output_file){
         
         P_SET_CTXOUT("pietra.asm")

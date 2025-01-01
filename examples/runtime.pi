@@ -1,4 +1,4 @@
-#run "std/runtime.rtpi"
+#run "examples/runtime/structs.rtpi"
 
 
 main :: (){}

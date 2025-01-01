@@ -4,12 +4,16 @@
 #include "../include/ast.hpp"
 #include "../include/interns.hpp"
 #include "preprocessresult.cpp"
+#include <string.h>
 
 
 using namespace Ast;
     
 
 CTContext theContext;
+const char* format_impl_name(const char* parent, const char* impl){
+    return strf("%s_impl_%s", parent, impl);
+}
 
     // Helper function to evaluate an integer expression
 Result evaluate_int_expr(Expr* expr) {
@@ -80,7 +84,42 @@ Result evaluate_reassing(Expr* expr, CTContext& context){
         return Result("Failed to reassign");
     }
 }
+bool is_cmp_tokenkind(TokenKind kind){
+    return kind == TK_eqeq || kind == TK_noteq || kind == TK_less || kind == TK_lesseq || kind == TK_greater || kind == TK_greatereq;
+}
+Result evaluate_cmp_eq(Result lhs, Result rhs, CTContext& context) {
+    if (uint64_t* lhs_int = lhs.get<uint64_t>()) {
+        if (uint64_t* rhs_int = rhs.get<uint64_t>()) {
+            return Result((uint64_t)(*lhs_int == *rhs_int));  // Both are integers, perform equality comparison
+        } else if (double* rhs_double = rhs.get<double>()) {
+            return Result((uint64_t)(static_cast<double>(*lhs_int) == *rhs_double));  // lhs is int, rhs is double
+        }
+    } else if (double* lhs_double = lhs.get<double>()) {
+        if (double* rhs_double = rhs.get<double>()) {
+            return Result((uint64_t)(*lhs_double == *rhs_double));  // Both are doubles, perform equality comparison
+        } else if (uint64_t* rhs_int = rhs.get<uint64_t>()) {
+            return Result((uint64_t)(*lhs_double == static_cast<double>(*rhs_int)));  // lhs is double, rhs is int
+        }
+    } else if (std::string* lhs_str = lhs.get<std::string>()) {
+        if (std::string* rhs_str = rhs.get<std::string>()) {
+            return Result((uint64_t)(*lhs_str == *rhs_str));  // Both are strings, perform equality comparison
+        }
+    }
+    return Result("Error: Invalid types for equality comparison");
+}
 
+Result evaluate_and_expr(Result lhs, Result rhs, CTContext& context) {
+    if (uint64_t* lhs_int = lhs.get<uint64_t>()) {
+        if (uint64_t* rhs_int = rhs.get<uint64_t>()) {
+            return Result((uint64_t)(*lhs_int && *rhs_int));  // Both are integers, perform AND operation
+        }
+    }
+    return Result("Error: Invalid types for AND operation");
+}
+Result evaluate_cmp(TokenKind op, Result lhs, Result rhs, CTContext& context) {
+    if(op == TK_eqeq) return evaluate_cmp_eq(lhs, rhs, context);
+    return Result("Error: Unsupported operator for comparison: " + std::string(tokenKindRepr(op)));
+}
 Result evaluate_binary_mul(Result lhs, Result rhs, CTContext& context) {
     // Try to get the values of lhs and rhs as specific types
     if (uint64_t* lhs_int = lhs.get<uint64_t>()) {
@@ -133,6 +172,15 @@ Result evaluate_binary_lesss(Result lhs, Result rhs, CTContext& context) {
 
     
     return Result("Error: Invalid types for binary < operation");
+}
+Decl* object_has_constructor(CTObject* object, CTContext& context){
+    if(Result* constructor_ptr = context.get_variable_ptr(format_impl_name(object->__name__, object->__name__))){
+        if(Decl** constructor_decl = constructor_ptr->get<Decl*>()){
+            return *constructor_decl;
+        }
+    }
+    
+    return nullptr;
 }
 Result evaluate_binary_minus(Result lhs, Result rhs, CTContext& context) {
     // Check if both results are of the same type (either integer or double)
@@ -201,10 +249,16 @@ Result evaluate_binary_expr(Expr* expr, CTContext& context) {
     if(op == TK_minus)  return evaluate_binary_minus(lhs, rhs, context);
     if(op == TK_less)   return evaluate_binary_lesss(lhs, rhs, context);
     if(op == TK_mul)    return evaluate_binary_mul(lhs, rhs, context);
+    if(is_cmp_tokenkind(op)) 
+        return evaluate_cmp(op, lhs, rhs, context);
+    
+    if(op == TK_andand)    return evaluate_and_expr(lhs, rhs, context);
 
-    else {
-        return Result("Error: unknown operator");
-    }
+    
+    
+    printf("OP  = %s\n", tokenKindRepr(op));
+    return Result("Error: unknown operator");
+    
 }
 void setup_aggregate_object(CTObject* object, Decl* decl){
     for(AggregateItem* item: decl->aggregate.items){
@@ -225,11 +279,8 @@ void setup_aggregate_object(CTObject* object, Decl* decl){
 Result evaluate_call_aggr(Decl* decl, std::vector<Result> args, CTContext& context) {
     assert(decl->kind == DECL_AGGREGATE);
     Result agg = context.get_variable(decl->name);
-
-    CTObject* object = new CTObject();
-    setup_aggregate_object(object, decl);
-
-    
+    CTObject* object = new CTObject(decl->name);
+    setup_aggregate_object(object, decl);    
     return Result(object);
 }
 Result evaluate_decl_call(Decl* decl, std::vector<Result> args, CTContext& context) {    
@@ -288,9 +339,16 @@ Result evaluate_call_expr(Expr* expr, CTContext& context) {
     } 
     else if(Decl** decl_ptr = base.get<Decl*>()){
         Decl* decl = *decl_ptr;
-        
-        if(decl->kind == DECL_PROC)         return evaluate_decl_call(decl, args, context);    
+        if (strstr(decl->name, "_impl_")) {            
+            assert(expr->call.base->kind == EXPR_FIELD);
+            // Damn thats a way to deal with memory 
+            Result self = evaluate_expr(expr->call.base->field_acc.parent, context);
+            args.insert(args.begin(), self);
+        }
+
+        if(decl->kind == DECL_PROC)         return evaluate_decl_call(decl, args, context);        
         if(decl->kind == DECL_AGGREGATE)    return evaluate_call_aggr(decl, args, context);
+    
         
         
 
@@ -324,7 +382,29 @@ Result evaluate_field_decl_enum(Decl* decl, const char* field, CTContext& contex
 
     return Result(iota);
 }
-
+Result evaluate_unary_expr(Expr* expr, CTContext& context){
+    Result operand = evaluate_expr(expr->unary.expr, context);
+    if(expr->unary.unary_kind == TK_minus){
+        if(uint64_t* int_ptr = operand.get<uint64_t>()){
+            return Result(-(*int_ptr));
+        }
+        if(double* double_ptr = operand.get<double>()){
+            return Result(-(*double_ptr));
+        }
+    }
+    return Result("unary error");
+}
+Result evaluate_lambda_expr(Expr* expr, CTContext& context){
+    return Result(new CTFunction("lambda", [=](std::vector<Result> args, CTContext& context){
+        context.push_local_scope();
+        for(size_t i = 0; i < args.size(); i++){
+            context.add_variable(expr->lambda.params.at(i)->name, args.at(i));
+        }
+        Result got_result = prep_block(expr->lambda.block, context);
+        context.pop_local_scope();
+        return got_result;
+    }));
+}
 Result evaluate_field_expr(Expr* expr, CTContext& context){
     Result parent = evaluate_expr(expr->field_acc.parent, context);        
     Expr* field_expr = expr->field_acc.children;
@@ -340,12 +420,14 @@ Result evaluate_field_expr(Expr* expr, CTContext& context){
         
     if(CTObject** object_ptr = parent.get<CTObject*>()){
         CTObject* object = *object_ptr;
-        if(CTObject::methodFunc func = object->get_method(field)) return Result(func);
-        if(Result* field_result = object->get_field(field)) {            
-            return *field_result;
+        if(CTObject::methodFunc func = object->get_method(field))  return Result(func);
+        if(Result* field_result = object->get_field(field))               return *field_result;                
+        if(Result* impl_method = context.get_variable_ptr(format_impl_name(object->__name__, field))){
+            return *impl_method;
         }
+        
 
-        printf("IDK BRUH\n");
+        printf("IDK BRUH: %s\n", object->to_string().c_str());
         assert(0);
     }
     if(Decl** decl_ptr = parent.get<Decl*>()){
@@ -359,22 +441,41 @@ Result evaluate_field_expr(Expr* expr, CTContext& context){
 Result evaluate_init_var_expr(Expr* expr, CTContext& context) {
     Result rhs_value = evaluate_expr(expr->init_var.rhs, context);
     context.add_variable(std::string(expr->init_var.name), rhs_value);  // Store the initialized variable in context
+    Result* val = context.get_variable_ptr(expr->init_var.name);
+    assert(val);
+    
+    if(CTObject** obj_ptr = rhs_value.get<CTObject*>()){
+        CTObject* obj = *obj_ptr;
+        if(Decl* constructor = object_has_constructor(obj, context)){        
+            std::vector<Result> args;
+            args.push_back(rhs_value);
+            
+            //printf("VISITING CONSTRUCTOR OF %s\n", obj->__name__);
+            evaluate_decl_call(constructor, args, context);
+            
+        }
+        printf("Allocating a object1\n");
+    }
     return rhs_value;
 }
 
 // Generic function to evaluate an expression
 Result evaluate_expr(Expr* expr, CTContext& context) {
     switch (expr->kind) {
-        case ExprKind::EXPR_INT:        return evaluate_int_expr(expr);
-        case ExprKind::EXPR_FLOAT:      return evaluate_float_expr(expr);
-        case ExprKind::EXPR_STRING:     return evaluate_string_expr(expr);
-        case ExprKind::EXPR_NAME:       return evaluate_name_expr(expr, context);
-        case ExprKind::EXPR_INIT_VAR:   return evaluate_init_var_expr(expr, context);
-        case ExprKind::EXPR_CALL:       return evaluate_call_expr(expr, context);
-        case ExprKind::EXPR_BINARY:     return evaluate_binary_expr(expr, context);
-        case ExprKind::EXPR_FIELD:      return evaluate_field_expr(expr, context);
-        // Add additional cases here, using helper functions for each kind
-        default: assert(0 && "unimplemented");
+        case EXPR_INT:          return evaluate_int_expr(expr);
+        case EXPR_FLOAT:        return evaluate_float_expr(expr);
+        case EXPR_STRING:       return evaluate_string_expr(expr);
+        case EXPR_NAME:         return evaluate_name_expr(expr, context);
+        case EXPR_INIT_VAR:     return evaluate_init_var_expr(expr, context);
+        case EXPR_CALL:         return evaluate_call_expr(expr, context);
+        case EXPR_BINARY:       return evaluate_binary_expr(expr, context);
+        case EXPR_FIELD:        return evaluate_field_expr(expr, context);
+        case EXPR_LAMBDA:       return evaluate_lambda_expr(expr, context);
+        case EXPR_UNARY:        return evaluate_unary_expr(expr, context);
+        // Add additional cases here, using helper functions for each kind        
+        default: 
+            printf("EXPR kind = %zu\n", expr->kind);
+            assert(0 && "unimplemented");
     }
 }
     
@@ -485,6 +586,7 @@ Result prep_stmt_while(Stmt* stmt, CTContext& context) {
         if(!*cond_vp) break;
         // Process the 'while' block
         for (Stmt* block_stmt : stmt->stmt_while->block) {
+            if(block_stmt->kind == STMT_RETURN) return prep_stmt_return(block_stmt, context);            
             prep_stmt(block_stmt, context);
         }
     }
@@ -594,8 +696,18 @@ Result handle_use_decl(Decl* decl, CTContext& context) {
 }
 // Handle implementation declarations
 Result handle_impl_decl(Decl* decl, CTContext& context) {
-    printf("unimplemented %s\n", __func__);
-    return Result("Success: Implementation '" + std::string(decl->name) + "' processed.");
+    Result* target = context.get_variable_ptr(std::string(decl->impl.target));
+    if(!target) {        
+        return Result("Error: Target '" + std::string(decl->impl.target) + "' not found for implementation.");
+    }
+    if(Decl** decl_ptr = target->get<Decl*>()){
+        Decl* d = *decl_ptr;
+        for(Decl* impl_decl : decl->impl.body){            
+            impl_decl->name = format_impl_name(d->name, impl_decl->name);
+            context.add_variable(impl_decl->name, Result(impl_decl));            
+        }                
+    }        
+    return Result();
 }
 Result prep_run_ast(std::vector<Decl*> ast) {        
     for(Decl* node: ast){
@@ -608,6 +720,7 @@ Result prep_run_ast(std::vector<Decl*> ast) {
     // context is ready, now find main procedure 
     Result* main_procedure = theContext.get_variable_ptr("main");
     if(!main_procedure) {
+        theContext.print_all();
         printf("Expected main procedure.\n");
         return Result("main procedure not defined");
     }

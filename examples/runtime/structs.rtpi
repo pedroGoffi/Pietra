@@ -1,0 +1,93 @@
+#package "pietra.std.runtime"
+
+
+Vector :: {    
+    __vec:  builtin_vector    
+}
+
+impl Vector Vector :: (self: *Self) {    
+    self.__vec = make_array()    
+}
+
+impl Vector push :: (self: *Self, value: i64) {
+    self.__vec.push(value)    
+}
+
+impl Vector size :: (self: *Self): i64 {
+    return self.__vec.size()
+}
+
+impl Vector at :: (self: *Self, index: i64): i64 {
+    self.__vec.at(index)
+    
+}
+
+impl Vector map :: (self: *Self, func: proc(any): any): *builtin_vector {
+    i: i64 = 0
+    new_array: builtin_vector = make_array()
+    while i < self.size() {                
+        new_array.push(func(self.at(i)))    
+        i = i + 1
+    }
+    return new_array
+}
+
+impl Vector find_if :: (self: *Self, func: proc(any): any): i64 {
+    i: i64 = 0
+    found: i64 = -1
+    while i < self.size() {
+        item: any = self.at(i)
+        print("FUNC ON ", item, " = ", func(item))
+        if func(item) && found == -1 {
+            found = i
+            
+        }
+        i = i + 1
+    }
+    return found
+}
+
+impl Vector foreach :: (self: *Self, func: proc(any)) {
+    i: i64 = 0
+    while i < self.size() {
+        func(self.at(i))
+        i = i + 1
+    }
+}
+
+
+arr1 :: (arr: Vector, item: i64) {
+    arr.push(item)
+}
+main :: () {    
+    vector: Vector = Vector()
+    vector.push(1)
+    vector.push(2)
+    vector.push(3)
+    vector.push(4)
+    vector.push(5)
+    vector.push(6)
+    vector.push(420)
+
+
+    item := vector.find_if(proc(item: i64): i64 {
+        return item == 3
+    })
+
+    vector.foreach(proc(item: i64) {
+        print("ITEM: ", item)
+    })
+
+    if 0 < item
+    {
+        print("FOUND ITEM: ", item, ", ", vector.at(item))
+    }
+    else 
+    {
+        print("ITEM NOT FOUND")
+    }
+    print("FOUND ITEM: ", item, ", ", -item)
+    print("x == 11: ", 11 == 11)
+    
+    
+}

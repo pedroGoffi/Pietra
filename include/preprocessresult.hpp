@@ -65,10 +65,13 @@ Result prep_run_ast(std::vector<Decl*> ast);
 
 class CTObject {
 public:
+    const char* __name__;
     using methodFunc = std::function<Result(std::vector<Result>, CTContext&)>;
+
+    //CTObject() : __name__("object") {}
+    CTObject(const char* __name__) : __name__(__name__) {}
     virtual ~CTObject() = default;  // Virtual destructor for proper cleanup
-    
-    // Register and retrieve callable methods
+            
     void add_method(std::string name, methodFunc func){
         assert(!this->get_method(name));
         this->unsafe_set_method(name, func);        
@@ -105,8 +108,7 @@ public:
 protected:
     // Map to register methods for the object
     std::unordered_map<std::string, methodFunc> methods;
-    std::unordered_map<std::string, Result*>     fields;
-    
+    std::unordered_map<std::string, Result*>     fields;        
 };
 
 
@@ -137,7 +139,8 @@ private:
 // CTArray - Derived from CTObject, representing an array-like structure
 class CTArray : public CTObject {
 public: 
-    CTArray() {        
+    CTArray() : CTObject("builtin_array")
+    {
         this->add_method("push", [&](std::vector<Result> args, CTContext& context) -> Result { return this->m_push(args, context);});
         this->add_method("repr", [&](std::vector<Result> args, CTContext& context) -> Result { return this->m_repr(args, context);});
         this->add_method("size", [&](std::vector<Result> args, CTContext& context) -> Result { return this->m_size(args, context);});
@@ -229,7 +232,7 @@ private:
 class CTContext {
 public:
     Result* get_variable_ptr(const std::string& name);
-    void    add_variable(const std::string& name, const Result& value);
+    void    add_variable(const std::string& name, Result value);
     Result  get_variable(const std::string& name) const;
     void    print_all();
 

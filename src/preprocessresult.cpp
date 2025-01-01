@@ -76,7 +76,13 @@ Result CTFunction::call(std::vector<Result> args, CTContext& context) const {
 
 // CTContext class implementation
 // Example for adding a variable to the current scope (either local or global)
-void CTContext::add_variable(const std::string& name, const Result& value) {
+void CTContext::add_variable(const std::string& name, Result value) {
+    if(CTObject** obj_ptr = value.get<CTObject*>()){
+        CTObject* obj = *obj_ptr;
+        if(!obj->get_field("__name__")){
+            obj->add_field("__name__", new Result(Value(obj->__name__)));
+        }                
+    }
     // If there are no active local scopes, add to the global variables map
     if (local_scope_stack.empty()) {    
         this->global_variables[name] = value;

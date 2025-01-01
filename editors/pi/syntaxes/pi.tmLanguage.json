@@ -4,7 +4,7 @@
     "patterns": [
         {
             "name": "keyword.control.pi",
-            "match": "\\b(new|if|elif|else|let|const|stmt|while|for|fn|struct|union|comptime|use|return|switch)\\b"
+            "match": "\\b(new|if|elif|else|let|const|stmt|while|for|fn|struct|union|comptime|use|return|switch|impl|package)\\b"
         },
         {
             "name": "keyword.operator.pi",
