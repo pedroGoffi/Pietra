@@ -1,0 +1,38 @@
+{
+	"name": "pi",
+	"displayName": "Pietra",
+	"description": "Pietra ll language",
+	"version": "0.0.1",
+	"engines": {
+		"vscode": "^1.96.0"
+	},
+	"categories": [
+		"Programming Languages"
+	],
+	"contributes": {
+		"languages": [
+			{
+				"id": "pi",
+				"aliases": [
+					"pietra lang",
+					"pi"
+				],
+				"extensions": [
+					".pi",
+					"rtpi"
+				],
+				"configuration": "./language-configuration.json"
+			}
+		],
+		"grammars": [
+			{
+				"language": "pi",
+				"scopeName": "source.pi",
+				"path": "./syntaxes/pi.tmLanguage.json"
+			}
+		]
+	},
+	"__metadata": {
+		"size": 6184
+	}
+}
