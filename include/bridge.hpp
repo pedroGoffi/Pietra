@@ -53,8 +53,9 @@ namespace Pietra::CBridge {
             Type*               returnType;
             SVec<Variable*>*    parameters      = arena_alloc<SVec<Variable*>>();
             SVec<Variable*>*    localVariables  = arena_alloc<SVec<Variable*>>();
-            ScopeManager*       scope;
-            bool                is_used = false;
+            ScopeManager*       scope           = nullptr;
+            bool                is_used         = false;
+            bool                is_extern       = false;
 
             ScopeManager*& getScope();
             

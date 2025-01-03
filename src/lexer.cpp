@@ -841,6 +841,7 @@ void setResolverDebug(bool state){
 MAKE_ERROR_MSG(syntax_error, 	"SYNTAX ERROR")
 MAKE_ERROR_MSG(compiler_error, 	"COMPILER ERROR")
 MAKE_ERROR_MSG(resolver_error, 	"RESOLVER ERROR");
+MAKE_LOG_MSG(compiler_log, 		"COMPILER LOG")
 
 
 SVec<const char*> included_packages;

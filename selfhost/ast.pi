@@ -67,10 +67,8 @@ get_type_int_kind :: (sz: i64): i64
         case 64:    return TYPE_I64
         default:    
         {
-            puts_va(
-                "Type int wrong size in get_type_int_kind, got: '",
-                std.itocstr(sz),
-                "'\n")
+            std.puts("Type int wrong size in get_type_int_kind, got: '")
+            // , std.itocstr(sz), "'\n")
             exit(1)
         }
     }
@@ -90,13 +88,13 @@ type_int :: (sz: i64, is_mut: i64): *Type
 {
     t: *Type = new Type(get_type_int_kind(sz), is_mut)    
     t.name   = Type.repr(t)
-    t.size = sizeof(i64)
+    
     return t
 }
 type_ptr :: (base: *Type, is_mut: i64): *Type 
 {
     t: *Type = new Type(TYPE_PTR, is_mut)
-    t.size = sizeof(i64)
+    
     t.base as any = base
     return t
 }
@@ -125,19 +123,25 @@ TypeSpec :: {
 }
 impl TypeSpec constructor        :: (self: *Self, kind: i64): *Self {    
     self.kind = kind    
+    return self
 }
-//impl TypeSpec new_name   :: (name: *i8): *Self 
-//{
-//    ts: *TypeSpec = new TypeSpec(TYPESPEC_NAME)
-//    ts.name = name    
-//    return ts
-//}
+
+impl TypeSpec set_name          :: (self: *Self, name: *i8): *Self {    
+    self.name = name    
+    return self
+}
+impl TypeSpec new_name   :: (name: *i8): *Self 
+{
+    ts: *TypeSpec = new TypeSpec(TYPESPEC_NAME)
+    ts.name = name    
+    return ts
+}
 impl TypeSpec pointer_to :: (base: *TypeSpec, isMut: i64): *TypeSpec 
 {
     ptr: *TypeSpec = new TypeSpec(TYPESPEC_POINTER)
     ptr.name  = "Pointer"
     ptr.base  = base
-    ptr.size  = sizeof(i64)
+    
     ptr.isMut = isMut
     return ptr
 }

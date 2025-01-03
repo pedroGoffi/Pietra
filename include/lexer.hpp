@@ -10,6 +10,9 @@
 #define DEFINE_ERROR_MSG(_error_kind) \
 void _error_kind(SrcLocation loc, const char* fmt, ...);
 
+#define DEFINE_LOG_MSG(_log_kind) \
+void _log_kind(SrcLocation loc, const char* fmt, ...);
+
 #define MAKE_ERROR_MSG(_error_kind, _error_message)                              								\
 void _error_kind(SrcLocation loc, const char* fmt, ...) {                        								\
     if (loc.name == NULL) {                                                      								\
@@ -21,6 +24,18 @@ void _error_kind(SrcLocation loc, const char* fmt, ...) {                       
     vprintf(fmt, args);                                                          			 					\
     va_end(args);																								\
 	exit(1);                                                               	 		  							\
+}
+
+#define MAKE_LOG_MSG(_error_kind, _error_message)                              								\
+void _error_kind(SrcLocation loc, const char* fmt, ...) {                        								\
+    if (loc.name == NULL) {                                                      								\
+        loc = loc_builtin;                                                       								\
+    }                                                                            								\
+    va_list args;                                                                								\
+    va_start(args, fmt);                                                         								\
+    printf("~%s (line:%d: column:%d): [" _error_message "] ", loc.name, loc.lineNumber, loc.lineOffset); \
+    vprintf(fmt, args);                                                          			 					\
+    va_end(args);																								\
 }
 
 const char* new_keyword;
@@ -245,10 +260,10 @@ public:
 
 const char* tokenKindRepr(TokenKind kind);
 void error(SrcLocation loc, const char* fmt, ...);
-DEFINE_ERROR_MSG(syntax_error)
-DEFINE_ERROR_MSG(compiler_error)
+DEFINE_ERROR_MSG(syntax_error);
+DEFINE_ERROR_MSG(compiler_error);
 DEFINE_ERROR_MSG(resolver_error);
-
+DEFINE_LOG_MSG(compiler_log);
 void resolver_log(SrcLocation loc, const char* fmt, ...);
 void setDebug(bool state);
 #define fatal_error(...) (error(__VA_ARGS__), exit(1))

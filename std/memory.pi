@@ -1,7 +1,9 @@
 #package "pietra.memory"
 use std{std}
-use std{errno_base}
+
 // A mem poll is a limited amount of memory that contains all the pointers that are allocated
+ENOMEM      :: -1
+EBADALLOC   :: -2
 
 MEM_POLL_NUM_BLOCKS :: 20
 MEM_POLL_BLOCKS_CAP :: 8 * MEM_POLL_NUM_BLOCKS

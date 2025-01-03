@@ -1,0 +1,43 @@
+#package "lib.malloc"
+
+// Allocates a block of memory of the specified size
+@extern malloc :: (size: usize) : *any;
+
+// Allocates memory for an array and initializes it to zero
+@extern calloc :: (nmemb: usize, size: usize) : *any;
+
+// Resizes an existing memory block
+@extern realloc :: (ptr: *void, size: usize) : *any;
+
+// Frees previously allocated memory
+@extern free :: (ptr: *void) : void;
+
+// Allocates memory with the specified alignment (C11)
+@extern aligned_alloc :: (alignment: usize, size: usize) : *void;
+
+// Allocates memory with the specified alignment (POSIX)
+@extern memalign :: (alignment: usize, size: usize) : *void;
+
+// Allocates memory aligned to a page boundary
+@extern valloc :: (size: usize) : *void;
+
+// Allocates memory aligned to the page size and rounded up
+@extern pvalloc :: (size: usize) : *void;
+
+// Allocates memory with a specified alignment (POSIX)
+@extern posix_memalign :: (memptr: **void, alignment: usize, size: usize) : i32;
+
+// Gets the usable size of a memory block allocated by malloc (GNU extension)
+@extern malloc_usable_size :: (ptr: *void) : usize;
+
+// Tunes the behavior of the malloc system
+@extern mallopt :: (param: i32, value: i32) : i32;
+
+// Releases unused memory from malloc
+@extern malloc_trim :: (pad: usize) : i32;
+
+// Prints malloc statistics to stderr
+@extern malloc_stats :: () : void;
+
+// Outputs malloc information in XML format
+@extern malloc_info :: (options: i32, stream: *void) : i32;

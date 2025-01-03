@@ -40,7 +40,7 @@ namespace Pietra::Asm {
             void compile_proc_params(Procedures::Procedure* cp);
 
     enum COMPILER_TARGET {CT_LINUX, CT_WINDOWS};    
-    void compile_ast(SVec<Decl*> ast, COMPILER_TARGET target, const char* output_file);
+    void compile_ast(SVec<Decl*> ast, COMPILER_TARGET target, const char* output_file, bool verbose);
     void compile_segment_data();
     void compile_segment_bss();
     

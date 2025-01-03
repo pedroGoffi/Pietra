@@ -281,22 +281,26 @@ compile_data_section :: (){
 }
 
 
-compile_decl_proc :: (name: *i8, proc: *DeclProc){
+compile_decl_proc :: (name: *i8, func: *DeclProc){
     current_proc = Proc.find(name)
     if not current_proc 
     {
         std.puts("<Internal error> Couldn't find procedure.\n")
         exit(1)
     }
-    commit(name)    commit(":\n")
-    commit(".PB.")  commit(name) commit(":\n")    
+    commit(name)    
+    commit(":\n")
+    commit(".PB.")  
+    commit(name) 
+    commit(":\n")    
     push("rbp")    
     commit("\tmov rbp, rsp\n")
-    if current_proc.stack_allocation > 0 
-    {
+    
+    if (current_proc.stack_allocation > 0) {
         sub_reg_by_i64("rsp", current_proc.stack_allocation)
     }
-    compile_block(proc.blocks)
+        
+    compile_block(func.block)
     commit("\tmov rax, 0\n")
     commit(".PE.")  commit(name) commit(":\n")
 

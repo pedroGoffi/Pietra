@@ -40,7 +40,7 @@ Sym     :: {
     val:    Val
     impls:  SymImpl
 }
-impl Sym constructorr :: (self: *Self, kind: i64): *Self{
+impl Sym constructor :: (self: *Self, kind: i64): *Self{
     self.kind = kind    
 }
 impl Sym new_var :: (name: *i8, t: *Type, rhs: *Expr){    
@@ -64,7 +64,7 @@ impl Operand constructor :: (self: *Self, type: *Type, is_lvalue: i64, is_const:
     self.is_const         = is_const
     // Force var change
     self.val as mut any   = val 
-    return op
+    return self
 }
 
 operand_lvalue :: (type: *Type, val: Val): *Operand 

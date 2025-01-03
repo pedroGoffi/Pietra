@@ -7,7 +7,7 @@ StreamInfo ::  {
     token: *null // TODO
 }
 
-stream: cstr
+stream: cstr = ""
 
 init_stream :: (str: cstr){
     stream = str;
@@ -180,10 +180,4 @@ scan_string     :: (): *i8
 
     return intern_range(begin, end)    
 }
-
-scan_char       :: ();
-scan_int        :: ();
-scan_int_base   :: ();
-scan_float      :: ();
-char_to_int     :: ();
 

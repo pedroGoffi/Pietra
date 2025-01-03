@@ -2,6 +2,7 @@
 #define ASMPLANG
 #include "../include/Asmx86_64.hpp"
 #include "context.cpp"
+#include <string.h>
 
 #define VARIADIC_ARGS_CAP 4096
 
@@ -1060,7 +1061,8 @@ void makeLabel() {
         Sym* structure = sym_get(type->name);
         Sym* method = structure->impls.find("constructor");
         if(!method){
-            err("[ERROR]: trying to pass arguments in new operator for a struct with no constructor\n");
+            compiler_error(e->loc, "[ERROR]: trying to pass arguments in new operator for a struct with no constructor\n");
+            //err("[ERROR]: trying to pass arguments in new operator for a struct with no constructor\n");
             exit(1);
         }
         assert(method->kind == Resolver::SYM_PROC);
@@ -1406,21 +1408,15 @@ void makeLabel() {
                     assert(arg->kind == Ast::EXPR_STRING);
                     err("[WARN]: %s\n", arg->string_lit);
                 }
-            }
-            else if(note->name == keyword_extern) {
-                has_extern = true;
-                if(note->args.len() != 1){
-                    printf("[ERROR]: extern expects the path to the .asm of the extern file.\n");
-                    exit(1);
-                }
-                assert(note->args.at(0)->kind == Ast::EXPR_STRING);
-
-                extern_paths = strf("%s %s", extern_paths, note->args.at(0)->string_lit);
-                return;
-            }
+            }            
         }
 
         Procedures::Procedure* proc = ctx.findProcedureByName(d->name);                
+        if(proc->is_extern){
+            printf("extern %s\n", proc->name);
+            return;
+        }
+        fprintf(stderr, "PROC EXTERN -> %i\n", proc->is_extern);
         ctx.setCurrentProcedure(proc);
         if(!proc){
             err("Got no proc in proc %s\n", d->name);
@@ -1574,8 +1570,8 @@ void makeLabel() {
         assert(0 && "unreachable");
     }    
 
-    void compile_ast(SVec<Decl*> ast, COMPILER_TARGET target, const char* output_file){
-        
+    void compile_ast(SVec<Decl*> ast, COMPILER_TARGET target, const char* output_file, bool verbose){                
+        fprintf(stderr, "VERBOSE: %i\n", verbose);
         P_SET_CTXOUT("pietra.asm")
         
 
@@ -1585,7 +1581,10 @@ void makeLabel() {
 
     
                 
-        for(Decl* decl: ast){            
+        for(Decl* decl: ast){
+            if(verbose){
+                compiler_log(decl->loc, "compiling %s\n", decl->name);
+            }
             compile_decl(decl);
         }
         for(Sym* post: post_declared_compile){
@@ -1649,7 +1648,7 @@ void makeLabel() {
                 case CT_LINUX:
                 {
                     system(strf("nasm -felf64 pietra.asm"));                        
-                    system(strf("ld pietra.o -o %s", output_file));
+                    system(strf("ld -lc -dynamic-linker /lib64/ld-linux-x86-64.so.2 pietra.o -o %s", output_file));
                     system(strf("rm pietra.o"));
                     break;                    
                 }

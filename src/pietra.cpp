@@ -15,7 +15,7 @@
 #include "argparser.cpp"
 
 namespace Pietra {
-void pietra_run_compilation_on_input_file(bool doLog, std::string input_file, std::string output_file, Asm::COMPILER_TARGET target);
+void pietra_run_compilation_on_input_file(bool doLog, std::string input_file, std::string output_file, Asm::COMPILER_TARGET target, bool verbose);
 void pietra_setup_argparser(ArgumentParser& parser);
 int pietra_check_arg_parser(ArgumentParser& parser, int argc, char** argv);
 int pietra_run_preprocess_on_input_file(bool log, std::string input_file);
@@ -23,7 +23,7 @@ std::string get_or_create_output_file_name(std::string input_file, std::string o
 void initialize_language_context();
 int process_rtpi_file(const std::string& input_file, const std::string& output_file, bool log, const ArgumentParser& parser);
 int process_pi_file(const std::string& input_file, std::string& output_file, Asm::COMPILER_TARGET target, bool log);
-int initialize_and_parse_arguments(int argc, char** argv, ArgumentParser& parser, bool& log, Asm::COMPILER_TARGET& target, std::string& input_file, std::string& output_file);
+int initialize_and_parse_arguments(int argc, char** argv, ArgumentParser& parser, bool& verbose, Asm::COMPILER_TARGET& target, std::string& input_file, std::string& output_file);
 bool string_ends_with(const std::string& str, const std::string& suffix);
 PPackage* load_package_from_input(const std::string& input_file);
 void log_duration(const std::string& action, clock_t start, clock_t end);
@@ -38,7 +38,7 @@ void pietra_setup_argparser(ArgumentParser& parser) {
     parser.add_argument("-win32", "Set the default output for binary code to win32", true); // flag argument    
     parser.add_argument("--file", "Specify the input file"); // non-flag argument
     parser.add_argument("--output", "Specify the output file"); // optional output file argument
-    parser.add_argument("--log", "Logs the performance of the compiler", true);
+    parser.add_argument("--verbose", "Verbose prints in compilations steps", true);
 }
 int pietra_check_arg_parser(ArgumentParser& parser, int argc, char** argv) {
     // Add arguments to the parser    
@@ -130,19 +130,21 @@ int process_rtpi_file(const std::string& input_file, const std::string& output_f
 
     return EXIT_SUCCESS;
 }
-int process_pi_file(const std::string& input_file, std::string& output_file, Asm::COMPILER_TARGET target, bool log) {
+int process_pi_file(const std::string& input_file, std::string& output_file, Asm::COMPILER_TARGET target, bool verbose) {
     output_file = get_or_create_output_file_name(input_file, output_file);
-    pietra_run_compilation_on_input_file(log, input_file, output_file, target);
+    pietra_run_compilation_on_input_file(log, input_file, output_file, target, verbose);
     return EXIT_SUCCESS;
 }
-int initialize_and_parse_arguments(int argc, char** argv, ArgumentParser& parser, bool& log, Asm::COMPILER_TARGET& target, std::string& input_file, std::string& output_file) {
+int initialize_and_parse_arguments(int argc, char** argv, ArgumentParser& parser, bool& verbose, Asm::COMPILER_TARGET& target, std::string& input_file, std::string& output_file) {
     pietra_setup_argparser(parser);
     if (pietra_check_arg_parser(parser, argc, argv) == EXIT_FAILURE) {
         return EXIT_FAILURE;
     }
 
-    setResolverDebug(parser.is_flag_set("-v"));
-    log = parser.is_flag_set("--log");
+    setResolverDebug(parser.is_flag_set("--verbose"));
+    verbose = parser.is_flag_set("--verbose");
+    
+    printf("VERBOSE: %i\n", verbose);
 
     target = parser.is_flag_set("-win32") 
         ? Asm::COMPILER_TARGET::CT_WINDOWS 
@@ -187,7 +189,7 @@ void handle_file_error(const std::string& file_type, ArgumentParser& parser) {
     fprintf(stderr, "[ERROR]: Expected .rtpi or .pi file, but got '%s'.\n", file_type.c_str());
 }
 
-void pietra_run_compilation_on_input_file(bool doLog, std::string input_file, std::string output_file, Asm::COMPILER_TARGET target) {
+void pietra_run_compilation_on_input_file(bool doLog, std::string input_file, std::string output_file, Asm::COMPILER_TARGET target, bool verbose) {
     clock_t start, end, all_start;
     double duration, all_duration;
 
@@ -200,7 +202,7 @@ void pietra_run_compilation_on_input_file(bool doLog, std::string input_file, st
     log_duration("Resolving AST", start, end);
 
     start = clock();
-    Asm::compile_ast(ast, target, output_file.c_str());
+    Asm::compile_ast(ast, target, output_file.c_str(), verbose);
     end = clock();
     log_duration("Compilation", start, end);
 
@@ -210,14 +212,15 @@ void pietra_run_compilation_on_input_file(bool doLog, std::string input_file, st
 
 int pietra_process_input_file(const std::string& input_file, 
                        std::string& output_file, 
-                       bool log, 
+                       bool verbose, 
                        ArgumentParser& parser, 
                        Asm::COMPILER_TARGET target) {
+                        
     if (string_ends_with(input_file, ".rtpi")) {
-        return process_rtpi_file(input_file, output_file, log, parser);
+        return process_rtpi_file(input_file, output_file, verbose, parser);
     } 
     else if (string_ends_with(input_file, ".pi")) {
-        return process_pi_file(input_file, output_file, target, log);
+        return process_pi_file(input_file, output_file, target, verbose);
     } 
     else {
         handle_file_error(input_file, parser);
@@ -227,17 +230,16 @@ int pietra_process_input_file(const std::string& input_file,
 
 int Main(int argc, char** argv) {
     ArgumentParser parser;
-    bool log = false;
+    bool verbose = false;
     Asm::COMPILER_TARGET target = Asm::get_current_platform_compiler_target();
     std::string input_file, output_file;
 
-    if (initialize_and_parse_arguments(argc, argv, parser, log, target, input_file, output_file) == EXIT_FAILURE) {
+    if (initialize_and_parse_arguments(argc, argv, parser, verbose, target, input_file, output_file) == EXIT_FAILURE) {
         return EXIT_FAILURE;
     }
-
-    setResolverDebug(log);
+    
     initialize_language_context();    
-    if(pietra_process_input_file(input_file, output_file, log, parser, target) == EXIT_FAILURE){
+    if(pietra_process_input_file(input_file, output_file, verbose, parser, target) == EXIT_FAILURE){
         fprintf(stderr, "[ERROR]: Pietra lang failed to process the file '%s'.\n", input_file.c_str());
         return EXIT_FAILURE;
     }

@@ -1,5 +1,5 @@
 #package "pietra.file"
-use std{std, errno}
+use std{std}
 use std::core{struct_stat}
 
 

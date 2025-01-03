@@ -543,7 +543,8 @@ namespace Pietra::Resolver{
         
         if(type->name == Core::cstr("any") and not isParam){
             if(not init){
-                printf("[ERROR]: Trying to initialize the variable `%s` with no initial value.\n", name);
+                printf("Current proceedure %s\n", ctx.currentProcedure->name);
+                printf("[ERROR]: Trying to initialize the variable `%s` as any with no initial value.\n", name);                
                 exit(1);
             }
 
@@ -609,6 +610,7 @@ namespace Pietra::Resolver{
     Operand resolve_name(const char* name){    
         Sym* sym = sym_get(name);                
         if(!sym){
+            printf("Current procedure: %s\n", ctx.currentProcedure->name);
             resolver_error({"", 0}, "[ERROR]: the name '%s' is not declared in this scope.\n", name);            
             exit(1);
         }
@@ -1350,6 +1352,12 @@ namespace Pietra::Resolver{
                     assert(note->args.at(0)->kind == EXPR_STRING);
                     const char* id = note->args.at(0)->string_lit;
                     eval_decorator_method_of(id, d);
+                }
+                else if(note->name == Core::cstr("extern")){                    
+                    Procedure* extern_proc = Factory::createProcedure(d->name, type);  
+                    extern_proc->is_extern = true;
+                    ctx.addProcedure(extern_proc);
+                    return;
                 }
                 else {
                     show_all_decorators();

@@ -370,7 +370,7 @@ TypeSpec* typespec_base(Lexer* lexer){
         return Utils::typespec_name(name, lexer->token);        
     }
     else {
-        printf("[ERR]: expected typespec, got: %s\n", lexer->token.name);        
+        resolver_error(lexer->getLocation(), "[ERR]: expected typespec, got: %s\n", lexer->token.name);        
         exit(1);
     }
 }
@@ -1161,7 +1161,7 @@ Decl* decl(Lexer* lexer){
         return Utils::decl_var(lexer->getLocation(), name, type, init);
     }
     else {
-        printf("[ERR]: expected declaration, but got: %s\n", lexer->token.name);
+        resolver_error(lexer->getLocation(), "[ERR]: expected declaration, but got: %s\n", lexer->token.name);
         exit(1);
     }
     exit(1);

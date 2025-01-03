@@ -20,7 +20,7 @@ public:
         bool found_input = false;
         
         for (int i = 1; i < argc; ++i) {
-            std::string arg = argv[i];
+            std::string arg = argv[i];            
             if (arguments_.find(arg) != arguments_.end()) {
                 if (arguments_[arg].is_flag) {
                     parsed_flags_.insert(arg);
