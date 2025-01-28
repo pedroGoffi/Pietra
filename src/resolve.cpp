@@ -14,27 +14,26 @@ The resolver will
 #define NEW_FLAG                cstr("new_allocator")
 
 
+static int  scope_lvl = 0;
 bool        impl_ctx = false;
 Decl*       string_comparator = nullptr;
 Decl*       struct_reassigner = nullptr;
 Decl*       new_allocator     = nullptr;
 SVec<Resolver::Sym*>  Declared_lambdas;
 #define ASSERT_PTR(_ptr) _ptr; assert(_ptr);
+
 void allocate_lambda(Resolver::Sym* lambda){
     Declared_lambdas.push(lambda);    
 }
 
-void Resolver::Scope::add_sym(Resolver::Sym* sym) {        
+void Resolver::Scope::add_sym(Resolver::Sym* sym) {            
     m_symbols.push_back(sym);
 }
 
 
-int Resolver::Scope::scope_level(){
-    return this->m_lvl;
-}
 
 
-Resolver::Sym* Resolver::Scope::find_sym(const char* name) {    
+Resolver::Sym* Resolver::Scope::find_sym(const char* name) {        
     for (auto sym : m_symbols) {
         if (sym->name == name) {            
             return sym;
@@ -43,42 +42,37 @@ Resolver::Sym* Resolver::Scope::find_sym(const char* name) {
     return nullptr;
 }
 
-int Resolver::ScopeManager::get_scope_level(){
-    return this->m_lvl;
-}
 void Resolver::ScopeManager::enter_scope() {
+    resolver_log({}, "-- ENTERED A NEW SCOPE\n");
     m_scopes.push_back(new Scope);
-    this->m_scopes.back()->m_lvl = this->m_lvl++;    
 }
 void Resolver::ScopeManager::print_all(){
     if(this->m_scopes.empty()) return;
-    printf("####################################\n");
+    
+
     for(Scope* scope: this->m_scopes){
         printf("Entering scope:\n");
         for(Sym* symbol: scope->m_symbols){
-            if(symbol->decl){
-                if(symbol->decl->kind == DECL_CONSTEXPR) continue;
-            }
-            
+            resolver_log({}, "symbol - %s\n", symbol->name);                        
         }
         
     }
 }
 void Resolver::ScopeManager::leave_scope() {
-    if (!m_scopes.empty()) {
-        m_scopes.pop_back();        
+    if (!this->m_scopes.empty()) {
+        this->m_scopes.pop_back();        
     }
-    this->m_lvl--;    
 }
-int Resolver::ScopeManager::add_sym(Resolver::Sym* sym) {
-    if (!m_scopes.empty()) {
-        this->m_scopes.back()->add_sym(sym);
-        return 0;
-    }
-    return -1; // No scope to add symbol to
+int Resolver::ScopeManager::add_sym(Resolver::Sym* sym) {    
+    if (!m_scopes.empty()) {        
+        //return 0;
+    }   
+    this->m_scopes.back()->add_sym(sym); 
+    return 0;
+    printf("[ERROR]: m_scopes is empty failed to push symbol: sz = %zu.\n", this->m_scopes.size());
+    exit(1);
 }
-Resolver::Sym* Resolver::ScopeManager::find_sym(const char* name) {
-    
+Resolver::Sym* Resolver::ScopeManager::find_sym(const char* name) {    
     for (auto it = m_scopes.rbegin(); it != m_scopes.rend(); ++it) {                
         Scope* scope = *it;
         assert(scope);
@@ -123,8 +117,7 @@ void show_all_decorators(){
     printf("]\n");  
 }
 namespace Pietra::Resolver{        
-    SVec<Sym*>          global_syms;        
-    ScopeManager        scope;
+    SVec<Sym*>          global_syms;            
     SVec<Decl*>         resolved_ast;
     SVec<PPackage*>     packages;
 
@@ -181,7 +174,7 @@ namespace Pietra::Resolver{
         };
     }
 
-    Sym* sym_get(const char* &name){                
+    Sym* sym_get(const char* &name){                                        
         name = Core::cstr(name);        
         Sym* sym = nullptr;              
         if(ctx.currentProcedure){
@@ -352,13 +345,12 @@ namespace Pietra::Resolver{
 
     #define DEFINE_BUILTIN(_name, ...)                      \
         {                                                   \
-            scope->add_sym(sym_new(Core::cstr(_name), __VA_ARGS__));         \
+            ctx.getGlobalScope()->add_sym(sym_new(Core::cstr(_name), __VA_ARGS__));         \
         }
 
-    void declare_built_in(){
-        ScopeManager* scope = ctx.getGlobalScope();
-        assert(scope);
-        scope->enter_scope();
+    void declare_built_in(){               
+        assert(ctx.getGlobalScope());
+        ctx.getGlobalScope()->enter_scope();
         DEFINE_BUILTIN("true",
             Utils::decl_var({"<builtin>", 0}, "true", 
                 Utils::typespec_name("i64", {}),
@@ -366,12 +358,12 @@ namespace Pietra::Resolver{
 
 
 
-        struct Builin_Sym_type{
+        struct Builtin_Sym_type{
             const char* name;
             Type*       type;
         };
         
-        Builin_Sym_type types[]{
+        Builtin_Sym_type types[]{
             {"i8",      type_int(8, true)},
             {"i16",     type_int(16, true)},
             {"i32",     type_int(32, true)},
@@ -380,12 +372,12 @@ namespace Pietra::Resolver{
             {"f64",     type_float(64, true)},
             {"any",     type_any()},
             {"void",    type_any()}
-            
         };
+
         for(auto& [name, type]: types){            
             Sym* _ty = sym_type(name, type);
             global_syms.push(_ty);
-            scope->add_sym(_ty);
+            ctx.getGlobalScope()->add_sym(_ty);
         }
         
         
@@ -441,7 +433,6 @@ namespace Pietra::Resolver{
             Type* resolved_t = resolve_typespec(ts);
             resolved_t->ismut = true;
             return resolved_t;
-
         }
 
        
@@ -626,7 +617,7 @@ namespace Pietra::Resolver{
         resolve_sym(sym);                        
         return operand_rvalue(sym->type);        
     }
-    Operand resolve_call(Expr* base, SVec<Expr*> &args){                        
+    Operand resolve_call(Expr* base, SVec<Expr*> &args){                                
         Operand bop = resolve_expr(base);                
         
         assert(bop.type);
@@ -671,7 +662,7 @@ namespace Pietra::Resolver{
         }               
         
 
-        Type* ret = bop.type->proc.ret_type;                        
+        Type* ret = bop.type->proc.ret_type;
         return operand_rvalue(ret);
         
     }
@@ -960,16 +951,13 @@ namespace Pietra::Resolver{
             : operand_lvalue(ret->resolvedTy, {0});
     }
     Operand resolve_lambda(Expr*& expr, std::string* dst = nullptr){        
+        printf("[ERROR]: LAMBDAS are not implemented due to scope limitations.\n");
+        abort();                
         create_lambda_callee(expr->lambda.params, expr->lambda.ret, expr->lambda.block, dst);                
         Sym* declared_lambda = Declared_lambdas.back();        
-
         SVec<Expr*> args; args.push(Utils::expr_name(expr->loc, declared_lambda->name));
 
-        *expr = *Utils::expr_call(
-            expr->loc, 
-            Utils::expr_name(expr->loc, "asm"),
-            args
-        );
+        *expr = *Utils::expr_call( expr->loc,  Utils::expr_name(expr->loc, "asm"), args );
         return operand_lvalue(declared_lambda->type, {0});
     }
     Operand resolve_new(Expr*& e){
@@ -1101,9 +1089,10 @@ namespace Pietra::Resolver{
         }
     }
 
-    void resolve_stmt_block(SVec<Stmt*> block){
-        for(Stmt* stmt: block) 
+    void resolve_stmt_block(SVec<Stmt*> block){        
+        for(Stmt* stmt: block) {
             resolve_stmt(stmt);
+        }        
     }
     
     void resolve_sym_proc_impl(Sym* self, Sym* sym){
@@ -1313,12 +1302,17 @@ namespace Pietra::Resolver{
         // CHANGE: added scopes
         resolver_log(d->loc, "Entering a procedure: %s\n", d->name);
         
-                            
+        
         if(d->name == Core::cstr("new")){
             printf("[ERROR]: Can't name a procedure with `new` identifier.\n");
             exit(1);
         }
-        // CBridge::save_cp();
+        if(d->proc.is_internal) {            
+            Procedure* extern_proc = Factory::createProcedure(d->name, type);  
+            extern_proc->is_extern = true;
+            ctx.addProcedure(extern_proc);            
+            return;
+        }
         if(d->notes.len() > 0){
             SVec<Note*>& notes = d->notes;
             for(Note* note: notes){                
@@ -1368,16 +1362,16 @@ namespace Pietra::Resolver{
         }
         assert(d->kind == DECL_PROC);        
         Procedures::Procedure* proc = Factory::createProcedure(d->name, type);        
-        ctx.addProcedure(proc);        
-        ctx.getLocalScope()->enter_scope();
-                
+        
+        ctx.addProcedure(proc);                
+        ctx.getLocalScope()->enter_scope();                
         for(ProcParam* pp: d->proc.params){                        
             resolve_var_init(pp->name, pp->type, pp->init, false, true);
             resolver_log(pp->loc, "Resolved procedure %s argument %s: %s\n", d->name, pp->name, pp->type->resolvedTy->repr());
-        }                                
+        }        
         resolve_stmt_block(d->proc.block);
-        ctx.getLocalScope()->leave_scope();
-        ctx.currentProcedureRewind();        
+        ctx.getLocalScope()->leave_scope();        
+        ctx.currentProcedureRewind();                
     }
     void resolve_decl_use(Decl* &decl){        
         assert(decl->kind == DECL_USE);
@@ -1471,8 +1465,8 @@ namespace Pietra::Resolver{
             
             // some syms are expressions            
             resolve_decl(sym->decl, sym->type);
-            resolved_ast.push(sym->decl);
-        }
+            resolved_ast.push(sym->decl);                        
+        }        
         sym->state = SYM_RESOLVED;
                 
         
@@ -1481,13 +1475,12 @@ namespace Pietra::Resolver{
     
 
     SVec<Decl*> resolve_package(PPackage* &package){                    
-        declare_package(package);
-
+        ctx.scope->enter_scope();
+        declare_package(package);                
         
-        for(Sym* sym: global_syms){                            
-            resolver_log({}, "Resolving symbol: %s\n", sym->name);                
-            resolve_sym(sym);            
-        }
+        for(Sym* sym: global_syms){                                        
+            resolve_sym(sym);                        
+        }                
         return resolved_ast;
     }    
 

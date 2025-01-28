@@ -802,10 +802,10 @@ void makeLabel() {
         }  
         // Check for types 
         if(TypeDefinitions::TypeDefinition* tf = typedefs.getTypeDefinition(name)){            
-            return tf->type;            
+            return tf->type;                    
         }
-    
-        err("[ERR]: name '%s' not found in this scope.\n", name);
+
+        err("[ERR]: name '%s' not found in this scope at proc %s.\n", name, proc->name);
         exit(1);
     }
 
@@ -1416,7 +1416,7 @@ void makeLabel() {
             printf("extern %s\n", proc->name);
             return;
         }
-        fprintf(stderr, "PROC EXTERN -> %i\n", proc->is_extern);
+        
         ctx.setCurrentProcedure(proc);
         if(!proc){
             err("Got no proc in proc %s\n", d->name);
@@ -1570,8 +1570,7 @@ void makeLabel() {
         assert(0 && "unreachable");
     }    
 
-    void compile_ast(SVec<Decl*> ast, COMPILER_TARGET target, const char* output_file, bool verbose){                
-        fprintf(stderr, "VERBOSE: %i\n", verbose);
+    void compile_ast(SVec<Decl*> ast, COMPILER_TARGET target, const char* output_file, bool verbose){                        
         P_SET_CTXOUT("pietra.asm")
         
 
@@ -1647,7 +1646,7 @@ void makeLabel() {
                 default:
                 case CT_LINUX:
                 {
-                    system(strf("nasm -felf64 pietra.asm"));                        
+                    system(strf("nasm -felf64 -g pietra.asm"));                        
                     system(strf("ld -lc -dynamic-linker /lib64/ld-linux-x86-64.so.2 pietra.o -o %s", output_file));
                     system(strf("rm pietra.o"));
                     break;                    

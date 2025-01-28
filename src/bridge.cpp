@@ -141,6 +141,7 @@ namespace Pietra::CBridge {
     // --- Context ---
     // AssemblyContext Constructor   
     ScopeManager* Context::AssemblyContext::getGlobalScope(){
+        resolver_log({}, "###### [GOT GLOBAL SCOPE] ######\n");
         return this->scope;
     }
     
@@ -155,6 +156,7 @@ namespace Pietra::CBridge {
     }
         
     ScopeManager* Context::AssemblyContext::getLocalScope(){
+        resolver_log({}, "###### [GOT LOCAL SCOPE] ######\n");
         return this->currentProcedure->getScope();
     }
 

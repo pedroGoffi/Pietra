@@ -1,12 +1,9 @@
 use std{std}
 use std::libc{string, io, malloc}
 
-
-
-
 main :: (){
     ptr: mut *i64 =  malloc(8);
     *ptr = 420;
     std.puti(*ptr)
-    free(ptr);
+    free(ptr);    
 }

@@ -114,7 +114,7 @@ std::string get_or_create_output_file_name(std::string input_file, std::string o
 void initialize_language_context(){
     initInternKeywords();
     init_prep();
-    declare_built_in();
+    declare_built_in();    
 }
 
 int process_rtpi_file(const std::string& input_file, const std::string& output_file, bool log, const ArgumentParser& parser) {
@@ -143,9 +143,7 @@ int initialize_and_parse_arguments(int argc, char** argv, ArgumentParser& parser
 
     setResolverDebug(parser.is_flag_set("--verbose"));
     verbose = parser.is_flag_set("--verbose");
-    
-    printf("VERBOSE: %i\n", verbose);
-
+        
     target = parser.is_flag_set("-win32") 
         ? Asm::COMPILER_TARGET::CT_WINDOWS 
         : Asm::COMPILER_TARGET::CT_LINUX;

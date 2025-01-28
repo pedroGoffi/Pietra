@@ -1,4 +1,5 @@
 #package "pietra.test.future"
+use std{std}
 use std{list}
 
 FUTURE_DONE         :: 1

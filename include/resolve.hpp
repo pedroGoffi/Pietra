@@ -103,8 +103,7 @@ namespace Pietra::Resolver {
 
     class Scope {
 public:
-    std::vector<Resolver::Sym*> m_symbols; ///< List of symbols in the current scope.
-    int m_lvl; ///< Current scope level.
+    std::vector<Resolver::Sym*> m_symbols; ///< List of symbols in the current scope.    
     int scope_level(); ///< Returns the current scope level.
     /**
      * @brief Adds a symbol to the current scope.
@@ -127,12 +126,6 @@ public:
 class ScopeManager {
 public:
     std::vector<Scope*> m_scopes; ///< List of all scopes managed by the ScopeManager.
-    int m_lvl = 0; ///< Current scope level.
-    int get_scope_level(); ///< Returns the current scope level.
-
-    /**
-     * @brief Enters a new scope.
-     */
     void enter_scope();
     void leave_scope();
     void print_all();
