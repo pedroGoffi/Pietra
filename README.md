@@ -88,14 +88,14 @@ const PI := 3.14159
 
 Functions in Pietra Lang are declared using the following syntax:
 ```pi
-function_name :: (param: type) -> return_type {
+function_name :: (param: type): return_type {
     // Function body
 }
 ```
 
 Example of a simple function:
 ```pi
-add :: (a: i64, b: i64) -> i64 {
+add :: (a: i64, b: i64): i64 {
     return a + b
 }
 ```
@@ -297,7 +297,7 @@ main :: () {
 ### Implementing Factorial
 
 ```pi
-factorial :: (x: i64) -> i64 {
+factorial :: (x: i64): i64 {
     result := 1
     i:= 1
     while i < x + 1{

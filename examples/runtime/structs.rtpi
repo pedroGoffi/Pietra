@@ -70,9 +70,7 @@ main :: () {
     vector.push(420)
 
 
-    item := vector.find_if(proc(item: i64): i64 {
-        return item == 3
-    })
+    item := vector.find_if(proc(item: i64): i64 { return item == 3 })
 
     vector.foreach(proc(item: i64) {
         print("ITEM: ", item)

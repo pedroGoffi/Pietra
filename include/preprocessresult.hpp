@@ -126,11 +126,41 @@ public:
     explicit Result(const std::string& s);
     explicit Result(const char* error_msg);
 
+    bool is_returning = false;
     bool is_success() const;
     std::string to_string() const;
 
     template <typename T>
     T* get();
+
+    bool is_ctnone() const {
+        return std::holds_alternative<CTNone>(value);
+    }
+
+    bool is_true_if_cond(){
+        if (std::holds_alternative<uint64_t>(value)) {
+            return std::get<uint64_t>(value) != 0;
+        }
+        if (std::holds_alternative<double>(value)) {
+            return std::get<double>(value) != 0.0;
+        }
+        if (std::holds_alternative<std::string>(value)) {
+            return !std::get<std::string>(value).empty();
+        }
+        if (std::holds_alternative<CTObject*>(value)) {
+            return std::get<CTObject*>(value) != nullptr;
+        }
+        if (std::holds_alternative<CTNone>(value)) {
+            return false; // CTNone is always false
+        }
+        if (std::holds_alternative<void*>(value)) {
+            return std::get<void*>(value) != nullptr;
+        }
+
+        // Handle other types if needed
+        printf("Unknown type in if condition\n");
+        return false;
+    }
 private:
     bool success;
     Value value;

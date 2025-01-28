@@ -3,6 +3,7 @@
 #include "../include/smallVec.hpp"
 #include "../include/ast.hpp"
 #include "../include/interns.hpp"
+#include "pprint.cpp"
 #include "preprocessresult.cpp"
 #include <string.h>
 
@@ -64,8 +65,12 @@ Result* get_field_addr(Expr* expr, CTContext& context){
 Result evaluate_reassing(Expr* expr, CTContext& context){
     Expr* lhs   = expr->binary.left;
     Result rhs  = evaluate_expr(expr->binary.right, context);
-    if(lhs->kind == EXPR_NAME) {
-        context.add_variable(lhs->name, rhs);
+    if(lhs->kind == EXPR_NAME) {        
+        if(Result* var_ptr = context.get_variable_ptr(lhs->name)) 
+            *var_ptr = rhs;                            
+        else 
+            context.add_variable(lhs->name, rhs);        
+
         return rhs;
     }
     if(lhs->kind == EXPR_FIELD) {
@@ -235,6 +240,7 @@ Result evaluate_binary_expr(Expr* expr, CTContext& context) {
     
     if (!lhs.is_success()) {
         printf("Error: failed to evaluate left operand");
+        pPrint::expr(expr->binary.left);
         exit(1);
         return Result("Error: failed to evaluate left operand");
     }
@@ -285,9 +291,7 @@ Result evaluate_call_aggr(Decl* decl, std::vector<Result> args, CTContext& conte
 }
 Result evaluate_decl_call(Decl* decl, std::vector<Result> args, CTContext& context) {    
     assert(decl->kind == DECL_PROC);
-
-    // Push local scope for the function call
-    
+    // Push local scope for the function call    
     context.push_local_scope();
     
     // Setup the parameters
@@ -307,8 +311,8 @@ Result evaluate_decl_call(Decl* decl, std::vector<Result> args, CTContext& conte
     }
     
     // Now that parameters are added, execute the function body (block)
-    
     Result got_result  = prep_block(decl->proc.block, context); // Execute function body
+    got_result.is_returning = false;
     
     // Pop the local scope after the function execution
     context.pop_local_scope();
@@ -454,7 +458,7 @@ Result evaluate_init_var_expr(Expr* expr, CTContext& context) {
             evaluate_decl_call(constructor, args, context);
             
         }
-        printf("Allocating a object1\n");
+        printf("Allocating a object\n");
     }
     return rhs_value;
 }
@@ -475,6 +479,7 @@ Result evaluate_expr(Expr* expr, CTContext& context) {
         // Add additional cases here, using helper functions for each kind        
         default: 
             printf("EXPR kind = %zu\n", expr->kind);
+            pPrint::expr(expr);
             assert(0 && "unimplemented");
     }
 }
@@ -482,26 +487,20 @@ Result evaluate_expr(Expr* expr, CTContext& context) {
 // Preprocess expressions in a statement
 Result prep_stmt_expr(Stmt* stmt, CTContext& context) {
     return evaluate_expr(stmt->expr, context);
-    
-    
 }
 // Preprocess the 'if' statement
+bool is_true_if_cond(Result& res) {
+    return res.is_true_if_cond();
+}
 Result prep_stmt_if(Stmt* stmt, CTContext& context) {
     // Process the 'if' condition
     Result cond_result = evaluate_expr(stmt->stmt_if.if_clause->cond, context);
-    Result ret = Result();
-    uint64_t* match_cond = cond_result.get<uint64_t>();
-    if(!match_cond) {
-        printf("GOT: %s\n", cond_result.to_string().c_str());
-        return Result("expected integer in the if condition");
-    }
-    if(*match_cond){
-        // Process the 'if' block        
+    Result ret = Result();            
+    if(is_true_if_cond(cond_result)){
+        // Process the 'if' block
         for (Stmt* s : stmt->stmt_if.if_clause->block) {
-            if(s->kind == STMT_RETURN) return prep_stmt_return(s, context);
-            else {
-                ret = prep_stmt(s, context);
-            }
+            ret = prep_stmt(s, context);            
+            if(ret.is_returning) return ret;
         }        
         return ret;
     }        
@@ -509,30 +508,19 @@ Result prep_stmt_if(Stmt* stmt, CTContext& context) {
     bool elif_match = false;
     for (IfClause* elif : stmt->stmt_if.elif_clauses) {
         Result elif_cond = evaluate_expr(elif->cond, context);            
-        match_cond = elif_cond.get<uint64_t>();
-        if(!match_cond){
-            return Result("expected integer in the if condition");
-        }
         
+        if(!is_true_if_cond(elif_cond)) continue;        
         for (Stmt* s : elif->block) {
-            if(s->kind == STMT_RETURN) return prep_stmt_return(s, context);
-            
-            else {
-                ret = prep_stmt(s, context);
-            }
-        }
-        if (*match_cond) {                
-            return ret;
-        }
-    }
-    // Process the 'else' block
-    
-    for (Stmt* s : stmt->stmt_if.else_block) {
-        if(s->kind == STMT_RETURN) return prep_stmt_return(s, context);
-            
-        else {
             ret = prep_stmt(s, context);
+            if(ret.is_returning) return ret;
         }
+
+        return ret;
+    }
+    // Process the 'else' block    
+    for (Stmt* s : stmt->stmt_if.else_block) {
+        ret = prep_stmt(s, context);
+        if(ret.is_returning) return ret;
     }
     return ret;
     
@@ -540,6 +528,7 @@ Result prep_stmt_if(Stmt* stmt, CTContext& context) {
 // Preprocess the 'switch' statement
 Result prep_stmt_switch(Stmt* stmt, CTContext& context) {
     Result cond_result = evaluate_expr(stmt->stmt_switch.cond, context);
+    Result ret = Result();
     for (SwitchCase* case_item : stmt->stmt_switch.cases) {
         // Process each case pattern
         for (SwitchCasePattern* pattern : case_item->patterns) {
@@ -548,16 +537,19 @@ Result prep_stmt_switch(Stmt* stmt, CTContext& context) {
         }
         // Process the statements in each case block
         for (Stmt* case_stmt : case_item->block) {
-            prep_stmt(case_stmt, context);
+            ret = prep_stmt(case_stmt, context);
+            if(ret.is_returning) return ret;
         }
+        return ret;
     }
     // Handle the default case if necessary
     if (stmt->stmt_switch.has_default) {
         for (Stmt* default_stmt : stmt->stmt_switch.default_case) {
-            prep_stmt(default_stmt, context);
+            ret = prep_stmt(default_stmt, context);
+            if(ret.is_returning) return ret;
         }
     }
-    return Result();
+    return ret;
 }
 // Preprocess the 'for' statement
 Result prep_stmt_for(Stmt* stmt, CTContext& context) {
@@ -568,10 +560,13 @@ Result prep_stmt_for(Stmt* stmt, CTContext& context) {
     // Process the 'for' increment expression
     evaluate_expr(stmt->stmt_for.inc, context);
     // Process the 'for' block
+
+    Result ret = Result();
     for (Stmt* block_stmt : stmt->stmt_for.block) {
-        prep_stmt(block_stmt, context);
+        ret = prep_stmt(block_stmt, context);
+        if(ret.is_returning) return ret;
     }
-    return Result();
+    return ret;
 }
 // Preprocess the 'while' statement
 Result prep_stmt_while(Stmt* stmt, CTContext& context) {
@@ -585,18 +580,22 @@ Result prep_stmt_while(Stmt* stmt, CTContext& context) {
         }
         if(!*cond_vp) break;
         // Process the 'while' block
-        for (Stmt* block_stmt : stmt->stmt_while->block) {
-            if(block_stmt->kind == STMT_RETURN) return prep_stmt_return(block_stmt, context);            
-            prep_stmt(block_stmt, context);
+        Result ret = Result();
+        for (Stmt* block_stmt : stmt->stmt_while->block) {            
+            ret = prep_stmt(block_stmt, context);
+            if(ret.is_returning) {
+                printf("WHILE IS RETURNING\n");
+                return ret;
+            }
         }
     }
     return Result();
 }
 // Preprocess the 'return' statement
-Result prep_stmt_return(Stmt* stmt, CTContext& context) {
-    // Process the return expression
-    return evaluate_expr(stmt->expr, context);
-    // Handle return value processing (storing or using the return value as needed)
+Result prep_stmt_return(Stmt* stmt, CTContext& context) {    
+    Result ret = evaluate_expr(stmt->expr, context);
+    ret.is_returning = true;
+    return ret;
 }
 // General handler for statement preprocessing
 Result prep_stmt(Stmt* stmt, CTContext& context) {
@@ -606,22 +605,23 @@ Result prep_stmt(Stmt* stmt, CTContext& context) {
         case StmtKind::STMT_SWITCH:     return prep_stmt_switch(stmt, context);                
         case StmtKind::STMT_FOR:        return prep_stmt_for(stmt, context);                
         case StmtKind::STMT_WHILE:      return prep_stmt_while(stmt, context);                
-        case StmtKind::STMT_RETURN:     assert(0 && "this section should not be handled in here");
-        default: return Result("Failed to preprocess statement, unreachable");  
+        case StmtKind::STMT_RETURN:     return prep_stmt_return(stmt, context);
+        default:                        assert(0 && "unhandled");
     }
 }
 Result prep_block(SVec<Stmt*> block, CTContext& context){        
-    Result result;
-    for(Stmt* stmt: block){
-        if(stmt->kind == STMT_RETURN) return prep_stmt_return(stmt, context);
-        result = prep_stmt(stmt, theContext);            
-        
+    Result ret = Result();
+    for(Stmt* stmt: block){        
+        ret = prep_stmt(stmt, theContext);                    
+        if(ret.is_returning) return ret;
     }        
-    if(!result.is_success()) {
-        result = Result(CTNone());
+
+    if(!ret.is_success()) {
+        ret = Result(CTNone());
     }
-    return result;
+    return ret;
 }
+
 Result prep_decl(Decl* decl, CTContext& context) {
     // Dispatch based on declaration kind
     switch (decl->kind) {
@@ -632,11 +632,12 @@ Result prep_decl(Decl* decl, CTContext& context) {
         case DECL_TYPE:         return handle_type_alias_decl(decl, context);
         case DECL_USE:          return handle_use_decl(decl, context);
         case DECL_IMPL:         return handle_impl_decl(decl, context);
-        case DECL_CONSTEXPR:
-        case DECL_NONE: // Not supported
-        default:            return Result("Error: Unsupported or invalid declaration kind.");
+        case DECL_CONSTEXPR:    // Not supported
+        case DECL_NONE:         // Not supported
+        default:                return Result("Error: Unsupported or invalid declaration kind.");
     }
 }
+
 // Handle variable declarations
 Result handle_var_decl(Decl* decl, CTContext& context) {
     if (!decl->var.type) {
@@ -659,6 +660,7 @@ Result handle_var_decl(Decl* decl, CTContext& context) {
     }
     return Result("Success: Variable '" + std::string(decl->name) + "' declared.");
 }
+
 // Handle procedure declarations
 Result handle_proc_decl(Decl* decl, CTContext& context) {        
     if(context.get_variable_ptr(std::string(decl->name))){
@@ -714,6 +716,7 @@ Result prep_run_ast(std::vector<Decl*> ast) {
         Result result = prep_decl(node, theContext);
         if(!result.is_success()){
             printf("[ERROR]: %s\n", result.to_string().c_str());
+            pPrint::decl(node);
             return Result("error ast node");
         }            
     }
@@ -734,6 +737,10 @@ Result prep_run_ast(std::vector<Decl*> ast) {
     std::vector<Result> main_args;
     return evaluate_decl_call(decl, main_args, theContext);        
 }
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 Result print_func(std::vector<Result> args, CTContext& context){
     // Check if arguments are provided            
     if (args.empty()) {

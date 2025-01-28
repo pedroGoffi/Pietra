@@ -52,6 +52,10 @@ std::string Result::to_string() const {
             } else if constexpr (std::is_same_v<T, CTObject::methodFunc>) {
                 return "method";
             } else if constexpr (std::is_same_v<T, Decl*>) {
+                Decl* decl = dynamic_cast<Decl*>(v);
+                if(decl) {
+                    return std::string(decl->name);
+                }
                 return "decl";
             }
 
