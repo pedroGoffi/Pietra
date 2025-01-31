@@ -5,10 +5,10 @@ Future      :: {
     m_right:    Future
     m_data:     any
     m_cb:       proc(any): any
-    m_id:       i64
+    m_id:       i64    
 }
 // create a done instance of self 
-impl Future data :: proc (self: *Self, data: any): *Self{
+impl Future data :: (self: *Self, data: any): *Self{
     self.m_data = data    
     self.m_id   = FUTURE_DONE
     return self
@@ -59,52 +59,44 @@ impl Future gather :: (self: *Self, futures: Array): Array {
         quit = true 
         
         while index < futures.size() {
-            future: Future = futures.at(index)
-            print("INDEX = ", index)
+            future: Future = futures.at(index)            
             if future.poll(0) == None {
                 quit = false
             }
             index = index + 1            
         }                
     }
-
     return futures
 }
+
+
 
 ftex_1 :: (index: i64): Future {
     return Future()
         .data(index)        
         .then(proc (index: i64) { 
-            print("Im THEN from index: ", index)    
+            print("[FIRST]: EXAMPLE = ", index)    
             return index
-        })        
+        })
         .then(proc (index: i64) {
-            print("Im second THEN from index: ", index)    
-            return "ok"
+            print("OK end example = ", index)
+            return index
         })
 }
-ftex_2 :: (index: i64): Future {
-    return Future()
-        .data(index + 10)        
-        .then(proc (index: i64) { 
-            print("Hello, from the second future example ", index)    
-            return index
-        })                
-}
+
+
 main :: () {            
     print("[START]")
     futs:= make_array()
     i :=  0
-    MAX: i64 = 10
+    MAX: i64 = 11
     while i < MAX {
         futs.push(ftex_1(i))
-        futs.push(ftex_2(i))
-        
-        
+ 
         i = i + 1
     }    
     
-        
     Future().gather(futs)           
-    print("[END]")
+
+    print("[END]")    
 }

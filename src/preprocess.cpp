@@ -423,7 +423,8 @@ Result evaluate_field_expr(Expr* expr, CTContext& context){
     }
         
     if(CTObject** object_ptr = parent.get<CTObject*>()){
-        CTObject* object = *object_ptr;
+        CTObject* object = *object_ptr;        
+
         if(CTObject::methodFunc func = object->get_method(field))  return Result(func);
         if(Result* field_result = object->get_field(field))               return *field_result;                
         if(Result* impl_method = context.get_variable_ptr(format_impl_name(object->__name__, field))){
@@ -434,10 +435,13 @@ Result evaluate_field_expr(Expr* expr, CTContext& context){
         printf("IDK BRUH: %s\n", object->to_string().c_str());
         assert(0);
     }
+
     if(Decl** decl_ptr = parent.get<Decl*>()){
         Decl* decl = *decl_ptr;
         if(decl->kind == DECL_ENUM) return evaluate_field_decl_enum(decl, field, context);        
     }
+
+    
 
     printf("GOT %s\n", parent.to_string().c_str());
     assert(0 && "field not found");
@@ -457,8 +461,7 @@ Result evaluate_init_var_expr(Expr* expr, CTContext& context) {
             //printf("VISITING CONSTRUCTOR OF %s\n", obj->__name__);
             evaluate_decl_call(constructor, args, context);
             
-        }
-        printf("Allocating a object\n");
+        }        
     }
     return rhs_value;
 }
@@ -572,13 +575,11 @@ Result prep_stmt_for(Stmt* stmt, CTContext& context) {
 Result prep_stmt_while(Stmt* stmt, CTContext& context) {
     for(;;){
         // Process the 'while' condition expression
-        Result cond_result = evaluate_expr(stmt->stmt_while->cond, context);
-        uint64_t* cond_vp = cond_result.get<uint64_t>();
-        if(!cond_vp){
-            printf("[GOT]: %s\n", cond_result.to_string().c_str());
+        Result cond_result = evaluate_expr(stmt->stmt_while->cond, context);        
+        if(!cond_result.is_true_if_cond()){           
             return Result("while condition expectd to be a number");
         }
-        if(!*cond_vp) break;
+        if(!cond_result.is_true_if_cond()) break;
         // Process the 'while' block
         Result ret = Result();
         for (Stmt* block_stmt : stmt->stmt_while->block) {            
@@ -840,6 +841,54 @@ Result pietra_make_array(std::vector<Result> args, CTContext& context){
     CTArray* array = new CTArray();
     return Result(array);
 }
+Result pietra_open(std::vector<Result> args, CTContext& context){        
+    if(args.size() != 2) {
+        printf("[ERROR]: expected arguments size in open to be 2, got %zu.\n", args.size());
+        return Result("expected arguments size in open to be 2.");
+    }
+    std::string* filename   = args.at(0).get<std::string>();
+    std::string* mode       = args.at(1).get<std::string>();
+    if(!filename)  return Result("open expects <filename, mode>");
+    if(!mode)      return Result("open expects <filename, mode>");
+    CTStream* stream = new CTStream(*filename, *mode);
+    return Result(stream);
+}
+Result pietra_has_attr(std::vector<Result> args, CTContext& context){
+    if(args.size() != 2) {
+        printf("[ERROR]: expected arguments size in has_attribute to be 2, got %zu.\n", args.size());
+        return Result("expected arguments size in has_attribute to be 2.");
+    }
+
+    CTObject**      object       = args.at(0).get<CTObject*>();
+    std::string*    fieldName    = args.at(1).get<std::string>();
+    
+    if(!object)     return Result("has_attribute expects <object, string>");
+    if(!fieldName)  return Result("has_attribute expects <object, string>");
+
+    bool has_attribute = (*object)->get_field(*fieldName) != nullptr;
+    return Result(has_attribute);
+}
+Result pietra_set_attr(std::vector<Result> args, CTContext& context){
+    if(args.size() != 3) {
+        printf("[ERROR]: expected arguments size in set_attribute to be 3, got %zu.\n", args.size());
+        return Result("expected arguments size in set_attribute to be 3.");
+    }
+    // set_attribute(object, 'name', atribute)
+
+    Result object       = args.at(0);
+    Result fieldName    = args.at(1);
+    Result attr_value   = args.at(2);
+    
+    CTObject** obj_ptr = object.get<CTObject*>();
+    if(!obj_ptr) return Result("set_attribute first argument expected to be an object");
+
+    std::string* str_ptr = fieldName.get<std::string>();
+    if(!str_ptr) return Result("set_attribute second argument expected to be an string");
+
+    (*obj_ptr)->add_field(*str_ptr, new Result(attr_value));
+    printf("ok field %s\n", str_ptr->c_str());
+    return Result();
+}
 // Get the value at a specific index from the CT_buffer
 Result pietra_buffer_get(std::vector<Result> args, CTContext& context) {
     // Expect exactly one argument (index)
@@ -871,6 +920,7 @@ void add_function_to_context(std::string func_name, CTFunction::FuncType func){
     theContext.add_variable(func_name, Result(func_allocation));
 }
 
+
 void init_prep(){        
     theContext.add_variable("true", Result(Value((uint64_t)true)));
     theContext.add_variable("false", Result(Value((uint64_t)false)));
@@ -885,6 +935,14 @@ void init_prep(){
     add_function_to_context("buffer_clear", pietra_buffer_clear);
     add_function_to_context("buffer_size", pietra_buffer_size);
     add_function_to_context("buffer_get", pietra_buffer_get);
+
+    // Object handling
+    add_function_to_context("set_attribute", pietra_set_attr);
+    add_function_to_context("has_attribute", pietra_has_attr);    
+
+    // More builtins    
+    add_function_to_context("open", pietra_open);
+
 }
 
 #endif /*PREPROCESS_CPP*/

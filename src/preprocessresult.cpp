@@ -57,7 +57,7 @@ std::string Result::to_string() const {
                     return std::string(decl->name);
                 }
                 return "decl";
-            }
+            } 
 
             assert(0);
         }, value);

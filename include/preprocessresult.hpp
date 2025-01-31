@@ -10,6 +10,12 @@
 #include <cstdint>
 #include <functional>
 #include <sstream> // For std::ostringstream
+#include <fstream>   // For std::fstream
+#include <sstream>   // For std::ostringstream
+#include <stdexcept> // For std::runtime_error
+#include <vector>    // For std::vector
+#include <string>    // For std::string
+#include <iostream>  // (Optional) For debugging with std::cout
 
 using namespace Pietra;
 using namespace Pietra::Ast;
@@ -111,10 +117,8 @@ protected:
     std::unordered_map<std::string, Result*>     fields;        
 };
 
-
-
-
 class CTNone {};
+class CTStream;
 // Value type definition
 using Value = std::variant<uint64_t, double, std::string, CTFunction*, Decl*, CTNone, CTObject*, CTObject::methodFunc, void*>;
 
@@ -214,13 +218,13 @@ public:
             return Result("bad argument");
         }
         if (*index < data.size()) {
-            return data[*index];
+            return this->data[*index];
         }
         return Result("Out of range");
     }
 
     Result m_size(std::vector<Result> args, CTContext& context){
-        return Result(data.size());
+        return Result((uint64_t) data.size());
     }
     std::string to_string() const {
         std::ostringstream oss;
@@ -241,6 +245,61 @@ public:
 
 private:
     std::vector<Result> data;  // The actual array data
+};
+
+class CTStream : public CTObject {
+public:
+    CTStream(const std::string& filename, const std::string& mode) : CTObject("builtin_stream"), file(filename, get_mode(mode)) {
+        if (!file.is_open()) {
+            throw std::runtime_error("Failed to open file: " + filename);
+        }
+
+        printf("Iniciando CTSTream\n")    ;
+        this->add_method("write",   [&](std::vector<Result> args, CTContext& context) -> Result { return this->m_write(args, context); });
+        this->add_method("read",    [&](std::vector<Result> args, CTContext& context) -> Result { return this->m_read(args, context); });
+        this->add_method("close",   [&](std::vector<Result> args, CTContext& context) -> Result { return this->m_close(args, context); });
+    }
+
+    
+
+    Result m_write(std::vector<Result> args, CTContext& context) {
+        if (args.empty()) {
+            return Result("Expected at least one argument to write");
+        }
+        for (const auto& arg : args) {
+            file << arg.to_string();
+        }
+        file.flush();
+        return Result((uint64_t)1);
+    }
+
+    Result m_read(std::vector<Result> args, CTContext& context) {
+        if (!file.is_open()) {
+            return Result("File is not open");
+        }
+        std::ostringstream ss;
+        ss << file.rdbuf();
+        return Result(ss.str());
+    }
+
+    Result m_close(std::vector<Result> args, CTContext& context) {
+        if (file.is_open()) {
+            file.close();
+        }
+        return Result((uint64_t)1);
+    }
+
+private:
+    std::fstream file;
+    std::ios_base::openmode get_mode(const std::string& mode) {
+        if (mode == "r") return std::ios::in;
+        if (mode == "w") return std::ios::out | std::ios::trunc;
+        if (mode == "a") return std::ios::app;
+        if (mode == "rw") return std::ios::in | std::ios::out;
+        
+        std::cerr << "Invalid mode: " << mode << std::endl; // Debugging
+        return std::ios::in; // Default
+    }
 };
 
 // CTFunction class declaration

@@ -1,5 +1,11 @@
 #package "pietra.std.runtime"
 
+Iterable :: {
+    object:         Array
+    index:          i64
+    begin_func:     proc(Array): i64 
+    end_func:       proc(Array): i64
+}
 
 Vector :: {    
     __vec:  builtin_vector    
@@ -22,13 +28,15 @@ impl Vector at :: (self: *Self, index: i64): i64 {
     
 }
 
-impl Vector map :: (self: *Self, func: proc(any): any): *builtin_vector {
-    i: i64 = 0
-    new_array: builtin_vector = make_array()
-    while i < self.size() {                
+impl Vector map :: (self: *Self, func: proc(any): any): Vector {
+    new_array: Vector = Vector()
+    iter = self.as_iter()
+
+    while i := iter.next() {
         new_array.push(func(self.at(i)))    
         i = i + 1
     }
+    
     return new_array
 }
 
@@ -56,36 +64,41 @@ impl Vector foreach :: (self: *Self, func: proc(any)) {
 }
 
 
-arr1 :: (arr: Vector, item: i64) {
-    arr.push(item)
+
+impl Vector as_iter :: (arr: Array): Iterable {
+    iter = Iterable()
+    iter.object     = arr 
+    iter.index      = 0    
+    iter.begin_func = proc(obj: Array){ return 0            }
+    iter.end_func   = proc(obj: Array){ return obj.size()   }
+    
+    return iter
+}
+
+impl Iterable next :: (self: *Self){
+    if self.index < self.end_func(self.object) {
+        self.index = self.index + 1        
+        return self.object.at(self.index - 1)
+    }
+    return None    
 }
 main :: () {    
-    vector: Vector = Vector()
-    vector.push(1)
-    vector.push(2)
-    vector.push(3)
-    vector.push(4)
-    vector.push(5)
-    vector.push(6)
-    vector.push(420)
+    arr: Vector = Vector()
 
-
-    item := vector.find_if(proc(item: i64): i64 { return item == 3 })
-
-    vector.foreach(proc(item: i64) {
-        print("ITEM: ", item)
+    arr.push("hello")    
+    arr.push(", ")    
+    arr.push("world")    
+    
+    
+    iter = arr.as_iter()
+    
+    while i := iter.next() {
+        print(i)
+    }
+    
+    arr.map(proc(item: string) {
+        print("FOREACH: ", item)
     })
 
-    if 0 < item
-    {
-        print("FOUND ITEM: ", item, ", ", vector.at(item))
-    }
-    else 
-    {
-        print("ITEM NOT FOUND")
-    }
-    print("FOUND ITEM: ", item, ", ", -item)
-    print("x == 11: ", 11 == 11)
-    
-    
+    print("OK END")
 }
