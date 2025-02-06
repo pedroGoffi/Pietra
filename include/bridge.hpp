@@ -8,6 +8,7 @@
 #include <map>
 #include "resolve.hpp"
 #include <string>
+#include <llvm/IR/Value.h>
 
 
 using namespace Pietra::Core;
@@ -31,12 +32,13 @@ namespace Pietra::CBridge {
 
     namespace Variables {
         struct Variable {
-            const char* name;
-            Type* type;
-            Expr* initializer;
-            bool isGlobal = false;
-            bool isParameter = false;
-            int stackOffset;
+            const char*     name;
+            Type*           type;
+            Expr*           initializer;
+            bool            isGlobal = false;
+            bool            isParameter = false;
+            int             stackOffset;
+            llvm::Value*    value;
 
             Variable(const char* name, Type* type, Expr* initializer, bool isGlobal = false, bool isParameter = false, int stackOffset = 0);
             void display() const;

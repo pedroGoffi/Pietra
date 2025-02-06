@@ -7,7 +7,7 @@
 // Result class implementation
 Result::Result() : success(true), value("") {}
 
-Result::Result(Value v) : success(true), value(v) {}
+Result::Result(RTValue v) : success(true), value(v) {}
 
 Result::Result(const std::string& s) : success(true), value(s) {}
 
@@ -84,7 +84,7 @@ void CTContext::add_variable(const std::string& name, Result value) {
     if(CTObject** obj_ptr = value.get<CTObject*>()){
         CTObject* obj = *obj_ptr;
         if(!obj->get_field("__name__")){
-            obj->add_field("__name__", new Result(Value(obj->__name__)));
+            obj->add_field("__name__", new Result(RTValue(obj->__name__)));
         }                
     }
     // If there are no active local scopes, add to the global variables map

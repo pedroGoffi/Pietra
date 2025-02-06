@@ -70,6 +70,7 @@ const char* f64_keyword;
 const char* return_keyword;
 const char* Self_keyword;
 const char* switch_keyword;
+const char* runtime_keyword;
 const char** intern_table[] = {
 	&new_keyword,
 	&if_keyword,
@@ -102,10 +103,8 @@ const char** intern_table[] = {
 	&f64_keyword,
 	&return_keyword,
 	&Self_keyword,
-	&switch_keyword
-
-	// especials
-	
+	&switch_keyword,
+	&runtime_keyword	
 };
 
 

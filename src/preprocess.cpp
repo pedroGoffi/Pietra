@@ -267,15 +267,17 @@ Result evaluate_binary_expr(Expr* expr, CTContext& context) {
     
 }
 void setup_aggregate_object(CTObject* object, Decl* decl){
+    CTContext tmpCtx;
     for(AggregateItem* item: decl->aggregate.items){
+        tmpCtx.add_variable("self", Result(object));
         for(const char* field: item->field.names){            
             Result* field_result = nullptr;
 
             if(item->field.init){
-                assert(0 && "TODO");
+                field_result = new Result(evaluate_expr(item->field.init, tmpCtx));
             }
             else {
-                field_result = new Result(Value("None"));
+                field_result = new Result(RTValue("None"));
             }            
             object->add_field(std::string(field), field_result);
         }
@@ -287,6 +289,15 @@ Result evaluate_call_aggr(Decl* decl, std::vector<Result> args, CTContext& conte
     Result agg = context.get_variable(decl->name);
     CTObject* object = new CTObject(decl->name);
     setup_aggregate_object(object, decl);    
+    // Check for constructors
+    if(Result* constructor = object->get_field(object->__name__)) {
+        CTFunction** constructor_ptr = constructor->get<CTFunction*>();        
+        if(constructor_ptr){
+            args.insert(args.begin(), Result(object));
+            Result constructor_result = (*constructor_ptr)->call(args, context);
+            if(!constructor_result.is_success()) return constructor_result;        
+        }
+    }
     return Result(object);
 }
 Result evaluate_decl_call(Decl* decl, std::vector<Result> args, CTContext& context) {    
@@ -321,7 +332,7 @@ Result evaluate_decl_call(Decl* decl, std::vector<Result> args, CTContext& conte
     return got_result;
 }
 
-Result evaluate_call_expr(Expr* expr, CTContext& context) {    
+Result evaluate_call_expr(Expr* expr, CTContext& context) {
     Result base = evaluate_expr(expr->call.base, context);
     if(!base.is_success()) return Result("Error: failed to call function");
     
@@ -338,7 +349,7 @@ Result evaluate_call_expr(Expr* expr, CTContext& context) {
 
     if(CTFunction** func_ptr = base.get<CTFunction*>()){
         CTFunction* func = *func_ptr;
-        assert(func);        
+        assert(func);
         return func->call(args, context);
     } 
     else if(Decl** decl_ptr = base.get<Decl*>()){
@@ -694,8 +705,14 @@ Result handle_type_alias_decl(Decl* decl, CTContext& context) {
 }
 // Handle 'use' declarations (imports)
 Result handle_use_decl(Decl* decl, CTContext& context) {
-    printf("unimplemented %s\n", __func__);
-    return Result("Success: 'Use' declaration processed.");
+    assert(decl->kind == DECL_USE);
+    // for now: NO RENAME + USE ALL    
+    for(Decl* node: decl->use.module) 
+    {
+       Result result = prep_decl(node, context);
+       if(!result.is_success()) return result;
+    }    
+    return Result();
 }
 // Handle implementation declarations
 Result handle_impl_decl(Decl* decl, CTContext& context) {
@@ -785,14 +802,7 @@ Result pietra_int_cast(std::vector<Result> args, CTContext& context) {
     }
     // Try to cast the result to an integer
     if (auto str_val = result.get<std::string>()) {
-        try {
-            // Attempt to convert the string to an integer
-            return Result(std::stoul(*str_val));  // Convert string to integer
-        } catch (const std::invalid_argument& e) {
-            return Result("Error: Invalid string for integer conversion");
-        } catch (const std::out_of_range& e) {
-            return Result("Error: Integer out of range");
-        }
+        return Result(std::stoul(*str_val));  // Convert string to integer
     } else if (auto int_val = result.get<uint64_t>()) {
         return Result(*int_val);  // Return the integer value directly if it's already an integer
     } else if (auto double_val = result.get<double>()) {
@@ -922,8 +932,8 @@ void add_function_to_context(std::string func_name, CTFunction::FuncType func){
 
 
 void init_prep(){        
-    theContext.add_variable("true", Result(Value((uint64_t)true)));
-    theContext.add_variable("false", Result(Value((uint64_t)false)));
+    theContext.add_variable("true", Result(RTValue((uint64_t)true)));
+    theContext.add_variable("false", Result(RTValue((uint64_t)false)));
     theContext.add_variable("None", Result(CTNone()));
     
     // Create a CTFunction for print and add it to the context

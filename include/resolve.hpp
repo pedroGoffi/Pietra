@@ -1,5 +1,6 @@
 #ifndef RESOLVE_HPP
 #define RESOLVE_HPP
+#include <llvm/IR/Value.h>
 #include "ast.hpp"
 #include "packages.hpp"
 #include "type.hpp"
@@ -62,7 +63,7 @@ namespace Pietra::Resolver {
         Expr*           expr;
         Type*           type;
         Val             val;        
-        
+        llvm::Value*    llvmValue;
         SymImpl         impls;
     };
     

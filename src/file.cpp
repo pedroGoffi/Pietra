@@ -8,21 +8,18 @@
 
 using namespace Pietra;
 
-const char* fileReader::read_file(const char* filename){    
-    FILE* fd = fopen(filename, "rb");
-    if(!fd){
-        printf("[ERROR]: the file %s couldn't be readed\n", filename);
-        exit(1);
-    }
-    
-    fseek(fd, 0, SEEK_END);
-    int fsize = ftell(fd);
-    fseek(fd, 0, SEEK_SET);
-    char* content = Core::arena_alloc<char>(fsize + 1);    
-    content[fsize + 1] = '\0';
-    fread(content, 1, fsize, fd);
-    fclose(fd);
-    return (const char*) content;
+const char *fileReader::read_file(const char *filename) {
+  FILE *fd = fopen(filename, "rb");
+  if (!fd)
+    return nullptr;
 
+  fseek(fd, 0, SEEK_END);
+  int fsize = ftell(fd);
+  fseek(fd, 0, SEEK_SET);
+  char *content = Core::arena_alloc<char>(fsize + 1);
+  content[fsize + 1] = '\0';
+  fread(content, 1, fsize, fd);
+  fclose(fd);
+  return (const char *)content;
 }
 #endif /*FILE_CPP*/

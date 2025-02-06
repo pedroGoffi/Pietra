@@ -1,0 +1,73 @@
+FUTURE_DONE := 1 
+FUTURE_THEN := 2 
+Future      :: {
+    m_left:     Future
+    m_right:    Future
+    m_data:     any
+    m_cb:       proc(any): any
+    m_id:       i64    
+}
+// create a done instance of self 
+impl Future data :: (self: *Self, data: any): *Self{
+    self.m_data = data    
+    self.m_id   = FUTURE_DONE
+    return self
+}
+// create a then instanciate of self with a callback
+impl Future then :: (self: *Self, cb: proc(any): any): *Self {            
+    newft := Future()    
+    newft.m_left    = self
+    newft.m_cb      = cb
+    newft.m_id      = FUTURE_THEN
+    return newft
+}
+Future_poll :: (future: Future, data: any): any {    
+    if      future.m_id == FUTURE_DONE return future.m_data
+    elif    future.m_id == FUTURE_THEN {                
+
+        if future.m_left {
+            if result := Future_poll(future.m_left, 0) {
+                future.m_right = future.m_cb(result)
+                future.m_left  = None
+            }
+            return None
+        }
+        return future.m_right.poll(data)
+    }
+
+    print("[WARN]: Unhandled case in future poll")
+}
+impl Future poll :: (self: *Self, data: any): any {
+    return Future_poll(self, data)
+}
+// awaits untill the current future is completed
+impl Future wait :: (self: *Self): any {
+    while true {
+        result: any = Future_poll(self, 0)        
+        if result return result
+    }
+    return self
+}
+impl Future run :: (self: *Self, future: Future): any {
+    return future.wait()
+}
+
+impl Future gather :: (self: *Self, futures: Array): Array {
+    quit := false 
+    index: i64 = 0
+    while quit == false {
+        quit = true 
+        
+        while index < futures.size() {
+            future: Future = futures.at(index)            
+            if future.poll(0) == None {
+                quit = false
+            }
+            index = index + 1            
+        }                
+    }
+    return futures
+}
+
+
+

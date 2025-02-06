@@ -18,10 +18,6 @@ cli:        SocketAddr_in
 BUFFER_SIZE :: 4096
 read_size: i64 = 0
 
-defer := proc(){
-    close(cli_fd)
-    close(sock_fd)
-}
 
 sync_server_main :: () {    
     buffer: *cstr = std.allocate(BUFFER_SIZE)
@@ -36,18 +32,18 @@ sync_server_main :: () {
         read_size = read(cli_fd, &buffer, BUFFER_SIZE)
         
         if read_size == 0 {
-            std.puts("[SERV]: CLIENT DISCONNECTED\n")
-            return defer()
+            std.puts("[SERV]: CLIENT DISCONNECTED\n")            
+            return 0
         }
 
         elif read_size < 0 {
             std.puts("[SERV]: READ ERROR\n")
-            return defer()
+            return 0
         }
 
         else {
             std.puts("[SERV]: RECEIVED:\n\n")
-            std.puts(buffer)
+            return 0
         }
     }
 

@@ -1,118 +1,33 @@
-#package "pietra.std.variadic_args"
-Va_list :: {
-    __va_index: mut i64
-    __va_ptr:      mut *i64
-    __va_stack: mut *any
-    __va_end:   mut *void
-    __va_cap:   mut i64
+#package "std.variadic.args"
+use std{std}
+
+
+
+Vararg :: {
+  rbp:        mut *any
+  ptr:        mut *any    
 }
 
-impl Va_list constructor :: (self: *Self){
-    self.__va_index = 0
-    self.__va_stack = asm("mov rax, INTERNAL__va_stack")
-    self.__va_end   = asm("mov rax, INTERNAL__va_end")
-    self.__va_cap   = self.__va_end - self.__va_stack
-    self.__va_ptr   = self.__va_stack
+va_set_rbp :: (this: *Vararg, rbp: *any) {
+    this.rbp = rbp
+    this.ptr = this.rbp
+    this.ptr = this.ptr + 8   
 }
 
 
-impl Va_list next :: (self: *Self){
-    self.__va_index = self.__va_index + 1
-    self.__va_ptr   = self.__va_ptr   + 8
+va_has :: (this: *Vararg){ return *this.ptr != &__VA_END__ }
+
+va_next :: (this: *Vararg, nbytes: i64): mut *any {
+  if !va_has(this) return 0
+  this.ptr = this.ptr + nbytes
+  if !va_has(this) return 0
+  return this.ptr
 }
 
-impl Va_list has_value:: (self: *Self){
-    return self.__va_stack[self.__va_index] != self.__va_end
-    
+va_from_rbp :: (rbp: *any): *Vararg {
+  va: *Vararg = new Vararg
+  va_set_rbp(va, rbp)
+  return va
 }
 
-impl Va_list value :: (self: *Self): *any
-    return *self.__va_ptr
-
-impl Va_list end :: (self: *Self): *any 
-    return self.__va_end
-
-impl Va_list consume :: (self: *Self): *any {
-    ret := *self.__va_ptr
-    self.next()
-    return ret
-}
-puts_va :: (...){    
-    
-}
-
-__printf_tmp_buffer: mut *i8 = new [2] i8
-__parse_printf_param :: (dst: mut*mut*i8, fmt: mut *i8, va_ptr: *Va_list){
-    if *fmt == '%'{        
-        __printf_tmp_buffer[0] = *fmt   as any
-        __printf_tmp_buffer[1] = 0      as any
-        *dst = std.cstrcat(*dst, __printf_tmp_buffer)
-        return 1
-    }
-
-    if !va_ptr.has_value(){
-        std.puts("[ERROR]: __parse_printf_param reach end of parameters.\n")
-        exit(1)
-    }
-
-    val: *any = *va_ptr.__va_ptr        
-    va_ptr.next()
-    switch *fmt {
-        case 's': {        
-            *dst = std.cstrcat(*dst, val)
-            return 1
-        }
-        case 'i': {
-            *dst = std.cstrcat(*dst, std.itocstr(val))            
-            return 1
-        }
-    }
-
-    std.puts("[ERRR]: unknown flag in printf: ");
-    std.putc(*fmt)
-    std.puts("\n")
-    exit(1)
-    
-}
-__parse_printf_format :: (fmt: mut *i8, va: *Va_list): *i8{    
-    stream := new [1] i8
-    tmp_buffer := new [2] i8
-
-    asm(".LoopBegin:")
-    while *fmt 
-    {
-        
-        if *fmt == '%'{
-            fmt = fmt + 1
-            fmt = fmt + __parse_printf_param(&stream, fmt, va)
-            asm("jmp .LoopBegin")
-        }
-                
-        __printf_tmp_buffer[0] = *fmt   as any
-        __printf_tmp_buffer[1] = 0      as any
-        stream = std.cstrcat(stream, __printf_tmp_buffer)
-        fmt = fmt + 1        
-    }
-
-    return stream
-}
-
-fprintf :: (file: *FILE, fmt: *i8, va_ptr: *Va_list){
-    va: Va_list
-    std.fputs(file, __parse_printf_format(fmt, va_ptr))
-}
-__printf_out_file: mut *FILE = stdout 
-__printf__set_out_file :: (f: *FILE)    
-    __printf_out_file = f
-
-printf :: (fmt: *i8, ...){
-    va: Va_list
-    fprintf(__printf_out_file, fmt, &va) 
-}
-
-// int sprintf(char *restrict str, const char *restrict format, ...);
-sprintf :: (str: mut*mut*i8, fmt: *i8, ...){
-    va: Va_list;
-    *str = __parse_printf_format(fmt, &va)    
-    return str
-}
+VA_INIT :: va_from_rbp(GET_RBP)

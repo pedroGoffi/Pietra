@@ -36,7 +36,7 @@ namespace Pietra::Parser{
 
     Stmt* stmt(Lexer* lexer);
 
-    SVec<Decl*> parser_loop(Lexer* lexer);
+    SVec<Decl*> parser_loop(Lexer* lexer, TokenKind delim = TK_eof);
     Decl* decl(Lexer* lexer);
     
         Decl* decl_impl(Lexer* lexer);

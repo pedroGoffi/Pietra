@@ -93,7 +93,7 @@ impl ll_list iter :: (self: *Self, func: proc(*any): *any): null {
     }
 }
 impl ll_list map :: (self: *Self, func: proc(any): any): *ll_list{
-    ret: *ll_list = std.allocate(sizeof(ll_list))
+    ret: *ll_list = std.allocate(100)
     node: mut *ll_node = self.head
     while node.value 
     {

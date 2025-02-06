@@ -1,6 +1,6 @@
 #package "pietra.linux.syscall.table"
 use std::core{types, struct_stat}
-use std::core{__internal}
+use std::core{__internal, __registers, __internals}
 
 __fd_stdin                      :: 0
 __fd_stdout                     :: 1

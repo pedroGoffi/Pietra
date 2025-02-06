@@ -120,13 +120,13 @@ protected:
 class CTNone {};
 class CTStream;
 // Value type definition
-using Value = std::variant<uint64_t, double, std::string, CTFunction*, Decl*, CTNone, CTObject*, CTObject::methodFunc, void*>;
+using RTValue = std::variant<uint64_t, double, std::string, CTFunction*, Decl*, CTNone, CTObject*, CTObject::methodFunc, void*>;
 
 // Result type declaration
 class Result {
 public:
     Result();
-    explicit Result(Value v);
+    explicit Result(RTValue v);
     explicit Result(const std::string& s);
     explicit Result(const char* error_msg);
 
@@ -167,7 +167,7 @@ public:
     }
 private:
     bool success;
-    Value value;
+    RTValue value;
 };
 
 // CTArray - Derived from CTObject, representing an array-like structure
@@ -251,7 +251,7 @@ class CTStream : public CTObject {
 public:
     CTStream(const std::string& filename, const std::string& mode) : CTObject("builtin_stream"), file(filename, get_mode(mode)) {
         if (!file.is_open()) {
-            throw std::runtime_error("Failed to open file: " + filename);
+            return;
         }
 
         printf("Iniciando CTSTream\n")    ;

@@ -939,6 +939,7 @@ SVec<const char*> use_names(Lexer* lexer){
 Decl* decl_use(Lexer* lexer){
     assert(lexer->token.name == cstr("use"));
     lexer->nextToken();
+    bool is_runtime = lexer->expectKeyword(runtime_keyword);
     SVec<const char*> _mod_names = use_module_names(lexer);
     SVec<const char*> _use_names; 
     if(lexer->token.isKind(TK_lcurly)){
@@ -971,7 +972,7 @@ Decl* decl_use(Lexer* lexer){
     }    
     SVec<Decl*> module;    
     for(const char* use: _use_names){        
-        const char* new_path = strf("%s/%s.pi", path, use);
+        const char* new_path = strf("%s/%s.%s", path, use, is_runtime? "rtpi": "pi");
         // TODO: test in here
         //stream_snaphot();
         PPackage* package = PPackage::from(new_path);
@@ -1097,17 +1098,29 @@ Decl* parse_comptime(Lexer* lexer){
 
             std::vector<Decl*> preprocess_ast;
             for(Decl* node: preprocess_svec_ast){
-                preprocess_ast.push_back(node);
-         
+                preprocess_ast.push_back(node);         
             }    
             Result file_result = prep_run_ast(preprocess_ast);            
             printf("PREPROCESS FILE RESULT: %s\n", file_result.to_string().c_str());
         }
+        else if(lexer->token.isKind(TK_lcurly)) {            
+            lexer->nextToken();
+            // run block as decl ast
+            
+            SVec<Decl*> preprocess_svec_ast = parser_loop(lexer, TK_rcurly);
+            printf("OK\n");
+            std::vector<Decl*> preprocess_ast;
+            for(Decl* node: preprocess_svec_ast){
+                preprocess_ast.push_back(node);         
+            }    
+            Result file_result = prep_run_ast(preprocess_ast);            
+            printf("PREPROCESS FILE RESULT: %s\n", file_result.to_string().c_str());
+            assert(lexer->expect(TK_rcurly));
+        }
+
         else {
-            // run block 
-            SVec<Stmt*> block = stmt_opt_curly_block(lexer);
-            Result block_result = prep_block(block, theContext);
-            printf("PREPROCESS BLOCK %s\n", block_result.to_string().c_str());        
+            printf("[ERROR]: unexpected syntax nearby #run tag.\n");
+            exit(1);
         }
         return nullptr;
     }
@@ -1167,9 +1180,9 @@ Decl* decl(Lexer* lexer){
     exit(1);
 }
 
-SVec<Decl*> parser_loop(Lexer* lexer){
+SVec<Decl*> parser_loop(Lexer* lexer, TokenKind delim){
     SVec<Decl*> ast;
-    while(lexer->token.kind != TK_eof){        
+    while(lexer->token.kind != delim){        
         Decl* node = decl(lexer);               
         if(node){        
             ast.push(node);

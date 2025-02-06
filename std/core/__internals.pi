@@ -1,0 +1,1 @@
+__VA_END__ :: asm("mov rax, __VA_END__")

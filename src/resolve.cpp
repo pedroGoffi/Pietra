@@ -391,15 +391,8 @@ namespace Pietra::Resolver{
         {
             const char* builtin_procs[] = {                
                 "syscall",
-                "asm",                
-                "quit",
-                "readFile", 
-                "typeof",
-                "sizeof",
-                "va_next",
-                "va_begin",
-                "va_end",
-                
+                "asm",
+                "sizeof",                                
             };
             for(auto& str: builtin_procs){
                 DEFINE_BUILTIN(str,

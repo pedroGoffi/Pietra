@@ -1,49 +1,17 @@
-use std{std}
-use std::test{future}
-use std{list}
-
-MAX_SIZE :: 5
-COUNT_UNTILL :: MAX_SIZE
+#package "examples.dev"
+use std{std, varargs}
 
 
-await_me_senpai :: (): *Future {
-    std.puts("thanks for awaiting me uwu\n")
-    return make_done("arigatou")
+
+VARIADIC :: (begin: *i64, ...){
+  va := VA_INIT
+  while arg := va_next(va, 8) {
+    std.puts(*arg)
+  } 
+  
 }
-f2 :: (data: *any): *Future{        
-    std.puts("Indexing : ");
-    std.puti(data)
-    std.puts("\n")
-    std.puts("Im second future\n")
-    return make_done("GOFFI LANGUAGE")
-}
-f3 :: (data: *any): *Future {
-    std.puts("Im third future\n")
-    return make_done("GOFFI LANGUAGE")
-}
-
-f4 :: (data: *any): *Future{
-    std.puts("Created by Pedro Henrique Goffi de Paulo, Lang: ")
-    std.puts(data)
-    std.puts("\n")
-    return make_done("done")
-}
-
-my_async :: (index: i64): *Future {
-    f1: *Future         = make_done(index)
-    tf2: *Future        = make_then(f1,     f2)
-    tf3: *Future        = make_then(tf2,    f3)    
-    tf4: *Future        = make_then(tf3,    f4)
-    
-    return tf4
-}
-
-main :: (){
-    futures: ll_list;
-    futures.push(my_async(69))
-    futures.push(await(my_async(420))) // 420 should already be calculated in gather
-    futures.push(my_async(6969))
-       
-    async_gather(&futures)
-    std.puts("ok\n")    
+main :: () 
+{ 
+  
+  VARIADIC("hello", ", ", "world", "\n")  
 }

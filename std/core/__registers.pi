@@ -1,0 +1,19 @@
+#package "pietra.internal.registers"
+
+
+GET_RAX :: asm("mov rax, rax") as **any
+GET_RBX :: asm("mov rax, rbx") as **any
+GET_RCX :: asm("mov rax, rcx") as **any
+GET_RDX :: asm("mov rax, rdx") as **any
+GET_RSI :: asm("mov rax, rsi") as **any
+GET_RDI :: asm("mov rax, rdi") as **any
+GET_RSP :: asm("mov rax, rsp") as **any
+GET_RBP :: asm("mov rax, rbp") as **any
+GET_R8  :: asm("mov rax, r8")  as **any
+GET_R9  :: asm("mov rax, r9")  as **any
+GET_R10 :: asm("mov rax, r10") as **any
+GET_R11 :: asm("mov rax, r11") as **any
+GET_R12 :: asm("mov rax, r12") as **any
+GET_R13 :: asm("mov rax, r13") as **any
+GET_R14 :: asm("mov rax, r14") as **any
+GET_R15 :: asm("mov rax, r15") as **any

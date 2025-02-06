@@ -1,11 +1,11 @@
 #package "libc.io"
 @extern printf :: (fmt: *i8, ...) : i32;
 @extern fprintf :: (stream: *void, fmt: *i8, ...) : i32;
-@extern snprintf :: (str: *i8, size: usize, fmt: *i8, ...) : i32;
+@extern snprintf :: (str: *i8, size: i64, fmt: *i8, ...) : i32;
 @extern sprintf :: (str: *i8, fmt: *i8, ...) : i32;
 @extern vprintf :: (fmt: *i8, args: *void) : i32;
 @extern vfprintf :: (stream: *void, fmt: *i8, args: *void) : i32;
-@extern vsnprintf :: (str: *i8, size: usize, fmt: *i8, args: *void) : i32;
+@extern vsnprintf :: (str: *i8, size: i64, fmt: *i8, args: *void) : i32;
 @extern vsprintf :: (str: *i8, fmt: *i8, args: *void) : i32;
 @extern scanf :: (fmt: *i8, ...) : i32;
 @extern fscanf :: (stream: *void, fmt: *i8, ...) : i32;
@@ -17,8 +17,8 @@
 @extern puts :: (str: *i8) : i32;
 @extern fgetc :: (stream: *void) : i32;
 @extern fputc :: (c: i32, stream: *void) : i32;
-@extern fread :: (ptr: *void, size: usize, nmemb: usize, stream: *void) : usize;
-@extern fwrite :: (ptr: *void, size: usize, nmemb: usize, stream: *void) : usize;
+@extern fread :: (ptr: *void, size: i64, nmemb: i64, stream: *void) : i64;
+@extern fwrite :: (ptr: *void, size: i64, nmemb: i64, stream: *void) : i64;
 @extern fseek :: (stream: *void, offset: i64, whence: i32) : i32;
 @extern ftell :: (stream: *void) : i64;
 @extern rewind :: (stream: *void) : void;
@@ -32,7 +32,7 @@
 @extern perror :: (s: *i8) : void;
 @extern fileno :: (stream: *void) : i32;
 @extern setbuf :: (stream: *void, buf: *i8) : void;
-@extern setvbuf :: (stream: *void, buf: *i8, mode: i32, size: usize) : i32;
+@extern setvbuf :: (stream: *void, buf: *i8, mode: i32, size: i64) : i32;
 @extern ungetc :: (c: i32, stream: *void) : i32;
 @extern fgetpos :: (stream: *void, pos: *void) : i32;
 @extern fsetpos :: (stream: *void, pos: *void) : i32;
@@ -43,7 +43,7 @@
 @extern putchar_unlocked :: (c: i32) : i32;
 @extern fgetc_unlocked :: (stream: *void) : i32;
 @extern fputc_unlocked :: (c: i32, stream: *void) : i32;
-@extern fread_unlocked :: (ptr: *void, size: usize, nmemb: usize, stream: *void) : usize;
-@extern fwrite_unlocked :: (ptr: *void, size: usize, nmemb: usize, stream: *void) : usize;
+@extern fread_unlocked :: (ptr: *void, size: i64, nmemb: i64, stream: *void) : i64;
+@extern fwrite_unlocked :: (ptr: *void, size: i64, nmemb: i64, stream: *void) : i64;
 @extern popen :: (command: *i8, type: *i8) : *void;
 @extern pclose :: (stream: *void) : i32;
